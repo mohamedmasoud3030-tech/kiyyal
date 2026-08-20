@@ -91,3 +91,49 @@ The four that matter most, stated plainly:
 - **Paid hosting tiers** (~$45/month) — owner approval needed only when the pilot outgrows the free tiers.
 - **S-09 full offline queue** — blocked on the V8 connectivity measurement in a real yard.
 - **The four PRD Part 10 questions** — answerable only by a real yard owner, unchanged by this stage.
+
+---
+
+# Stage 0 Progress — Foundations
+
+**Status: foundations complete and proven. UI and features not started (correctly).**
+
+## Built
+| Area | Delivered |
+|---|---|
+| Repo | TypeScript strict (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`), Vitest, npm scripts |
+| Decimal library | `src/domain/decimal.ts` — branded `Kg` / `EGP` / `EGPPerKg`, string-only boundaries, one rounding entry point, a parser that **rejects a JS number outright** |
+| Units | `src/domain/units.ts` — per-line kg/ton, conversion once at posting, no auto-conversion on unit switch (D20) |
+| Line math | `src/domain/line.ts` — deduction variants, net weight, per-line rounding, weighbridge |
+| Costing | `src/domain/costing.ts` — weighted moving average, sale cost snapshot, `غير محسوب` for zero cost, closed-day cost adjustment |
+| Regrade | `src/domain/regrade.ts` — relative-sales-value allocation with snapshots, **all-or-nothing deferral**, sold/remaining resolution split |
+| Cash | `src/domain/cash.ts` — two-line drawer, pending cash, single-record pending→posted flip |
+| Schema | `db/migrations/0001` — 17 tables, every constraint in the contract |
+| Security | `db/migrations/0002` — `app_runtime` (`NOSUPERUSER`, `NOBYPASSRLS`), least-privilege grants, **no `DELETE` anywhere**, RLS enabled **and FORCED** on all 17 tables |
+| Immutability | `db/migrations/0003` — closed-day trigger, append-only audit triggers, active-owner constraint trigger |
+| Guard | `scripts/guard-decimal.mjs` — build-failing checks for `parseFloat`, `Number()`, physical CSS directions, `service_role` |
+| CI | `ci/github-actions-ci.yml` — pipeline defined; **needs the owner to install it under `.github/workflows/`** (the session's GitHub App lacks the `workflows` permission) |
+
+## Proven — 69 automated tests, all passing
+
+| Proof required | Evidence |
+|---|---|
+| Decimal arithmetic | 27 golden tests; G-13 demonstrates per-line rounding gives 30.03, not 30.02 |
+| kg/ton conversion | G-3, both units on the same material in one transaction |
+| Weighted average | G-5, G-6, G-12 |
+| Migration rebuild from zero | Every test file builds a real Postgres from migrations only |
+| Schema invariants | DB-1, DB-2, DB-3, DB-5, DB-8, DB-12 asserted against the live catalogue |
+| RLS isolation | SEC-1, SEC-2 (**an unscoped query returns only the session yard**), SEC-3 (forged `yard_id` rejected on read, insert and update) |
+| Role authorization | SEC-4 (operator sees zero cash movements and zero audit rows; the owner in the same yard sees them) |
+| Directory isolation | SEC-7, BD-1 (yard B cannot see yard A's notes; neither can write central data) |
+| No hard deletes | SEC-9 (`permission denied` on `DELETE` for transactions and cash) |
+| Immutability | Closed-day trigger, append-only audit, `pending → posted` yields exactly one movement |
+
+## Two real defects caught by these tests — before any code shipped
+
+1. **`RLS_SECURITY_CONTRACT` §3 was unenforceable as written.** Postgres permissive policies are **OR-ed**, so the broad tenant policy silently granted operators `SELECT` on `cash_movements` and `audit_log` despite the narrower rule. Fixed by making the narrowing rules `AS RESTRICTIVE`. **Without the test, operators would have been able to read the cash box.**
+2. **Golden example G-9 was arithmetically inconsistent** — it split 16,949.15 as 8,474.58 + 8,474.58 = 16,949.16, one piastre too much, and the PRD's DoD repeated it. The implementation keeps the rounding residue inside the output; the contract and the PRD were corrected to 8,474.57. **The invariant Σ = 20,000.00 exactly now holds in code and on paper.**
+
+## Not started, deliberately
+No UI, no API routes, no Next.js app, no auth implementation wiring, no posting service. Per instruction, the
+foundations had to be proven first. **They are.**
