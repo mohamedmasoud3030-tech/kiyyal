@@ -110,7 +110,11 @@ that can be reviewed.
 **Decision.** Defence in depth, three layers:
 1. Every tenant-scoped table carries `yard_id NOT NULL`, indexed.
 2. RLS is enabled on every tenant table, with policies keyed on `current_setting('app.current_yard_id')`.
-3. The application connects as a **non-superuser role that cannot bypass RLS**, and issues `SET LOCAL app.current_yard_id = …` at the start of every request transaction, derived from the session — never from client input.
+3. The application connects as a runtime role that is **`NOSUPERUSER`, `NOBYPASSRLS`, and not the owner of the tables**, and issues `SET LOCAL app.current_yard_id / app.actor_id / app.actor_role` at the start of every request transaction, derived from the **session only** — never from client input.
+4. `FORCE ROW LEVEL SECURITY` is applied to every tenant table so that policies bind even for a table owner.
+5. Grants are least-privilege: the runtime role receives exactly the `SELECT/INSERT/UPDATE` it needs per table and no `DELETE` on ledger tables at all.
+
+**Release-blocking isolation tests (DoD):** (A) a query with the `WHERE yard_id` clause deliberately removed returns no other yard's rows · (B) a forged `yard_id` in a request body or query string does not widen access · (C) an operator cannot read cost, profit, cash totals or other days even by calling the endpoint directly.
 
 **Why.** The PRD requires isolation strong enough to survive an application bug, and requires that multi-yard later
 is not a rewrite (D3). RLS enforced against the *server's own* connection means a forgotten `WHERE yard_id = …`
@@ -153,29 +157,49 @@ now is cheap; this is why it is an ADR and not an implementation detail.
 
 ---
 
-## ADR-07 — Authentication: first-party sessions, not a third-party auth provider
+## ADR-07 — Authentication: **hybrid** — Supabase Auth for the owner, a narrow PIN layer for operators
 
-**Decision.** Own the auth. Opaque session tokens in `httpOnly`, `Secure`, `SameSite=Lax` cookies; the token's
-**hash** stored server-side; Argon2id for owner passwords and operator PINs.
+*(Revised by owner direction. The previous "full custom auth" position is withdrawn.)*
 
-- **Owner:** phone + password.
-- **Operator:** display name + 4–6 digit PIN, on a device the owner has authorized.
-- **Fast switching** on a shared device without a full logout (FR-13) — a first-class requirement that off-the-shelf providers handle badly.
-- Rate limiting on every auth endpoint; 5 failed PINs → 15-minute lock; 12-hour idle re-auth for operators.
-- `platform_admin` is a separate account type for directory curation, with no yard membership.
+**Decision.** Two authentication paths, deliberately asymmetric.
 
-**Why not Supabase Auth.** It is built around email/phone OTP and magic links. A 4-digit PIN keyed to a yard-scoped
-display name on a shared device is not a shape it models well, and bending it would produce more custom code than
-writing sessions directly. Session-cookie auth is well-trodden and auditable in a few hundred lines.
+**1. Owner — Supabase Auth.** Phone + password. Password storage, hashing, verification, token issuance, refresh and
+revocation are Supabase's responsibility. **We do not reimplement password authentication or token issuance.**
 
-**Honest risk.** "Roll your own auth" is a classic mistake. It is acceptable here **only** because the scope is
-narrow (no OAuth, no federation, no password reset by email in the MVP — the owner resets operator PINs) and
-because the primitives (Argon2id, random tokens, hashed storage) are used exactly as published guidance specifies.
-This is written down so the decision can be challenged later.
+**2. Operator — a narrow PIN layer, not an auth system.** An operator is a row in our application database, not a
+Supabase user:
+- `operator_id`, `yard_id`, display name, `pin_hash` (Argon2id) — **the PIN itself is never stored, never logged, never placed in client state**.
+- Rate limiting on every attempt; 5 consecutive failures → 15-minute lockout (FR-13).
+- On success: an **opaque random server session** — 256 bits of CSPRNG entropy, delivered in an `HttpOnly; Secure; SameSite=Lax` cookie.
+- The session token is stored in the database **as a hash**, never in plain text.
+- A session binds `operator_id + yard_id + expiry`, and supports **rotation and revocation**.
+- The owner can invalidate any operator's sessions instantly.
+- **No custom JWT.** We have no need for a stateless token, so we do not invent one.
 
-**Reversibility.** Medium. Confidence: medium-high — the one ADR most worth a second opinion.
+**3. Database authorization context.** The browser never connects to Postgres. For every database transaction the
+server derives `yard_id`, `actor_id` and `role` **from the trusted session only** — never from a request body,
+query string, header or cookie value supplied by the client. The context is **transaction-local**
+(`SET LOCAL`), so it cannot leak across pooled connections.
 
----
+**4. Supabase exposure is closed off.** Because the application is server-to-Postgres, the auto-generated Data API
+must not remain a parallel path to financial tables: unnecessary grants are revoked, application tables live in a
+schema that is not exposed, and `service_role` is **forbidden in normal runtime** — it exists only for clearly
+separated administrative operations, never on a yard request path.
+
+**Why hybrid.** Password authentication is a solved problem with real consequences for getting it wrong, so we
+delegate it. A 4–6 digit PIN for a shared device keyed to a yard-scoped display name is *not* the same problem —
+it is a fast local unlock inside an already-trusted context, and it is smaller and safer to implement directly
+than to bend an identity provider into a shape it does not model.
+
+**Alternatives rejected.** Full custom auth (withdrawn — reinvents password handling for no gain) · Supabase Auth
+for operators too (needs a unique email/phone per operator, breaks fast switching, makes owner-side revocation
+awkward) · a custom JWT for operators (stateless tokens cannot be revoked instantly, which FR-13 requires).
+
+**Security implications.** Operator sessions are the weakest link by design — short PINs on shared devices. This is
+mitigated by lockout, idle re-auth, instant revocation, hashed session storage, and by the fact that an operator
+can see nothing financial even when authenticated (§6, DoD #2).
+
+**Reversibility.** Medium-high. Both halves are behind one `getAuthContext()` boundary.
 
 ## ADR-08 — Styling and UI: Tailwind CSS v4 with logical properties, Radix primitives, no component library
 
@@ -210,6 +234,11 @@ roughly eight bespoke components, not fifty).
 part (a multi-hour offline queue, S-09). Because the idempotency key and server-side numbering are in place from
 day one, S-09 becomes "let the outbox hold more, for longer", not a redesign. That is precisely the trade the owner
 approved in D23.
+
+**Explicit MVP scope clamp.** Serwist's role in the MVP is: installable shell · safe caching of static assets and
+reference data · local draft persistence · resilient retry of an interrupted save. It is **not**: a full
+multi-device transaction queue, an offline accounting engine, or offline reconciliation. That remains S-09,
+deferred until V8 is measured (D23).
 
 **Reversibility.** High — it is additive by design. Confidence: high.
 
@@ -296,7 +325,7 @@ later is a deployment change, not a rewrite. Confidence: high.
 | Layer | Choice |
 |---|---|
 | Language | TypeScript (strict) |
-| Framework | Next.js 16, App Router |
+| Framework | Next.js 16, App Router — **latest patched stable at implementation time**; automated dependency/security updates enabled |
 | UI | React 19 · Tailwind CSS v4 (logical properties, RTL) · Radix primitives · IBM Plex Sans Arabic |
 | State | React Server Components + minimal client state; TanStack Query only where optimistic updates need it |
 | API | Next.js route handlers (REST), explicit request bodies, idempotency keys |
@@ -304,7 +333,7 @@ later is a deployment change, not a rewrite. Confidence: high.
 | Money math | `decimal.js-light` with branded types |
 | ORM | Drizzle ORM + `postgres.js` |
 | Database | PostgreSQL 15+ (Supabase, EU) with RLS |
-| Auth | First-party sessions, `httpOnly` cookies, Argon2id |
+| Auth | **Hybrid:** Supabase Auth (owner) + narrow Argon2id PIN layer with opaque server sessions (operator) |
 | PWA | Serwist service worker + IndexedDB outbox + idempotency keys |
 | Testing | Vitest (unit) · Playwright (E2E, RLS, permission probes) |
 | CI/CD | GitHub Actions → Vercel |

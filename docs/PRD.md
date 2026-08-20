@@ -635,7 +635,7 @@ It is also unnecessary — the honest version is more reassuring and defensible.
 | E1 | Zero or negative weight | Block, inline Arabic message. |
 | E2 | Deduction ≥ gross | Block. |
 | E3 | Price = 0 | Allowed with explicit confirmation (free loads exist); flagged to the owner. |
-| E4 | Sale exceeds available stock | **Never blocked outright** (D29). Owner: inline adjustment on the same screen, sale posts immediately. Operator: sale saved in full as `pending_stock_resolution`, affecting nothing, blocking the daily close until the owner resolves or voids it. No negative stock is ever published. |
+| E4 | Sale exceeds available stock | **Never blocked outright** (D29). Owner: inline adjustment on the same screen, sale posts immediately. Operator: sale saved in full as `pending_stock_resolution` — it affects no posted figure, but any cash received is recorded as a pending cash movement counting toward the drawer only (D32) — and it blocks the daily close until the owner resolves or voids it. No negative stock is ever published. |
 | E5 | The yard physically holds material the system does not know about | Owner records an opening balance (new material) or a stock adjustment with reason "physical count". Negative stock never occurs. |
 | E6 | Truck leaves without tare weighing | Stays "pending tare"; blocks the daily close until resolved or voided. |
 | E7 | Same party entered twice with different spellings | Phone-based duplicate detection at creation; owner-only merge tool (v1.1 — detection is MVP). |
