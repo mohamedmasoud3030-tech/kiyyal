@@ -164,3 +164,109 @@ V5 and V11."*
 add work; dropping the full offline queue removes more than all of it. The three genuinely valuable changes
 (regrade costing, negative stock, historical correction) are each a small amount of code that prevents a large
 amount of wrong data.
+
+---
+---
+
+# PRD Change Log — 2.1 → 2.2
+
+**Date:** 2026-08-20
+**Requested by:** the owner. **Three changes only**, no other scope movement.
+**Raw diff:** 226 insertions, 66 deletions in `docs/PRD.md`.
+**Status:** no technology chosen, no code written. Awaiting approval of 2.2.
+
+## Summary table
+
+| # | Owner instruction | 2.1 said | 2.2 says | Blast radius |
+|---|---|---|---|---|
+| 1 | Buyers directory is two layers, not a private section of the party register | One private per-yard list layered on the party record | **FR-16A** central curated directory (ours, read-only to yards) **+ FR-16B** private per-yard relationship layer | D19 rewritten · D30 · FR-16 rewritten · 4 new entities · 2 screens · permissions · M-12 · S-11 · E25 · R18 · V14 · DoD #10 · owner decision note |
+| 2 | Value-based regrade cost is an MVP approximation, not accounting truth | Allocation computed at save; missing price = hard block | **Price snapshots + stored method**, immutable afterwards; missing price → owner enters a value **or** allocation is deferred and profit reads `غير محسوب` | D27 · D28 · FR-9 · calc rule 5 · `RegradeAllocation` entity · E22 rewritten · E26 · R15 · DoD #8, #9 · screens |
+| 3 | Review the hard block on selling above stock | Sale blocked outright; operator told to fetch the owner | **Safe-recovery flow:** owner resolves inline and posts; operator's sale is saved complete as `pending_stock_resolution` | D29 · FR-3 rewritten with explicit acceptance criteria · new status · E4 rewritten · E27–E30 · M-11 · R14 resolved · R19 · V13 reframed · DoD #6 |
+
+## 1 — Buyers directory: two layers (D19, D30, FR-16)
+
+**Layer A — Kayyal Buyers Directory (central, ours).** Factories · foundries · recyclers · large wholesalers ·
+specialist buyers. Fields as specified: name, entity type, governorates, materials purchased, phone, WhatsApp,
+address, minimum quantity, collect-or-deliver, verification status, last-verified date. Visible to every yard,
+**editable by none of them** — curation is platform-side administration, which is *not* a yard role and does not
+disturb the two-role model. Users can *report* a problem; reports never mutate the record.
+
+**Admin-only retention (D30):** internal source, who entered it, who verified it, and the verification note are
+stored and auditable but never returned to a yard user.
+
+**Layer B — yard relationship layer (private).** Dealt-with-before, purchasing contact, extra direct number, last
+contact date, last price offered, materials actually accepted, minimum quantity told to *this* yard, payment
+method, transport, private notes, `مفضّل` / `غير مناسب`. Tenant-isolated; invisible to every other yard.
+
+**The journey the owner described is now a stated requirement:** `نحاس` → `الإسكندرية والقاهرة` → buyers → one-tap
+call or WhatsApp, reachable from the directory and from a material in inventory.
+
+**Non-marketplace boundaries restated and made binding:** no in-app quotes · no negotiation · no payment · no
+purchase orders · no commission · no deal guarantee · no buyer accounts or buyer-facing views · no yard-to-yard
+visibility · no automated matching.
+
+**Honest addition — R18.** This is the first part of the product that is an ongoing *service* rather than software.
+Someone must gather, verify and re-verify entries. That is a recurring cost and a reputational exposure, and it
+needs an owner decision before FR-16A ships. Mitigations already written in: visible status and verification dates,
+an explicit "contact information, not a recommendation or endorsement" statement, user reports, removal on request.
+**Recommendation:** launch small — one governorate, three or four materials, everything `unverified` until called.
+If nobody will own curation, ship FR-16B only; the two layers are separable by design.
+
+## 2 — Regrade allocation is an approximation with receipts (D27, D28, FR-9)
+
+**Snapshot and immutability.** Every regrade now stores the allocation method (`relative_sales_value` or
+`weight_fallback`) and a frozen snapshot of every reference sell price and unit used, with a timestamp. A past
+regrade is always read from that snapshot and **never re-derived** — changing today's prices cannot change a
+historical regrade, its cost per kg, or any downstream average cost (E26). Reopening a past regrade shows the
+prices used, the method, and the resulting cost per kg per output.
+
+**Before saving**, the screen shows the snapshot prices it is about to use *and* the resulting cost per kg per
+output, so a wrong price is caught by eye.
+
+**Missing price — no invented allocation (D28).** Two paths on the same screen. *Recommended:* the owner enters a
+reference value inline. *Defer:* the **weight movement posts immediately** — stock is correct straight away, which
+is what operations need — while those outputs enter with cost unallocated, flagged `تكلفة غير محددة`, and any sale
+of them reports profit as `غير محسوب` (reusing E19). The unallocated remainder sits in the attention list until
+resolved, and when the owner supplies the value the allocation completes **prospectively**, without rewriting sales
+already reported as `غير محسوب` (consistent with D26).
+
+All outputs remain labelled `تكلفة وربح تقريبي`.
+
+## 3 — Safe recovery instead of a hard block (D29, FR-3)
+
+2.1 was wrong in the one case that matters: the material has left the yard, the buyer has paid, and only a
+bookkeeping entry is missing. The truck must not wait for the software.
+
+| Signed-in user | Behaviour |
+|---|---|
+| **Owner** | Inline on the same screen: `تسوية مخزون` (reason required) or `تسجيل شراء ناقص`, then the sale **posts immediately**. No navigation, nothing re-entered. |
+| **Operator** | Cannot invent stock. The sale is **saved complete** as `pending_stock_resolution` — every line, weight, deduction, price, party and cash amount preserved. He hands over the goods and keeps working. |
+
+Deliberately reuses the existing `pending_tare` pattern, so it is one more status rather than a new subsystem:
+- Affects **nothing** — no stock, cash, party balance, profit or sale number. **Negative stock is therefore still never published** (D22 intact).
+- Tops the owner's attention list and **blocks the daily close** until resolved or voided with a reason.
+- Cash received shows separately as `مبالغ معلّقة`, excluded from expected cash, so the drawer still reconciles.
+- Operator may print a **provisional slip** (`إذن تسليم مبدئي`) — explicitly not a numbered receipt. The numbered receipt is issued on posting.
+- Owner resolves in one tap; the sale posts atomically with the original data, original device timestamp and original business date if still open (E29 covers the closed-day case).
+- If a genuine purchase arrives first and clears the shortfall, the app offers to post the pending sale directly with no adjustment at all (E28).
+- Every instance is attributed in the audit log, so routine use is visible rather than silent (R19, E30).
+
+**Acceptance criteria are written into FR-3 and mirrored in DoD #6 as a release blocker**, exactly as requested:
+the sale survives complete · the operator is never blocked and never re-enters anything · stock never goes negative
+at any moment · the close is blocked while pending · the owner path completes in one screen.
+
+## Net effect on scope
+
+| | 2.1 | 2.2 |
+|---|---|---|
+| MUST items | 17 | **17** (M-11 and M-12 broadened, none added) |
+| Assumptions to validate | 16 | **16** (V13 reframed, V14 rewritten) |
+| Edge cases | 25 | **30** |
+| Risks | 17 | **19** (R18 directory curation · R19 pending-sale abuse; **R14 resolved**) |
+| DoD gates | 14 | **18** |
+| Entities | 10 | **14** (CentralBuyer, CentralBuyerMaterial, CentralBuyerReport, YardBuyerRelation, RegradeAllocation; BuyerMaterial removed) |
+
+**Build cost:** change 3 is nearly free (one status, reusing an existing pattern) and removes a worse problem.
+Change 2 is small (two columns and a snapshot table) and buys permanent explainability. **Change 1 is the only
+material addition** — a shared dataset, a curation tool (S-11) and the first cross-tenant data in the product.
+It also carries a recurring operational cost that is an owner decision, not a product one.

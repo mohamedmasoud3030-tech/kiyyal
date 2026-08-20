@@ -1,12 +1,19 @@
 # PRD — Scrap Yard Operations System (Egypt)
 
 **Working name:** Kayyal (كيّال)
-**Version:** 2.1 — final product definition for owner review
+**Version:** 2.2 — final product definition for owner review
 **Date:** 2026-08-20
 **Status:** Awaiting owner approval. No technology selected. No code written.
-**Supersedes:** v2.0 (which superseded v1.0)
+**Supersedes:** v2.1 (which superseded v2.0 and v1.0)
 **Audience:** the owner (review), and an AI coding agent (implementation without guessing).
-**Change log:** see `docs/PRD-changelog.md` for the full 2.0 → 2.1 diff.
+**Change log:** see `docs/PRD-changelog.md` for the 2.0 → 2.1 and 2.1 → 2.2 diffs.
+
+> **Revision 2.2 summary — three corrections only, no other scope change.**
+> (1) The buyers directory is redesigned as **two layers**: a central, platform-curated business directory plus a
+> private per-yard relationship layer. (2) Regrade allocation now **snapshots the reference sell prices it used**,
+> stores the method with the entry, and never re-derives a past regrade from today's prices; a missing price
+> defers allocation instead of inventing one. (3) The hard block on selling above stock is replaced by a
+> **short safe-recovery flow** that never loses a real sale and never publishes negative stock.
 
 > **Revision 2.1 summary.** Nine owner-requested corrections: buyers directory added as an internal service
 > (not a marketplace) · pricing unit overridable per transaction line · regrade costing changed from weight
@@ -63,7 +70,7 @@ back to one of them. This is deliberate: it lets the owner see exactly where con
 
 | # | Owner decision |
 |---|---|
-| **D19** | Add a **buyers directory as an internal service inside the product — explicitly not a marketplace.** It is the owner's own private list of who buys what, at what price, on what terms. No cross-yard visibility, no listings, no matching, no transactions between businesses. |
+| **D19** | *(revised in 2.2)* The buyers directory is **two separate layers**: **(A) a central directory that we curate and operate as part of the service** — factories, foundries, recyclers, large wholesalers, specialist buyers — visible to every yard and **not editable by yard users**; and **(B) a private per-yard relationship layer** on top of the same buyer, visible only to that yard. It is a **business directory plus a relationship tool** that helps the owner build a selling network. Still not a marketplace: no in-app quotes, no negotiation, no payment, no purchase orders, no commission, no deal guarantee. |
 | **D20** | The **kg/ton pricing unit is a per-material default that must be changeable on the individual transaction line**, because a dealer may quote the same material per ton on one deal and per kilo on the next. |
 | **D21** | **Revise the regrade cost model.** Allocating cost by weight alone can produce misleading profits. |
 | **D22** | **Prohibit negative stock in the MVP.** Replace it with an opening balance and a stock adjustment mechanism. |
@@ -71,6 +78,15 @@ back to one of them. This is deliberate: it lets the owner see exactly where con
 | **D24** | **Do not use "age of oldest stock"** unless it can be computed without lot tracking. |
 | **D25** | **Correct the privacy wording.** |
 | **D26** | **Define a correct mechanism for correcting historical purchases** and its effect on weighted-average cost. |
+
+#### Owner decisions added in Revision 2.2
+
+| # | Owner decision |
+|---|---|
+| **D27** | Relative-sales-value regrade allocation is accepted **as an MVP approximation, not as accounting truth.** Every regrade must snapshot the reference sell prices it used, show them to the owner before saving, and store the allocation method with the entry so the number can be explained later. **A past regrade must never change because today's prices changed.** |
+| **D28** | If an output material has no trustworthy reference price, **do not invent an allocation.** Ask the owner for a value, or leave that output's profit as `غير محسوب` until it is resolved. Keep labelling the result "approximate cost and profit". |
+| **D29** | Replace the hard block on selling above stock with the **shortest possible safe-recovery flow**. Three things must hold simultaneously: negative stock never becomes a normal published state · a sale that really happened is never lost · the operator never re-enters the transaction from scratch. This scenario must appear explicitly in the acceptance criteria and the Definition of Done. |
+| **D30** | The central directory's **information source and verification date must be retained for administration**, even though the source is not shown to the end user. |
 
 ### 0.C — Assumptions still requiring validation from a real yard owner
 
@@ -91,8 +107,8 @@ the design keeps each one cheap to reverse.
 | **V10** | A single operator role is enough; no separate accountant permissions are needed. | Medium | Ask who touches the numbers besides the owner. | Low — the role model is designed to accept a third role. |
 | **V11** | Sorting happens often enough that the simple regrade entry (§4, FR-9) is needed at all. | Medium | Ask how often a mixed pile is split. | Low — the feature is one screen and can be hidden. |
 | **V12** | Yards will pay a monthly subscription. | Unknown | Do not test before 3 weeks of real daily usage. | Commercial, not product. |
-| **V13** | Blocking a sale when stock is insufficient (D22) is acceptable friction, and does not stop the operator while a truck waits. | **Unverified — new risk introduced by 2.1** | In the pilot, count how often a sale is blocked and how long the owner takes to clear it. | Medium — if it blocks real work, allow the sale but force an owner-approved adjustment immediately behind it. |
-| **V14** | The owner will maintain a buyers directory rather than keeping buyers in his head (D19). | Low–Medium | Ask him to name his top 5 buyers and what each pays; see whether he can, and whether he wants it written down. | Low — the directory is an extension of the party record, not a separate system. |
+| **V13** | The safe-recovery flow (D29) is used as an exception, not as a routine bypass, and the owner clears pending sales quickly. | **Unverified — reframed in 2.2** | In the pilot, count pending-resolution sales per week and measure how long each stays open. | Medium — if it becomes routine, the cause is bad stock discipline upstream, not the flow; address it with a guided stocktake (S-05). |
+| **V14** | Owners will actually use a central buyers directory to find new buyers, and the entries are good enough to be worth trusting. | **Low–Medium — the whole of FR-16A depends on it** | Show one owner a paper list of 15 real buyers for his top material in his governorate. Does he call any of them? | Medium–High — the central layer is the expensive half; if unused, keep only the private relationship layer (FR-16B). |
 | **V15** | The per-line kg/ton override (D20) is actually used, and is not itself a source of error. | Medium | Count overrides in the pilot; check for magnitude mistakes. | Low — if unused, hide the toggle behind the material default. |
 | **V16** | Reference sell prices are maintained well enough for relative-sales-value regrade allocation to be meaningful (FR-9). | Medium | Same test as V3. | Medium — fall back to owner-entered manual allocation percentages. |
 
@@ -156,7 +172,7 @@ Any addition must displace something on the MUST list.
 4. **Weighing modes** — direct net entry (kilo scale) **and** gross/tare entry (`بسكول`, per F4).
 5. **Inventory** — live kg per material, weighted-average cost, approximate value, and **stagnation indicators computable without lot tracking** (D24, F5).
 6. **Parties** — one register for suppliers and customers: dealings, paid, remaining, payments, credit, advances (D10).
-7. **Buyers directory (`دليل المشترين`)** — an internal, private service layered on the party record: who buys which materials, at what indicative price, on what terms (D19). **Not a marketplace.**
+7. **Buyers directory** — two layers: a **central curated directory** of factories, foundries, recyclers and large buyers that we operate and yards can only read, plus a **private per-yard relationship layer** on top of it (D19, FR-16). **Not a marketplace.**
 8. **Cash box and daily close** — all cash movements, expenses with categories, expected vs counted, difference (D11).
 9. **Profitability** — inventory cost, sales value, approximate gross profit, profit and margin per material (D12), using perpetual weighted-average cost (F6).
 10. **Simple regrade (`فرز بسيط`)** — with **relative-sales-value cost allocation** (D21); see the decision note below.
@@ -242,8 +258,11 @@ permissions difference*. It does not, at this scale:
 | Create / edit materials and reference prices | ✅ | ❌ — read-only, sees today's reference price |
 | Transact at a price differing from the reference | ✅ | ⚠️ allowed, recorded as an override, flagged to the owner |
 | Create a party | ✅ | ✅ |
-| Buyers directory: view | ✅ | ❌ — contains negotiated prices and terms |
-| Buyers directory: edit | ✅ | ❌ |
+| Buyers directory: browse central entries (FR-16A) | ✅ | ❌ |
+| Buyers directory: edit central entries | ❌ — platform administration only | ❌ |
+| Buyers directory: report a problem with a central entry | ✅ | ❌ |
+| Yard relationship layer (FR-16B): view and edit | ✅ | ❌ — contains negotiated prices and terms |
+| Resolve a `pending_stock_resolution` sale | ✅ | ❌ — may create one, cannot clear it |
 | Override the pricing unit on a line (kg ↔ ton) | ✅ | ✅ — recorded; magnitude check applies (E17, R13) |
 | Regrade (`فرز بسيط`) | ✅ | ❌ |
 | Opening balances and stock adjustment | ✅ | ❌ |
@@ -287,13 +306,40 @@ active flag.
 - Given the operator enters a price different from the reference, then the transaction is saved with a price-override flag and appears in the owner's daily summary.
 - **Performance requirement: a single-line cash purchase must be completable in ≤30 seconds** (V2), and in ≤6 interactions after opening the screen.
 
-### FR-3 — Sale (D7, D22)
+### FR-3 — Sale, and the safe-recovery flow (D7, D22, D29)
 - Same arithmetic as FR-2, in the opposite direction, with the same per-line unit handling.
-- **Given a sale line exceeds the material's available stock, then saving is blocked** (D22). Negative stock cannot be created by any user, including the owner. The message is explicit and offers the two legitimate routes: *record the missing purchase*, or *make a stock adjustment* (`تسوية مخزون`, owner only, FR-5).
-- Given the owner is signed in and a sale is blocked for insufficient stock, then a **one-tap adjustment shortcut** is offered inline on the same screen so the correction and the sale can be completed without navigating away.
-- Given an operator is signed in and a sale is blocked, then the message states plainly that the owner must clear it. The operator is never left guessing. *(This friction is intentional and is the subject of V13.)*
 - Given a sale is posted, then each line stores a **cost snapshot** = the material's weighted-average cost at that moment, and gross profit = line total − (net kg × cost snapshot).
 - Given the user is an operator, then no cost, profit or margin figure appears anywhere on the screen or on the receipt.
+
+**Selling above the recorded balance — safe recovery, revised in 2.2 (D29).**
+2.1 blocked the sale outright. That was wrong in the one situation that matters: the material has physically left
+the yard, the buyer has paid, and the only thing missing is a bookkeeping entry. **The truck must never wait for
+the software.** The flow below satisfies all three of the owner's constraints at once.
+
+*Common to both roles:* the shortfall is shown plainly — material, required kg, available kg, the difference — never a generic refusal.
+
+| Signed-in user | Behaviour |
+|---|---|
+| **Owner** | An inline shortcut on the same sale screen: choose `تسوية مخزون` (reason required) or `تسجيل شراء ناقص`, enter the quantity and cost, and the sale **posts immediately** in the same interaction. No navigation away, nothing re-entered. |
+| **Operator** | Cannot invent stock. The sale is **saved in full** with status `pending_stock_resolution` — every line, weight, deduction, price, party and cash amount preserved exactly as entered. The operator hands over the goods and continues working. |
+
+Rules for `pending_stock_resolution` — it reuses the `pending_tare` pattern already in the product (FR-4), so it is
+one more status, not a new subsystem:
+- It affects **nothing**: no stock movement, no cash movement, no party balance, no profit, no sequential sale number. Therefore **no negative stock is ever created or published** (D22 holds).
+- It appears at the top of the owner's attention list and **blocks the daily close** until it is resolved or voided with a reason.
+- The cash actually received is displayed separately as `مبالغ معلّقة` and is **excluded** from expected cash, so the drawer still reconciles. Once posted, it moves into expected cash normally.
+- The operator may print a **provisional slip** (`إذن تسليم مبدئي`) showing weights and total, explicitly **not** a numbered receipt. The numbered receipt is issued on posting and can be sent by WhatsApp afterwards.
+- The owner resolves it in one tap from the attention list: he sees the same shortfall, picks adjustment or missing purchase, and the sale posts atomically with **the original data, the original device timestamp, and the original business date** if that day is still open.
+- Given the day it happened has already closed, then the sale posts to the current open day with an automatic note naming the original date (consistent with E11).
+- Given the sale was not real, the owner voids it with a reason; it remains visible as voided, never deleted (D15).
+- Repeated use is visible: every pending-resolution sale is in the audit log with its operator, so the owner can see if it is becoming a routine bypass rather than an exception (R19).
+
+**Acceptance criteria for this flow (D29 — explicitly required):**
+- Given an operator sells 500 kg of a material with 300 kg recorded, then the sale is saved with all details intact, the operator is not blocked from continuing, stock remains 300 kg, and no balance changes.
+- Given the owner then resolves it with a 200 kg adjustment, then the sale posts atomically, stock becomes 0 kg, cash and party balance update, the receipt is numbered, and **no field was re-entered by anyone**.
+- Given the owner attempts a daily close while a pending-resolution sale exists, then the close is blocked and the sale is named.
+- Given the owner is the one selling, then the shortfall, the adjustment and the sale are completed in a single screen without navigation.
+- At no point, in any path, does any material's published balance go below zero.
 
 ### FR-4 — Weighing modes (F4)
 - **Direct mode:** the user enters the net weight from the kilo scale.
@@ -348,15 +394,25 @@ ledger alone:
 - Every profit figure in the UI is labelled **approximate** (`تقريبي`) and is accompanied by a one-line, plain-Arabic explanation of how it was computed, reachable in one tap. The owner must be able to see the arithmetic (V5).
 - Gross profit excludes operating expenses by default; a secondary line shows "profit after expenses" for the same period so the owner sees both.
 
-### FR-9 — Simple regrade (`فرز بسيط`) — revised in 2.1 (D21); see the §4 decision note
+### FR-9 — Simple regrade (`فرز بسيط`) — revised in 2.1 (D21), refined in 2.2 (D27, D28)
 - Owner only. Input: source material and kg consumed; output: one or more materials with weights; an explicit loss line is permitted.
 - Given outputs plus loss do not equal the input weight, then saving is blocked.
 - Given the input quantity exceeds available stock, then saving is blocked (D22).
 - **Cost allocation is by relative sales value at the moment of the regrade**, not by weight. The consumed value is split across outputs in proportion to (output kg × that output's reference sell price per kg). Loss carries no value of its own; its cost is absorbed by the outputs through the same proportions.
-- Given any output material has no reference sell price, then saving is blocked and the app prompts the owner to enter that price inline — the allocation is meaningless without it (V16).
-- Given all outputs have a reference sell price of zero, then allocation falls back to weight and the screen says so explicitly.
-- The screen shows the resulting cost per kg for every output **before saving**, so the owner can sanity-check it against what he knows the material is worth.
-- The UI states plainly: `توزيع التكلفة تقريبي بقيمة البيع` — no processing cost, no yields, no labour (D13).
+
+**Snapshot and explainability (D27).** The allocation is an approximation, and the product must be able to defend
+the number months later:
+- Given a regrade is saved, then it **stores with the entry**: the allocation method used (`relative_sales_value` or `weight_fallback`), and a **snapshot of every reference sell price and unit used in the calculation**, with the timestamp.
+- Given the owner later changes a reference sell price, then **no past regrade changes** — not its allocation, not its cost per kg, not any downstream average cost. Past regrades are read from their snapshot, never re-derived.
+- Given the owner opens a past regrade, then he sees the prices that were used, the method, and the resulting cost per kg per output — the full arithmetic, in one screen.
+- **Before saving**, the screen shows the snapshot prices it is about to use and the resulting cost per kg for every output, so the owner can sanity-check them against what he knows the material is worth.
+- Every resulting figure is labelled `تكلفة وربح تقريبي`.
+
+**Missing or untrustworthy reference price (D28).** Never invent an allocation. Two paths, both offered on the same screen:
+- **Recommended:** the owner enters a reference value for the missing output inline, and the allocation completes normally.
+- **Defer:** the regrade posts the **weight movement immediately** — stock is correct straight away, which is what operations need — while the unpriced outputs enter stock with **cost unallocated**. Those outputs are flagged `تكلفة غير محددة`, any sale of them reports profit as `غير محسوب` (consistent with E19), and the unallocated portion of the consumed value is held against the regrade entry and shown in the owner's attention list until resolved.
+- Given the owner later supplies the missing value, then the allocation completes **prospectively** from that moment. Consistent with D26, it does **not** rewrite sales already reported as `غير محسوب`.
+- Given every output has a reference sell price of zero, then allocation falls back to weight, the method is recorded as `weight_fallback`, and the screen says so explicitly.
 - The entry appears in the movement log and is reversible like any other entry.
 
 ### FR-10 — Corrections, and correcting historical purchases (D15, D26)
@@ -432,17 +488,48 @@ the pilot, before that decision is locked.
 - **No opening stock is required.** The yard can start from zero and let balances build; or the owner can enter opening stock per material with a cost, as a single optional step.
 - No supplier or customer list needs to be prepared in advance; parties are created inline while recording.
 
-### FR-16 — Buyers directory (`دليل المشترين`) — new in 2.1 (D19)
-An internal, private service that captures what the owner currently keeps in his head: who buys what, roughly at
-what price, and on what terms. **It is an extension of the party record, not a separate system and not a marketplace.**
+### FR-16 — Buyers directory — **redesigned in 2.2** (D19, D30)
 
-- Any party may be flagged as a buyer and given directory entries. A buyer may exist in the directory **before** any transaction — this is how a prospective buyer is captured.
-- Per buyer: materials they buy (multi-select from the owner's own materials) · an indicative price per material with its unit and the date it was noted · minimum quantity they accept · payment terms in free text (`كاش` / `أجل أسبوع` / …) · location in free text · notes · active flag.
-- Given the owner opens a material in inventory, then he can see **which buyers buy this material, sorted by indicative price**, with the date each price was noted, and can call or WhatsApp any of them in one tap.
-- Given a sale is recorded to a buyer, then the app offers to update that buyer's indicative price for that material to the actual sale price. **Offers — never updates silently.**
-- Indicative prices are labelled with their age (`مسجّل من ١٢ يوم`) so a stale price is visibly stale.
-- The directory is **owner-only** (it contains negotiated terms) and is included in the data export.
-- **Hard boundaries, restated:** no buyer accounts, no buyer-facing views, no notifications to buyers, no publishing, no cross-yard data, no matching, no commission, no transactions between businesses. If any of those appear, it has become a marketplace and is out of scope (D2, §5).
+Two separate layers over the same buyer. Layer A is ours and is shared; Layer B is the yard's and is private.
+Together they are a **business directory plus a relationship tool** that helps an owner build a selling network.
+
+#### FR-16A — Kayyal Buyers Directory (central, curated by us)
+
+A catalogue of real buying entities that we maintain and operate as part of the service: **factories · foundries ·
+recycling companies · large wholesalers · specialist buyers.**
+
+- Per entity, populated as far as information is available: name · entity type · governorates / areas served · materials purchased · phone · WhatsApp · address · minimum quantity if known · **whether they collect or the seller delivers to them** · verification status · date last verified.
+- **Administrative-only fields, stored but never shown to yard users (D30):** the internal source of the information, who entered or last verified it, and the verification note.
+- **Status vocabulary:** `active` (verified and current) · `unverified` (recorded but not yet confirmed) · `outdated` (verification is stale or the last contact attempt failed). Status and the last-verified date are **shown to the user** so he can judge how much to trust an entry.
+- **Yard users can read but never edit central data.** Editing is restricted to a platform-side administrator; it is not a yard role and does not change the two-role model in §6.
+- Any yard user can **report a problem** with an entry (wrong number, closed, no longer buys this material). The report goes to administration; it never mutates the central record directly.
+- **Primary journey, exactly as the owner described it:** open `نحاس` → filter to `الإسكندرية والقاهرة` → see the buyers → **call or WhatsApp in one tap** (`tel:` and `wa.me` links). Reachable both from the directory itself and from a material in the inventory screen.
+- Filtering is by material, governorate, entity type and status. Sorting puts `active` before `unverified` before `outdated`.
+- The directory is read-only reference data and is **cached for offline reading** like other reference data (FR-14).
+
+#### FR-16B — Yard relationship layer (private to each yard)
+
+The yard's own knowledge about a buyer, layered on top of the same central entity — and also usable on a buyer the
+yard added itself that is not in the central directory.
+
+- Per buyer, per yard: has dealt with them before (derived from transactions, and manually settable) · purchasing contact's name · an additional direct number · date of last contact · last price offered, with its unit and date · **the materials they actually accept in practice** (which may differ from the central list) · the minimum quantity they told *this* yard · payment method · transport arrangement · private notes · `مفضّل` / `غير مناسب`.
+- Given a sale is recorded to a buyer, then the app **offers** to update the last-price-offered and last-contact fields. It never updates them silently.
+- Prices and contact dates are displayed with their age (`مسجّل من ١٢ يوم`) so stale information looks stale.
+- **No other yard can see any of this, ever.** It is tenant-isolated at the data layer (Part 4, Security) and included in that yard's data export.
+- Layer B is owner-only, because it contains negotiated terms and prices.
+
+#### Boundaries — restated and binding (D2, D19, §5)
+
+**Inside scope:** listing, filtering, contact details, one-tap call/WhatsApp, the yard's own private notes.
+
+**Outside scope, and the line that must not be crossed:** no quotes inside the app · no negotiation inside the app ·
+no payment · no purchase orders · no commission · **no deal guarantee of any kind** · no buyer accounts or
+buyer-facing views · no notifications to buyers · no yard-to-yard visibility · no automated matching.
+If any of these appear, it has become a marketplace and requires an explicit owner decision to change D2.
+
+**What we are not promising.** The directory is contact information, not a recommendation, not a credit check and
+not an endorsement. Entries carry a verification status precisely so the product never implies more confidence
+than it has. This must be stated plainly in the UI (see R18).
 
 ---
 
@@ -511,7 +598,7 @@ It is also unnecessary — the honest version is more reassuring and defensible.
 | E1 | Zero or negative weight | Block, inline Arabic message. |
 | E2 | Deduction ≥ gross | Block. |
 | E3 | Price = 0 | Allowed with explicit confirmation (free loads exist); flagged to the owner. |
-| E4 | Sale exceeds available stock | **Blocked** (D22). Message names the material and the shortfall and offers the two routes: record the missing purchase, or make a stock adjustment (owner). |
+| E4 | Sale exceeds available stock | **Never blocked outright** (D29). Owner: inline adjustment on the same screen, sale posts immediately. Operator: sale saved in full as `pending_stock_resolution`, affecting nothing, blocking the daily close until the owner resolves or voids it. No negative stock is ever published. |
 | E5 | The yard physically holds material the system does not know about | Owner records an opening balance (new material) or a stock adjustment with reason "physical count". Negative stock never occurs. |
 | E6 | Truck leaves without tare weighing | Stays "pending tare"; blocks the daily close until resolved or voided. |
 | E7 | Same party entered twice with different spellings | Phone-based duplicate detection at creation; owner-only merge tool (v1.1 — detection is MVP). |
@@ -529,10 +616,15 @@ It is also unnecessary — the honest version is more reassuring and defensible.
 | E19 | Sale of a material whose average cost is zero (e.g. opening stock entered without a cost) | Allowed; profit for that line is shown as `غير محسوب` rather than a fake 100% margin, and the material is flagged so the owner can set an opening cost. |
 | E20 | Owner changes a material's **default** pricing unit after transactions exist | Allowed; historical lines keep their own unit and price. The reference price must be re-entered in the new unit, with an explicit confirmation. Existing stock and average cost are unaffected (both are stored per kg). |
 | E21 | A line's unit is overridden to `طن` but the price typed is a per-kg figure (a 1000× under-price) | The plausibility check in E17 evaluates the resulting line total against the material's reference value and requires confirmation. The unit is echoed next to the price, in the line summary, and on the receipt (R13). |
-| E22 | A regrade output has no reference sell price | Block; prompt the owner to enter it inline (FR-9, V16). |
+| E22 | A regrade output has no reference sell price | Two paths offered on the same screen (D28): the owner enters a value inline, **or** the weight movement posts now and that output's cost stays unallocated with profit `غير محسوب` until resolved. Never invent an allocation, never block the stock movement. |
 | E23 | Correcting a purchase in a closed day | Retrospective rewrite is refused; the app routes the owner to a cost adjustment dated today and explains why in one sentence (FR-10). |
 | E24 | Reversing a purchase in an open day whose material has since been sold | Replay recomputes subsequent cost snapshots for that material. If the replay would make the running balance negative at any point, the reversal is blocked and the cost-adjustment route is offered instead. |
-| E25 | Buyers directory holds a price noted months ago | The age of every indicative price is displayed; stale prices are visibly stale and never used to compute anything. |
+| E25 | Directory entry is stale or wrong (closed factory, dead number) | Status (`unverified` / `outdated`) and the last-verified date are always visible; any user can report the entry; the report reaches administration and never mutates the central record directly (FR-16A). |
+| E26 | Reference sell prices change after a regrade was saved | Nothing changes. The regrade is read from its stored price snapshot and allocation method, never re-derived (D27). |
+| E27 | A pending-stock-resolution sale is still open at the end of the day | The daily close is blocked and the sale is named. The owner resolves it or voids it with a reason; voided entries stay visible. |
+| E28 | The material for a pending sale arrives (a genuine purchase) before the owner resolves it | Recording that purchase raises the balance; the pending sale then posts with no adjustment needed — the app detects that the shortfall is gone and offers to post it directly. |
+| E29 | A pending sale's original day closes before it is resolved | It posts to the current open day with an automatic note naming the original date (consistent with E11); the original device timestamp is preserved. |
+| E30 | An operator uses pending-stock-resolution routinely instead of exceptionally | Every instance carries its operator in the audit log and the attention list, so the pattern is visible to the owner (R19). No silent tolerance, no automatic punishment. |
 
 ---
 
@@ -568,10 +660,10 @@ every other number is meaningless.
 | M-06 | Cash box: movements, categorized expenses, daily close with counted amount |
 | M-07 | Inventory: derived balances, weighted-average cost, approximate value, **stagnation indicators (no lot tracking)** |
 | M-08 | Profitability: inventory cost, sales value, gross profit, per-material margin, all labelled approximate with visible arithmetic |
-| M-09 | Simple regrade with **relative-sales-value** cost allocation |
+| M-09 | Simple regrade with **relative-sales-value** allocation, **price snapshots and stored allocation method** |
 | M-10 | Reversal-only corrections, **open-day replay and closed-day cost adjustment**, full audit log |
-| M-11 | Opening balances and stock adjustments (the replacement for negative stock) |
-| M-12 | Buyers directory (internal service, owner-only) |
+| M-11 | Opening balances, stock adjustments, and the **safe-recovery flow for selling above balance** (D29) |
+| M-12 | Buyers directory: **central curated layer (read-only to yards) + private per-yard relationship layer** |
 | M-13 | The nine reports (D16) + CSV export |
 | M-14 | Sequential internal receipts: WhatsApp share + print |
 | M-15 | Arabic RTL UI, phone-optimized entry **and** a real desktop layout |
@@ -583,7 +675,8 @@ S-01 Party merge tool · S-02 Photo attachment on transactions · S-03 Weekly/mo
 S-04 Price history per material with a trend line · S-05 Physical count workflow (guided stocktake) ·
 S-06 Printable price list for the yard gate · S-07 Operator "request reversal" flow with owner approval ·
 S-08 Configurable receipt header and logo · **S-09 Full offline queue with batch sync — unlocked by V8 (D23)** ·
-**S-10 Buyers directory: reminder to refresh prices older than N days**
+**S-10 Directory: prompt to refresh a yard's own relationship prices older than N days** ·
+**S-11 Minimal internal admin tool for curating the central directory (required to operate FR-16A; see R18)**
 
 ### COULD — later, if usage justifies
 C-01 Multi-branch with transfers · C-02 Purchase and sale contracts with agreed quantities ·
@@ -614,10 +707,12 @@ L-04 Scale/weighbridge hardware integration · L-05 Cross-yard price benchmarkin
 | R11 | Data loss on a broken phone. | High | Server is the source of truth; aggressive pending indicator; export available. |
 | R12 | **Legal and reputational exposure.** Scrap handling is licensed under Law 202/2020 (F8), and a product sold into an informal market can be perceived as facilitating concealment. | Medium–High | The product makes **no** compliance claim and **no** confidentiality claim against the state (corrected privacy wording, D25). Marketing must never imply that it hides income or avoids tax. **Owner approval required before any regulatory or tax feature.** |
 | R13 | Ton/kg confusion causes a 1000× pricing error — **now larger, because the unit is overridable per line (D20)**. | **High and specific** | Unit shown next to every price field, in the line summary, and on the receipt; plausibility check evaluated against the line's own unit (E17, E21); the override is visibly marked; covered by automated tests. |
-| R14 | **Blocking negative stock stops real work** while a truck waits (D22, V13). | Medium–High | Owner gets a one-tap inline adjustment on the blocked sale screen. Count blocked sales in the pilot; if the friction is real, allow the sale with a mandatory owner adjustment queued immediately behind it. |
-| R15 | **Relative-sales-value regrade allocation depends on reference sell prices being maintained** (V3, V16). | Medium | Regrade blocks and prompts inline if a price is missing; the resulting cost per kg is shown before saving so a bad price is visible immediately. |
+| R14 | **Blocking negative stock stops real work** while a truck waits (D22). | ~~Medium–High~~ **Largely resolved in 2.2** | The safe-recovery flow (D29, FR-3) removes the block: the owner fixes it inline, the operator's sale is preserved as pending. V13 now measures how often the pending path is used, not whether work stops. |
+| R15 | **Relative-sales-value regrade allocation depends on reference sell prices being maintained** (V3, V16). | Medium | Regrade shows the snapshot prices and the resulting cost per kg before saving; a missing price defers allocation rather than inventing one (D28); past regrades are immune to later price changes (D27). |
 | R16 | **The buyers directory drifts toward a marketplace** through incremental "small" additions. | Medium | The hard boundaries in FR-16 are binding; crossing any of them requires an explicit owner decision to change D2. |
 | R17 | **The closed-day boundary frustrates the owner** who wants last week's number fixed. | Low–Medium | One-sentence in-app explanation plus a visible `فروق تصحيح مشتريات سابقة` line so the correction is never invisible — it is relocated, not hidden. |
+| R18 | **The central directory is an ongoing operational and reputational commitment, not a feature that ships once** (new in 2.2). Stale entries make the product look careless; a bad buyer contacted through our directory reflects on us; listed businesses may ask to be removed. | **Medium–High, and new** | Statuses (`active` / `unverified` / `outdated`) and last-verified dates are visible so the product never implies more confidence than it has · in-app text states plainly that this is contact information, not a recommendation or endorsement · user reports feed administration · removal on request is honoured · **the recurring cost of curating this data needs an explicit owner decision before launch** (see the note under Part 10). |
+| R19 | **`pending_stock_resolution` becomes a routine bypass** rather than an exception, hollowing out stock discipline. | Medium | Every instance is attributed in the audit log and surfaced in the attention list; it blocks the daily close, so it cannot quietly accumulate. Measure the rate in the pilot (V13). |
 
 ---
 
@@ -644,14 +739,36 @@ Material             id, yard_id, type, grade?, display_name,
 
 Party                id, yard_id, name?, phone?, kind ∈ {supplier, customer, both},
                      national_id?, address?, notes?, is_active,
-                     is_buyer_directory_entry            # D19 — may be true before any transaction
+                     central_buyer_id?                   # link to the shared directory, if any
                      # CHECK: name IS NOT NULL OR phone IS NOT NULL
                      # unique (yard_id, phone) where phone present
 
-BuyerMaterial        id, yard_id, party_id, material_id,          # FR-16, owner-only
-                     indicative_price, price_unit ∈ {kg, ton}, price_noted_at,
-                     min_quantity_kg?, payment_terms?, location?, notes?, is_active
-                     # unique (party_id, material_id)
+# ---- FR-16A: central directory. Platform-owned, NOT tenant-scoped, read-only to yards ----
+CentralBuyer         id, name, entity_type ∈ {factory, foundry, recycler,
+                                              wholesaler, specialist},
+                     governorates[], phone?, whatsapp?, address?,
+                     min_quantity_kg?, logistics ∈ {they_collect, deliver_to_them, both, unknown},
+                     status ∈ {active, unverified, outdated},
+                     last_verified_at?,
+                     source_internal, entered_by, verified_by?, verification_note?,
+                     is_published
+                     # D30: source_internal / verified_by / verification_note are ADMIN-ONLY.
+                     # They are stored and auditable but never returned to a yard user.
+
+CentralBuyerMaterial id, central_buyer_id, material_type, material_grade?
+                     # free text taxonomy, mapped to a yard's own materials by type/grade name
+
+CentralBuyerReport   id, central_buyer_id, yard_id, reported_by, reason, note?, created_at
+                     # a yard user reports a problem; never mutates the central record
+
+# ---- FR-16B: private per-yard relationship layer ----
+YardBuyerRelation    id, yard_id, central_buyer_id? , party_id?,   # one of the two is required
+                     contact_person?, direct_phone?, last_contact_at?,
+                     last_offered_price?, last_offered_unit ∈ {kg, ton}?, last_offered_at?,
+                     accepted_materials[], min_quantity_told_kg?,
+                     payment_method?, transport?, notes?,
+                     flag ∈ {favourite, not_suitable, none}, has_dealt_before
+                     # tenant-isolated. Never visible to another yard.
 
 Transaction          id, yard_id,
                      type ∈ {purchase, sale, payment, expense,
@@ -660,7 +777,7 @@ Transaction          id, yard_id,
                      party_id?, business_date, created_at, device_created_at, created_by,
                      weighing_mode ∈ {direct, gross_tare}?,
                      vehicle_no?, gross_kg?, tare_kg?,
-                     status ∈ {pending_tare, posted, reversed},
+                     status ∈ {pending_tare, pending_stock_resolution, posted, reversed, voided},
                      total_amount, amount_cash, balance_amount,
                      expense_category?, adjustment_reason?, corrects_transaction_id?,
                      note?, photo_ref?,
@@ -676,6 +793,16 @@ TransactionLine      id, transaction_id, material_id, direction ∈ {in, out},
                      line_total, is_price_override,
                      cost_snapshot_per_kg?          # sales and regrade outputs
                      # cost_snapshot_per_kg is recomputed by replay only within an open day (FR-10)
+
+RegradeAllocation    id, transaction_id, material_id, role ∈ {source, output, loss},
+                     kg,
+                     ref_sell_price_snapshot?, ref_price_unit_snapshot?,   # D27 — frozen at save
+                     allocated_value?, allocated_cost_per_kg?,
+                     is_cost_unallocated                                   # D28 — deferred allocation
+                     # Transaction (type=regrade) also stores:
+                     #   allocation_method ∈ {relative_sales_value, weight_fallback}
+                     #   allocation_snapshot_at
+                     # A past regrade is ALWAYS read from this snapshot, never re-derived (D27).
 
 CashMovement         id, yard_id, business_date, direction ∈ {in, out}, amount,
                      source ∈ {purchase, sale, payment, expense, opening, adjustment},
@@ -723,25 +850,35 @@ gross_profit         = line_total − (net_kg × cost_snapshot_per_kg)
 margin_pct           = (line_total > 0) ? gross_profit / line_total × 100 : null
 # if cost_snapshot_per_kg == 0 → profit reported as "غير محسوب" (E19), never as 100%
 
-# 5. Regrade — RELATIVE SALES VALUE allocation (D21, replaces weight allocation)
+# 5. Regrade — RELATIVE SALES VALUE allocation (D21), snapshotted (D27, D28)
 consumed_value = consumed_kg × source_avg_cost_per_kg
 for each output i:
-    notional_i   = output_kg_i × ref_sell_price_per_kg_i     # reference sell price at regrade time
-notional_total   = Σ notional_i                              # loss contributes nothing
-    # if notional_total == 0 for all outputs → fall back to weight allocation and say so on screen
-    # if any single output has ref_sell_price == 0 → block and prompt (FR-9, E22)
-for each output i:
+    snapshot ref_sell_price_per_kg_i AND its unit AT SAVE TIME    # D27 — frozen, never re-read
+    notional_i   = output_kg_i × ref_sell_price_snapshot_i
+notional_total   = Σ notional_i over outputs that HAVE a snapshot price  # loss contributes nothing
+for each priced output i:
     value_i          = consumed_value × notional_i / notional_total
     cost_per_kg_i    = value_i / output_kg_i
     then apply rule 3 to material i using cost_per_kg_i
-# Loss weight leaves the system; its cost is absorbed proportionally because it is excluded
-# from notional_total. No processing cost, no yields, no labour (D13).
+
+# D28 — missing price: never invent an allocation. Two paths:
+#   (a) owner enters a reference value inline  → allocate normally
+#   (b) DEFER → post the WEIGHT movement now (stock is correct immediately);
+#       mark those outputs is_cost_unallocated = true, cost_per_kg = null;
+#       any sale of them reports profit as "غير محسوب" (E19);
+#       hold the unallocated remainder against the regrade and show it in the attention list;
+#       when the owner supplies the value later, allocate PROSPECTIVELY —
+#       do NOT rewrite sales already reported as "غير محسوب" (consistent with D26).
+# If ALL outputs have price 0 → allocation_method = weight_fallback, and say so on screen.
+# store: allocation_method, allocation_snapshot_at, and every price snapshot (D27).
+# No processing cost, no yields, no labour (D13). Label all results "تكلفة وربح تقريبي".
 
 # 6. Stock
 stock_kg = Σ(direction=in net_kg) − Σ(direction=out net_kg) ± adjustments ± opening
            # posted only; reversals netted
 CONSTRAINT: stock_kg must never be < 0 for any material, at any point,
             including at every step of a replay (D22). Enforced server-side.
+            Sales awaiting stock resolution are NOT posted, so they cannot breach this (D29).
 
 # 7. Cash
 expected_cash = opening_amount + Σ(cash in) − Σ(cash out)
@@ -779,13 +916,14 @@ days_of_cover       = (avg_daily_out_kg_30 > 0) ? quantity_kg / avg_daily_out_kg
 | Login | Owner: phone + password. Operator: name + PIN keypad. | Fast user switch on shared devices. |
 | Today (home) | Owner: purchases, sales, cash, approximate profit, attention list. Operator: two large buttons (شراء / بيع) + today's own entries. | Role-dependent content, same route. |
 | Purchase | **The most important screen.** ≤30 s, ≤6 interactions, no scrolling for a single line on a 5.5" screen. | Material = grid of large labelled buttons ordered by favourite then frequency, never a dropdown. Party = recent list first, typing is the fallback. |
-| Sale | Mirror of purchase + stock availability + owner-only profit preview. | Blocked on insufficient stock, with an inline owner adjustment shortcut (D22). |
-| Receipt | View, share to WhatsApp, print (A5 / 80 mm). | |
+| Sale | Mirror of purchase + stock availability + owner-only profit preview. | On a shortfall: owner resolves inline and posts; operator's sale is saved as `pending_stock_resolution` (D29). |
+| Receipt | View, share to WhatsApp, print (A5 / 80 mm). | A pending sale can print a provisional slip only — never a numbered receipt. |
 | Parties · Party detail | Search, balance with direction label, history, record payment/advance. | |
-| **Buyers directory** | Owner-only: who buys which material, indicative price with its age, terms, one-tap call/WhatsApp. | Reachable from the party record **and** from a material in inventory (FR-16). Not a marketplace. |
+| **Buyers directory** | Browse the central directory: filter by material → governorate → entity type; status and last-verified date always visible; one-tap call / WhatsApp. | FR-16A. Read-only to yards. Reachable from the directory and from a material in inventory. |
+| **Buyer detail** | Central information on top, the yard's own private relationship layer below, clearly separated. | FR-16B. Owner-only. Includes "report a problem" for the central entry. |
 | Materials | Create/edit type, grade, **default pricing unit**, reference prices, favourites. | Changing today's price must be ≤3 taps. |
 | Inventory | kg, average cost, approximate value, **stagnation indicators**, per material and total. | Opening balance and adjustment entry points live here. |
-| Regrade | Owner-only sorting entry. | Shows resulting cost per kg per output **before** saving; labelled `توزيع تقريبي بقيمة البيع`. |
+| Regrade | Owner-only sorting entry. | Shows the **snapshot prices it will use** and the resulting cost per kg per output **before** saving; labelled `تكلفة وربح تقريبي`. A past regrade opens read-only from its snapshot. |
 | Cash box | Movements, add expense, daily close. | |
 | Reports | The nine reports (D16), date-filtered, CSV export. | |
 | Movement log | Searchable, filterable, paginated audit of everything. | Includes openings, adjustments, cost adjustments and regrades. |
@@ -805,16 +943,20 @@ and the legitimate way forward, never just refuse.
 2. **Authorization verified by direct API calls, not only through the UI:** an operator's credentials cannot retrieve cost, profit, cash totals, other users' entries or other days.
 3. **Connection-drop test passes:** kill the network mid-save on 5 transactions, force-close the app, reconnect → all 5 post exactly once, with correct sequential numbers, no duplicates, no loss. *(Extended offline recording is explicitly not in the MVP — FR-14.)*
 4. **Unit test passes:** a ton-priced line and a kg-priced line for the **same material** in one transaction both compute correctly on screen and on the receipt, and the unit override is visible in both places (F1, D20, R13).
-5. **Negative stock is unreachable:** attempts via sale, regrade, adjustment and replay are all rejected server-side (D22).
-6. **Regrade allocation verified** against the worked example in §4: 1,000 kg mixed at 20/kg → 100 kg copper + 900 kg iron yields ≈169.49/kg and ≈3.39/kg, not 20/kg each (D21).
-7. **Historical correction verified both ways:** an open-day correction replays and changes subsequent sale costs; a closed-day correction refuses to rewrite and produces a `فروق تصحيح مشتريات سابقة` line dated today (D26).
-8. Arabic RTL verified on a real Android device **and** on a desktop browser, including printed and shared receipts.
-9. A full day operable end to end: open → purchases → sales → expenses → payment → regrade → close with a counted amount → next day opens with the correct balance.
-10. Automated tests cover §9.2 in full: deduction variants, per-line unit conversion, weighted average across multiple purchases, sale cost snapshot, relative-sales-value regrade allocation, replay ordering, cost adjustment, reversals, blocked negative stock, zero-cost sale, stagnation indicators.
-11. **Privacy notice matches the corrected wording in Part 4 verbatim**, and no screen, string or marketing asset claims concealment from any authority (D25, R12).
-12. Performance budgets in Part 4 measured on a real device, not assumed.
-13. Setup completed by a non-technical person in under 10 minutes, unaided.
-14. No secrets in the repository; all configuration via environment variables.
+5. **Negative stock is unreachable:** attempts via sale, regrade, adjustment and replay are all rejected server-side, and a `pending_stock_resolution` sale never moves stock (D22, D29).
+6. **Safe-recovery flow verified end to end (D29 — release-blocking):** an operator sells above the balance → the sale is saved complete, nothing moves, the operator continues working → the owner resolves it with one adjustment → the sale posts atomically with **no field re-entered by anyone**, stock never goes negative at any moment, and the daily close is blocked while it is pending.
+7. **Regrade allocation verified** against the worked example in §4: 1,000 kg mixed at 20/kg → 100 kg copper + 900 kg iron yields ≈169.49/kg and ≈3.39/kg, not 20/kg each (D21).
+8. **Regrade snapshot verified (D27):** after saving a regrade, changing the reference sell prices does **not** alter that regrade's allocation, its cost per kg, or any downstream average cost; the stored prices and method are visible when the entry is reopened.
+9. **Deferred allocation verified (D28):** a regrade with one unpriced output posts the weight movement, flags that output's cost as unallocated, reports profit on its sales as `غير محسوب`, and completes prospectively when the owner supplies the value — without rewriting sales already reported as `غير محسوب`.
+10. **Directory separation verified:** a yard user cannot modify central data by any route including direct API calls; one yard's relationship layer is invisible to another yard; admin-only fields (source, verifier, verification note) are never returned to a yard user (D30).
+11. **Historical correction verified both ways:** an open-day correction replays and changes subsequent sale costs; a closed-day correction refuses to rewrite and produces a `فروق تصحيح مشتريات سابقة` line dated today (D26).
+12. Arabic RTL verified on a real Android device **and** on a desktop browser, including printed and shared receipts.
+13. A full day operable end to end: open → purchases → sales → expenses → payment → regrade → close with a counted amount → next day opens with the correct balance.
+14. Automated tests cover §9.2 in full: deduction variants, per-line unit conversion, weighted average across multiple purchases, sale cost snapshot, relative-sales-value allocation with snapshots, deferred allocation, replay ordering, cost adjustment, reversals, pending stock resolution, blocked negative stock, zero-cost sale, stagnation indicators.
+15. **Privacy notice matches the corrected wording in Part 4 verbatim**, and no screen, string or marketing asset claims concealment from any authority (D25, R12). The directory carries its "contact information, not a recommendation" statement (R18).
+16. Performance budgets in Part 4 measured on a real device, not assumed.
+17. Setup completed by a non-technical person in under 10 minutes, unaided.
+18. No secrets in the repository; all configuration via environment variables.
 
 ### 9.5 Do not build in the MVP
 Everything in §5, plus: multi-branch, advanced processing, third role, hardware integration, English UI,
@@ -845,7 +987,25 @@ These four cannot be, because they are facts about a specific business's behavio
    *(V8 — newly decisive in 2.1, because the MVP now ships resilient-online. One phone, three days, inside the actual yard.)*
 
 6. **Does blocking a sale on insufficient stock stop real work while a truck waits?**
-   *(V13 — a new friction deliberately introduced by prohibiting negative stock.)*
+   *(V13 — reframed in 2.2: the block is gone, so the question is now how often the pending-resolution path is used and how fast it clears.)*
+
+---
+
+### Owner decision required before launch — not a yard-owner question
+
+**Who curates the central buyers directory, and at what recurring cost?** FR-16A is the first part of the product
+that is an ongoing service rather than software: somebody must gather the initial entries, verify phone numbers,
+and re-verify them periodically. This is a real recurring cost and a reputational commitment (R18), and it is the
+owner's call, not a product decision.
+
+**Recommendation:** launch the central directory **small and honest** — one governorate and the three or four
+materials that matter most, seeded from publicly advertised business contact details, every entry marked
+`unverified` until someone has actually called it. Do not launch a large unverified list; a directory that wastes
+an owner's time on dead numbers is worse than no directory. Removal on request is honoured without argument.
+
+**The single approval needed:** confirm that someone will own directory curation as an ongoing task before FR-16A
+ships. If nobody will, the correct decision is to ship only FR-16B (the private relationship layer) in the MVP and
+add the central layer later — which is a clean split, since the two layers are separate by design.
 
 ---
 
