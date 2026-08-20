@@ -14,6 +14,9 @@ const M = 'dddddddd-0000-0000-0000-00000000000a';
 beforeEach(async () => {
   db = await freshDatabase();
   await db.exec(`
+    -- Migration 0004 makes postTransaction() the only writer of stock/cash/lines.
+    -- SEEDING ONLY opens the same window the service opens. No assertion below is changed.
+    SET app.posting = 'on';
     INSERT INTO app.yards (id, name) VALUES ('${Y}','مخزن');
     INSERT INTO app.users (id, yard_id, auth_user_id, role, display_name)
       VALUES ('${O}','${Y}','${O}','owner','مالك');
@@ -22,6 +25,7 @@ beforeEach(async () => {
     SET app.current_yard_id = '${Y}';
     SET app.actor_id = '${O}';
     SET app.actor_role = 'owner';
+    SET app.posting = 'on';
   `);
 });
 

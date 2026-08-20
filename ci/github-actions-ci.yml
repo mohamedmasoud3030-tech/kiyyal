@@ -3,6 +3,8 @@ on:
   push: { branches: ['**'] }
   pull_request:
 
+# Gates mirror docs/TESTING_CONTRACT.md §4. Every command below is a real npm
+# script in package.json — this file and the repository never drift apart.
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -11,10 +13,44 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20', cache: 'npm' }
       - run: npm ci
-      # Order per docs/TESTING_CONTRACT.md §4
+
       - name: Typecheck
         run: npm run typecheck
-      - name: Decimal / RTL guard (ADR-0004, CODING_RULES)
+
+      - name: Lint + decimal/RTL guard (ADR-0004, CODING_RULES)
         run: npm run guard:decimal
-      - name: Tests — domain, schema rebuild-from-zero, RLS isolation, immutability
+
+      - name: Unit + golden calculations (FINANCIAL_RULES §11)
+        run: npm run test:unit
+
+      - name: Migration rebuild from zero + schema invariants (M-06, DB-1..12)
+        run: npm run test:db
+
+      - name: RLS / security isolation (SEC-1..SEC-12)
+        run: npm run test:rls
+
+      - name: Auth and session (AUTH-1..AUTH-8)
+        run: npm run test:auth
+
+      - name: Transaction atomicity + failure injection (ADR-0005, R-04)
+        run: npm run test:atomicity
+
+      - name: Full suite
         run: npm test
+
+  # Runs only where the owner has provided staging credentials as repository secrets.
+  staging-gate:
+    runs-on: ubuntu-latest
+    needs: verify
+    if: ${{ github.ref == 'refs/heads/main' }}
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+      - name: Supabase staging gate (STG-1..STG-9)
+        env:
+          STAGING_MIGRATOR_URL: ${{ secrets.STAGING_MIGRATOR_URL }}
+          STAGING_RUNTIME_URL: ${{ secrets.STAGING_RUNTIME_URL }}
+        run: npm run gate:staging

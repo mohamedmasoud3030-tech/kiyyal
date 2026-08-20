@@ -24,6 +24,9 @@ beforeAll(async () => {
   db = await freshDatabase();
   // Seed as the table owner (superuser), bypassing policies deliberately for setup only.
   await db.exec(`
+    -- Migration 0004 makes postTransaction() the only writer of stock/cash/lines.
+    -- SEEDING ONLY opens the same window the service opens. No assertion below is changed.
+    SET app.posting = 'on';
     INSERT INTO app.yards (id, name) VALUES ('${YARD_A}','مخزن أ'), ('${YARD_B}','مخزن ب');
     INSERT INTO app.users (id, yard_id, auth_user_id, role, display_name) VALUES
       ('${OWNER_A}','${YARD_A}','${OWNER_A}','owner','مالك أ'),
