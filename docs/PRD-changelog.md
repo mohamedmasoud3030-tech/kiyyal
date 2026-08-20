@@ -270,3 +270,69 @@ at any moment · the close is blocked while pending · the owner path completes 
 Change 2 is small (two columns and a snapshot table) and buys permanent explainability. **Change 1 is the only
 material addition** — a shared dataset, a curation tool (S-11) and the first cross-tenant data in the product.
 It also carries a recurring operational cost that is an owner decision, not a product one.
+
+---
+---
+
+# PRD 2.2 — closing corrections (approved)
+
+**Date:** 2026-08-20 · **Two accounting fixes only**, plus recording the owner's directory approval.
+**Raw diff:** 116 insertions, 47 deletions in `docs/PRD.md`. **Status: PRD 2.2 APPROVED.**
+
+## Correction 1 — pending sales and cash (D32)
+
+**The gap:** 2.2 said pending cash was "excluded from expected cash". Wrong — the money is physically in the
+drawer, so every close would have shown a false shortage.
+
+**Now:** a `pending` cash movement is created immediately and linked to the pending sale.
+
+| | Counts toward |
+|---|---|
+| Revenue, profit, final party balance | **No** |
+| The physical drawer's expected total | **Yes** |
+
+- The cash box shows two lines, never merged: `الرصيد المتوقع من العمليات المرحّلة` + `نقدية مستلمة من عمليات معلقة` = `إجمالي المتوقع في الدرج`. The counted amount is compared against the **sum**.
+- On resolution the **same record** flips `pending → posted` atomically with the sale. No new amount, no duplication; if the flip fails, the whole posting fails.
+- Voiding a pending sale that took money now requires stating what happened to it — returned (movement reversed, visibly) or retained (void refused, post it properly). Money never disappears silently (E31).
+- `CashMovement` gains `status ∈ {pending, posted}` and `posted_at`.
+
+## Correction 2 — deferred regrade cost on resolution (D33)
+
+**The gap:** if outputs were sold before the cost was allocated, resolving later would have loaded the entire cost
+onto the remaining stock — overstating inventory, permanently and silently.
+
+**Now:** the whole consumed value is held as `unallocated_regrade_cost` on the regrade entry. Deferral is
+**all-or-nothing** — partially allocating among the priced outputs was itself a flaw in 2.2's rule 5, since it
+pushed the full cost onto them and reproduced the very distortion the design exists to prevent.
+
+On resolution, allocate over the **original** output quantities using the **stored snapshots**, then split each
+output's share:
+- **sold portion → `تكلفة فرز غير منسوبة`** — a named line in the current period, added to **no** inventory; those sales keep showing `غير محسوب` and are never rewritten;
+- **remaining portion → inventory only**, folded into the weighted-average cost of the quantity on hand.
+
+Sold quantity is measured from the ledger (outbound since the regrade, capped at the original output quantity) and
+is labelled an approximation — there is no lot tracking (D24) and stock is fungible.
+
+**Numeric test added to the DoD (#10, release-blocking), arithmetic verified:**
+
+> 1,000 kg مخلوط @ 20.00 = 20,000.00 → regrade into 100 kg نحاس (no price, deferred) + 900 kg حديد (snapshot 8.00).
+> 50 kg copper and 400 kg iron sold meanwhile, both `غير محسوب`.
+> Owner later supplies copper 400.00 and resolves.
+> Notional: copper 40,000 · iron 7,200 · total 47,200 → **copper 16,949.15 (169.4915/kg)**, **iron 3,050.85 (3.3898/kg)**.
+> Sold shares: copper 8,474.58 + iron 1,355.93 = **9,830.51 → unattributed cost, no inventory**.
+> Remaining shares: copper 8,474.58 + iron 1,694.92 = **10,169.49 → inventory only**.
+> **9,830.51 + 10,169.49 = 20,000.00 exactly.** Past sales unchanged.
+
+`RegradeAllocation` gains `sold_kg_at_resolution`, `unattributed_value`, `to_inventory_value`; the regrade
+transaction gains `unallocated_regrade_cost` and `resolved_at`. Invariant enforced:
+Σ(unattributed + to_inventory) == consumed value. New edge cases E32–E35.
+
+## Owner approval recorded (D31)
+
+Central directory **approved for the MVP**, both layers together. Rollout: **البحيرة → الإسكندرية → القاهرة والجيزة**,
+then the rest of the country. Opening materials: iron, copper, aluminium, plastic, paper/cardboard. Verification
+status and last-verified date are mandatory, and **an unverified entity must never be displayed as confirmed** —
+now a release gate (DoD #12). The recurring curation cost and R18's exposure are accepted; R18's mitigations remain
+binding. The Part 10 "decision required" note is replaced by "decision resolved".
+
+**Net:** DoD gates 18 → 20 · edge cases 30 → 35 · MUST items unchanged at 17 · no new features.

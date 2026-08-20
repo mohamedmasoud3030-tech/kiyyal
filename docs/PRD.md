@@ -1,12 +1,19 @@
 # PRD — Scrap Yard Operations System (Egypt)
 
 **Working name:** Kayyal (كيّال)
-**Version:** 2.2 — final product definition for owner review
+**Version:** 2.2 (final, approved) — product definition
 **Date:** 2026-08-20
-**Status:** Awaiting owner approval. No technology selected. No code written.
+**Status:** APPROVED by the owner. Technology selection may proceed. No code written yet.
 **Supersedes:** v2.1 (which superseded v2.0 and v1.0)
 **Audience:** the owner (review), and an AI coding agent (implementation without guessing).
 **Change log:** see `docs/PRD-changelog.md` for the 2.0 → 2.1 and 2.1 → 2.2 diffs.
+
+> **Closing corrections (approved).** Two accounting fixes before final approval: pending sales now record a
+> **pending cash movement** that counts toward the physical drawer but not toward revenue or profit, converting
+> atomically on posting (D32) · deferred regrade cost is held as **unallocated regrade cost** and, on resolution,
+> split between quantities already sold (historical unattributed cost, sales stay `غير محسوب`) and quantities
+> still in stock (inventory only) — never loading the whole cost onto remaining stock (D33). Central buyers
+> directory approved for the MVP with a defined rollout order (D31).
 
 > **Revision 2.2 summary — three corrections only, no other scope change.**
 > (1) The buyers directory is redesigned as **two layers**: a central, platform-curated business directory plus a
@@ -87,6 +94,14 @@ back to one of them. This is deliberate: it lets the owner see exactly where con
 | **D28** | If an output material has no trustworthy reference price, **do not invent an allocation.** Ask the owner for a value, or leave that output's profit as `غير محسوب` until it is resolved. Keep labelling the result "approximate cost and profit". |
 | **D29** | Replace the hard block on selling above stock with the **shortest possible safe-recovery flow**. Three things must hold simultaneously: negative stock never becomes a normal published state · a sale that really happened is never lost · the operator never re-enters the transaction from scratch. This scenario must appear explicitly in the acceptance criteria and the Definition of Done. |
 | **D30** | The central directory's **information source and verification date must be retained for administration**, even though the source is not shown to the end user. |
+
+#### Owner decisions and corrections closing Revision 2.2
+
+| # | Owner decision |
+|---|---|
+| **D31** | **The central directory is approved for the MVP, together with the yard relationship layer** (FR-16A **and** FR-16B). We operate curation as an ongoing service. **Rollout order: (1) البحيرة, (2) الإسكندرية, (3) القاهرة والجيزة**, then the rest of the country gradually. **Starting materials:** iron, copper, aluminium, plastic, paper/cardboard. **An unverified entity must never be presented as if its data were confirmed.** |
+| **D32** | **Pending stock resolution and cash.** If the operator physically received money, it cannot be ignored in the cash box until the owner posts the sale. Record a **pending cash movement** immediately, linked to the pending sale, shown to the owner as `نقدية مستلمة من عمليات معلقة`. It is **not** revenue, profit or a final party balance before posting, but it **must** be part of reconciling the physical cash in the drawer. On resolution it converts **atomically** from pending to the normal sale cash movement — no new amount created, no duplication. |
+| **D33** | **Deferred regrade cost.** If a regrade is saved without complete reference prices and some outputs are sold before the cost is allocated, the later allocation must **not** load the whole cost onto the remaining inventory. Hold the source cost as **unallocated regrade cost** against the original regrade. When prices become available: allocate across the **original output quantities using the snapshots** · the share belonging to quantities already sold is recorded as **historical unattributed cost** and those sales keep showing `غير محسوب` · only the share belonging to quantities still in stock enters current inventory cost · **never rewrite past sales and never load their cost onto the remaining stock.** |
 
 ### 0.C — Assumptions still requiring validation from a real yard owner
 
@@ -325,21 +340,23 @@ the software.** The flow below satisfies all three of the owner's constraints at
 
 Rules for `pending_stock_resolution` — it reuses the `pending_tare` pattern already in the product (FR-4), so it is
 one more status, not a new subsystem:
-- It affects **nothing**: no stock movement, no cash movement, no party balance, no profit, no sequential sale number. Therefore **no negative stock is ever created or published** (D22 holds).
+- It affects **no posted figure**: no stock movement, no revenue, no profit, no final party balance, no sequential sale number. Therefore **no negative stock is ever created or published** (D22 holds).
 - It appears at the top of the owner's attention list and **blocks the daily close** until it is resolved or voided with a reason.
-- The cash actually received is displayed separately as `مبالغ معلّقة` and is **excluded** from expected cash, so the drawer still reconciles. Once posted, it moves into expected cash normally.
+- **Cash actually received is recorded immediately as a `pending` cash movement linked to the sale (D32).** It is shown to the owner under `نقدية مستلمة من عمليات معلقة`, it is **excluded** from revenue, profit and the party's final balance, and it is **included** in reconciling the physical drawer (FR-7). Money that is in the drawer must be visible in the drawer's expected total — anything else guarantees a false shortage at close.
+- **On resolution the same movement converts atomically from `pending` to the sale's normal cash movement.** No new amount is created, the identifier is preserved, and the amount can never appear twice. If the conversion fails, the whole posting fails and nothing changes.
 - The operator may print a **provisional slip** (`إذن تسليم مبدئي`) showing weights and total, explicitly **not** a numbered receipt. The numbered receipt is issued on posting and can be sent by WhatsApp afterwards.
 - The owner resolves it in one tap from the attention list: he sees the same shortfall, picks adjustment or missing purchase, and the sale posts atomically with **the original data, the original device timestamp, and the original business date** if that day is still open.
 - Given the day it happened has already closed, then the sale posts to the current open day with an automatic note naming the original date (consistent with E11).
-- Given the sale was not real, the owner voids it with a reason; it remains visible as voided, never deleted (D15).
+- Given the sale was not real, the owner voids it with a reason; it remains visible as voided, never deleted (D15). **If a pending cash movement exists, voiding requires stating what happened to the money** — returned to the customer (the pending movement is reversed, with the reversal visible) or retained (the sale must be posted properly instead). The money can never disappear silently.
 - Repeated use is visible: every pending-resolution sale is in the audit log with its operator, so the owner can see if it is becoming a routine bypass rather than an exception (R19).
 
 **Acceptance criteria for this flow (D29 — explicitly required):**
-- Given an operator sells 500 kg of a material with 300 kg recorded, then the sale is saved with all details intact, the operator is not blocked from continuing, stock remains 300 kg, and no balance changes.
-- Given the owner then resolves it with a 200 kg adjustment, then the sale posts atomically, stock becomes 0 kg, cash and party balance update, the receipt is numbered, and **no field was re-entered by anyone**.
+- Given an operator sells 500 kg of a material with 300 kg recorded, then the sale is saved with all details intact, the operator is not blocked from continuing, stock remains 300 kg, and no posted balance changes.
+- **Given that sale collected 12,000 EGP in cash, then a pending cash movement of 12,000 exists immediately, appears under `نقدية مستلمة من عمليات معلقة`, is excluded from revenue and profit, and is included in the drawer's expected total (D32).**
+- Given the owner then resolves it with a 200 kg adjustment, then the sale posts atomically, stock becomes 0 kg, **the same 12,000 movement converts from pending to the sale's cash movement without creating or duplicating any amount**, the party balance updates, the receipt is numbered, and **no field was re-entered by anyone**.
 - Given the owner attempts a daily close while a pending-resolution sale exists, then the close is blocked and the sale is named.
 - Given the owner is the one selling, then the shortfall, the adjustment and the sale are completed in a single screen without navigation.
-- At no point, in any path, does any material's published balance go below zero.
+- At no point, in any path, does any material's published balance go below zero, and at no point is a received amount counted twice or lost.
 
 ### FR-4 — Weighing modes (F4)
 - **Direct mode:** the user enters the net weight from the kilo scale.
@@ -385,6 +402,15 @@ ledger alone:
 - Every cash-affecting event appears in the day's movement list with type, amount, party or reason, and user.
 - Expenses require a category (وقود / أجور / أكل / نقل / إيجار / صيانة / أخرى) and an amount; "أخرى" requires a note.
 - Given the owner closes the day with expected 45,000 and counted 44,600, then a difference of −400 is recorded and permanently visible. **The close is never blocked by a difference** (D18: reality is messy), but the difference cannot be hidden or edited afterwards.
+
+**Pending cash from unresolved sales (D32).** Money received against a `pending_stock_resolution` sale is real
+money sitting in the drawer, so it must appear in the drawer's expected total — otherwise every close shows a
+false shortage.
+- The cash box shows two lines, never merged: `الرصيد المتوقع من العمليات المرحّلة` and `نقدية مستلمة من عمليات معلقة`, then `إجمالي المتوقع في الدرج` as their sum.
+- Only the first line feeds revenue, profit and party balances. The **sum** is what the counted amount is compared against.
+- A pending cash movement carries `status = pending`, is linked to its sale, and is listed in the day's movements marked as pending.
+- On resolution the movement flips to `posted` **atomically with the sale** — the same record, the same amount, no new movement created (see FR-3).
+- In practice a pending sale blocks the daily close anyway, so this state is short-lived; the two-line presentation exists so the drawer reconciles correctly at any moment during the day.
 - Given a day is closed, then it is immutable; later entries are dated to the current open day with a note.
 - The owner may operate without ever closing a day; the cash box still works. Closing is encouraged, not enforced.
 
@@ -408,10 +434,21 @@ the number months later:
 - **Before saving**, the screen shows the snapshot prices it is about to use and the resulting cost per kg for every output, so the owner can sanity-check them against what he knows the material is worth.
 - Every resulting figure is labelled `تكلفة وربح تقريبي`.
 
-**Missing or untrustworthy reference price (D28).** Never invent an allocation. Two paths, both offered on the same screen:
+**Missing or untrustworthy reference price (D28, D33).** Never invent an allocation. Two paths, both offered on the same screen:
 - **Recommended:** the owner enters a reference value for the missing output inline, and the allocation completes normally.
-- **Defer:** the regrade posts the **weight movement immediately** — stock is correct straight away, which is what operations need — while the unpriced outputs enter stock with **cost unallocated**. Those outputs are flagged `تكلفة غير محددة`, any sale of them reports profit as `غير محسوب` (consistent with E19), and the unallocated portion of the consumed value is held against the regrade entry and shown in the owner's attention list until resolved.
-- Given the owner later supplies the missing value, then the allocation completes **prospectively** from that moment. Consistent with D26, it does **not** rewrite sales already reported as `غير محسوب`.
+- **Defer:** the regrade posts the **weight movement immediately** — stock is correct straight away, which is what operations need — while **the entire consumed value is held as `unallocated_regrade_cost` against the regrade entry** (D33). Allocation is all-or-nothing: partially allocating among the priced outputs only would push the whole cost onto them and reproduce exactly the distortion this design exists to prevent. All outputs of that regrade are flagged `تكلفة غير محددة`, any sale of them reports profit as `غير محسوب` (consistent with E19), and the unallocated amount appears in the owner's attention list until resolved.
+
+**Resolving a deferred allocation later (D33) — the part that must not be got wrong.**
+By the time the owner supplies the missing price, part of the output may already have been sold. Loading the whole
+cost onto what is left would overstate the remaining inventory and understate nothing — a silent, compounding error.
+
+1. Allocate across the **original output quantities** recorded at the regrade, using the **stored snapshots** for outputs that had a price and the newly supplied value for the one that did not. The newly supplied value is itself snapshotted at this moment and stored with the entry.
+2. For each output, split its allocated value in proportion to how much of that original quantity has since left stock:
+   - **Sold share → historical unattributed cost.** It is recorded against the regrade as `تكلفة فرز غير منسوبة`, reported as a named line in the **current** period, and **not** added to any inventory. The sales it relates to keep showing `غير محسوب` and are **never rewritten** (consistent with D26).
+   - **Remaining share → current inventory cost.** Only this portion is added to the material's inventory value, and the weighted-average cost is recomputed over the quantity currently on hand.
+3. Quantity sold since the regrade is measured from the movement ledger (outbound of that material between the regrade and the resolution, capped at the original output quantity). **This is an approximation** — the MVP has no lot tracking (D24) and stock is fungible — and it is labelled as such, like every other figure in this feature.
+4. The screen shows, before confirming: original quantities, snapshot prices, allocated value per output, the sold/remaining split, and the two resulting amounts. Nothing is applied silently.
+
 - Given every output has a reference sell price of zero, then allocation falls back to weight, the method is recorded as `weight_fallback`, and the screen says so explicitly.
 - The entry appears in the movement log and is reversible like any other entry.
 
@@ -625,6 +662,11 @@ It is also unnecessary — the honest version is more reassuring and defensible.
 | E28 | The material for a pending sale arrives (a genuine purchase) before the owner resolves it | Recording that purchase raises the balance; the pending sale then posts with no adjustment needed — the app detects that the shortfall is gone and offers to post it directly. |
 | E29 | A pending sale's original day closes before it is resolved | It posts to the current open day with an automatic note naming the original date (consistent with E11); the original device timestamp is preserved. |
 | E30 | An operator uses pending-stock-resolution routinely instead of exceptionally | Every instance carries its operator in the audit log and the attention list, so the pattern is visible to the owner (R19). No silent tolerance, no automatic punishment. |
+| E31 | A pending sale is voided but the customer's money was already taken | Voiding requires stating what happened to the money: returned (the pending cash movement is reversed, visibly) or retained (voiding is refused; the sale must be posted properly). Money never disappears silently (D32). |
+| E32 | A deferred regrade is resolved after **all** of an output has been sold | That output's entire allocated share becomes `تكلفة فرز غير منسوبة` in the current period; **nothing** is added to inventory for it; the past sales keep showing `غير محسوب` (D33). |
+| E33 | A deferred regrade is resolved when more of the material is now in stock than the regrade produced (later purchases) | The split still uses the **original** output quantity and the outbound measured since the regrade, capped at that quantity. The remaining share is added to the current inventory value and averaged over the quantity actually on hand. |
+| E34 | The regrade's source material was itself later corrected | The regrade keeps its snapshot; a change in the source's cost does not re-derive a past allocation (D27). Any difference is handled through the cost-adjustment route (FR-10). |
+| E35 | A pending sale's day rolls over while its pending cash is still outstanding | The pending sale blocks the close, so this only occurs if the owner leaves the day open. The pending cash stays visible on the drawer's expected total for whichever day is open, and posts to the day it is resolved in (E29). |
 
 ---
 
@@ -795,18 +837,24 @@ TransactionLine      id, transaction_id, material_id, direction ∈ {in, out},
                      # cost_snapshot_per_kg is recomputed by replay only within an open day (FR-10)
 
 RegradeAllocation    id, transaction_id, material_id, role ∈ {source, output, loss},
-                     kg,
+                     kg,                                                   # ORIGINAL quantity
                      ref_sell_price_snapshot?, ref_price_unit_snapshot?,   # D27 — frozen at save
                      allocated_value?, allocated_cost_per_kg?,
-                     is_cost_unallocated                                   # D28 — deferred allocation
+                     is_cost_unallocated,                                  # D28 — deferred
+                     sold_kg_at_resolution?, unattributed_value?, to_inventory_value?  # D33
                      # Transaction (type=regrade) also stores:
                      #   allocation_method ∈ {relative_sales_value, weight_fallback}
-                     #   allocation_snapshot_at
+                     #   allocation_snapshot_at, unallocated_regrade_cost, resolved_at?
                      # A past regrade is ALWAYS read from this snapshot, never re-derived (D27).
+                     # INVARIANT: Σ(unattributed_value + to_inventory_value) == consumed value.
 
 CashMovement         id, yard_id, business_date, direction ∈ {in, out}, amount,
                      source ∈ {purchase, sale, payment, expense, opening, adjustment},
-                     transaction_id?, note?, created_by, created_at
+                     status ∈ {pending, posted},          # D32 — pending only for unresolved sales
+                     transaction_id?, note?, created_by, created_at, posted_at?
+                     # A pending movement counts toward the DRAWER total but not toward
+                     # revenue, profit or party balances. On resolution the SAME record
+                     # flips to posted atomically with the sale — never a new amount.
 
 DayClose             id, yard_id, business_date, opening_amount, expected_amount,
                      counted_amount, difference, note?, closed_by, closed_at
@@ -855,22 +903,37 @@ consumed_value = consumed_kg × source_avg_cost_per_kg
 for each output i:
     snapshot ref_sell_price_per_kg_i AND its unit AT SAVE TIME    # D27 — frozen, never re-read
     notional_i   = output_kg_i × ref_sell_price_snapshot_i
-notional_total   = Σ notional_i over outputs that HAVE a snapshot price  # loss contributes nothing
+notional_total   = Σ notional_i over ALL outputs        # loss contributes nothing
+    # if ANY output lacks a snapshot price → do not allocate at all; defer (rule 5b)
 for each priced output i:
     value_i          = consumed_value × notional_i / notional_total
     cost_per_kg_i    = value_i / output_kg_i
     then apply rule 3 to material i using cost_per_kg_i
 
-# D28 — missing price: never invent an allocation. Two paths:
+# D28/D33 — missing price: never invent an allocation. Two paths:
 #   (a) owner enters a reference value inline  → allocate normally
-#   (b) DEFER → post the WEIGHT movement now (stock is correct immediately);
-#       mark those outputs is_cost_unallocated = true, cost_per_kg = null;
+#   (b) DEFER (all-or-nothing) → post the WEIGHT movement now (stock is correct immediately);
+#       hold the ENTIRE consumed_value as unallocated_regrade_cost on the regrade entry;
+#       flag all outputs "تكلفة غير محددة", cost_per_kg = null;
 #       any sale of them reports profit as "غير محسوب" (E19);
-#       hold the unallocated remainder against the regrade and show it in the attention list;
-#       when the owner supplies the value later, allocate PROSPECTIVELY —
-#       do NOT rewrite sales already reported as "غير محسوب" (consistent with D26).
-# If ALL outputs have price 0 → allocation_method = weight_fallback, and say so on screen.
-# store: allocation_method, allocation_snapshot_at, and every price snapshot (D27).
+#       NEVER allocate only among the priced outputs — that reproduces the distortion.
+
+# 5b. Resolving a deferred allocation later (D33)
+#     Uses the ORIGINAL output quantities and the STORED snapshots.
+for each output i:
+    value_i        = consumed_value × notional_i / notional_total     # as in rule 5
+    sold_kg_i      = min(Σ outbound of material i between regrade and resolution, output_kg_i)
+    remaining_kg_i = output_kg_i − sold_kg_i
+    unattributed_i = value_i × sold_kg_i      / output_kg_i   # → "تكلفة فرز غير منسوبة"
+    to_inventory_i = value_i × remaining_kg_i / output_kg_i   # → inventory value only
+# unattributed_i is reported as a named cost line in the CURRENT period.
+# It is NOT added to inventory and NOT attributed to the profit of those past sales,
+# which keep showing "غير محسوب" and are NEVER rewritten (D26).
+# to_inventory_i is added to material i's inventory value; then:
+#     new_avg_cost_per_kg = (current_value + to_inventory_i) / current_quantity_kg
+# Σ(unattributed_i + to_inventory_i) over all outputs == consumed_value  (must hold exactly)
+# sold_kg_i is a ledger approximation: no lot tracking (D24), stock is fungible. Label as such.
+# store: allocation_method, allocation_snapshot_at, resolved_at, and every price snapshot (D27).
 # No processing cost, no yields, no labour (D13). Label all results "تكلفة وربح تقريبي".
 
 # 6. Stock
@@ -947,16 +1010,26 @@ and the legitimate way forward, never just refuse.
 6. **Safe-recovery flow verified end to end (D29 — release-blocking):** an operator sells above the balance → the sale is saved complete, nothing moves, the operator continues working → the owner resolves it with one adjustment → the sale posts atomically with **no field re-entered by anyone**, stock never goes negative at any moment, and the daily close is blocked while it is pending.
 7. **Regrade allocation verified** against the worked example in §4: 1,000 kg mixed at 20/kg → 100 kg copper + 900 kg iron yields ≈169.49/kg and ≈3.39/kg, not 20/kg each (D21).
 8. **Regrade snapshot verified (D27):** after saving a regrade, changing the reference sell prices does **not** alter that regrade's allocation, its cost per kg, or any downstream average cost; the stored prices and method are visible when the entry is reopened.
-9. **Deferred allocation verified (D28):** a regrade with one unpriced output posts the weight movement, flags that output's cost as unallocated, reports profit on its sales as `غير محسوب`, and completes prospectively when the owner supplies the value — without rewriting sales already reported as `غير محسوب`.
-10. **Directory separation verified:** a yard user cannot modify central data by any route including direct API calls; one yard's relationship layer is invisible to another yard; admin-only fields (source, verifier, verification note) are never returned to a yard user (D30).
-11. **Historical correction verified both ways:** an open-day correction replays and changes subsequent sale costs; a closed-day correction refuses to rewrite and produces a `فروق تصحيح مشتريات سابقة` line dated today (D26).
-12. Arabic RTL verified on a real Android device **and** on a desktop browser, including printed and shared receipts.
-13. A full day operable end to end: open → purchases → sales → expenses → payment → regrade → close with a counted amount → next day opens with the correct balance.
-14. Automated tests cover §9.2 in full: deduction variants, per-line unit conversion, weighted average across multiple purchases, sale cost snapshot, relative-sales-value allocation with snapshots, deferred allocation, replay ordering, cost adjustment, reversals, pending stock resolution, blocked negative stock, zero-cost sale, stagnation indicators.
-15. **Privacy notice matches the corrected wording in Part 4 verbatim**, and no screen, string or marketing asset claims concealment from any authority (D25, R12). The directory carries its "contact information, not a recommendation" statement (R18).
-16. Performance budgets in Part 4 measured on a real device, not assumed.
-17. Setup completed by a non-technical person in under 10 minutes, unaided.
-18. No secrets in the repository; all configuration via environment variables.
+9. **Deferred allocation verified (D28):** a regrade with one unpriced output posts the weight movement, holds the entire consumed value as unallocated, reports profit on its sales as `غير محسوب`, and never allocates partially among the priced outputs only.
+10. **Deferred allocation resolution verified — exact numeric test (D33, release-blocking):**
+    - Given 1,000 kg of `مخلوط` in stock at 20.00/kg (value 20,000.00), regraded into 100 kg `نحاس` (no reference sell price) and 900 kg `حديد` (snapshot reference sell price 8.00/kg), and the owner defers the allocation,
+    - and 50 kg of the copper and 400 kg of the iron are subsequently sold (both reporting profit `غير محسوب`),
+    - when the owner later supplies a copper reference sell price of 400.00/kg and resolves the allocation,
+    - then allocation over the **original** quantities gives copper 100×400 = 40,000 and iron 900×8 = 7,200, total notional 47,200 → **copper 16,949.15 (169.4915/kg)** and **iron 3,050.85 (3.3898/kg)**;
+    - and the sold shares — **copper 8,474.58** (50/100) and **iron 1,355.93** (400/900), **total 9,830.51** — are recorded as `تكلفة فرز غير منسوبة` in the current period and added to **no** inventory;
+    - and only the remaining shares — **copper 8,474.58** (50 kg) and **iron 1,694.92** (500 kg), **total 10,169.49** — are added to inventory value and folded into the weighted-average cost of the quantity on hand;
+    - and 9,830.51 + 10,169.49 = **20,000.00** exactly;
+    - and the four earlier sales are **not** rewritten and still report `غير محسوب`.
+11. **Pending cash verified — exact test (D32, release-blocking):** an operator's above-balance sale collecting 12,000 creates one pending cash movement of 12,000; revenue, profit and the party balance are unchanged; the drawer's expected total includes it while `الرصيد المتوقع من العمليات المرحّلة` does not; on resolution the **same record** flips to posted atomically with the sale, the cash box total is unchanged by the flip, and the ledger contains exactly one 12,000 movement — never two.
+12. **Directory separation verified:** a yard user cannot modify central data by any route including direct API calls; one yard's relationship layer is invisible to another yard; admin-only fields (source, verifier, verification note) are never returned to a yard user (D30). An `unverified` or `outdated` entity is never displayed as if confirmed (D31).
+13. **Historical correction verified both ways:** an open-day correction replays and changes subsequent sale costs; a closed-day correction refuses to rewrite and produces a `فروق تصحيح مشتريات سابقة` line dated today (D26).
+14. Arabic RTL verified on a real Android device **and** on a desktop browser, including printed and shared receipts.
+15. A full day operable end to end: open → purchases → sales → expenses → payment → regrade → close with a counted amount → next day opens with the correct balance.
+16. Automated tests cover §9.2 in full: deduction variants, per-line unit conversion, weighted average across multiple purchases, sale cost snapshot, relative-sales-value allocation with snapshots, **deferred allocation and its sold/remaining resolution split**, replay ordering, cost adjustment, reversals, **pending stock resolution and pending cash conversion**, blocked negative stock, zero-cost sale, stagnation indicators.
+17. **Privacy notice matches the corrected wording in Part 4 verbatim**, and no screen, string or marketing asset claims concealment from any authority (D25, R12). The directory carries its "contact information, not a recommendation" statement (R18).
+18. Performance budgets in Part 4 measured on a real device, not assumed.
+19. Setup completed by a non-technical person in under 10 minutes, unaided.
+20. No secrets in the repository; all configuration via environment variables.
 
 ### 9.5 Do not build in the MVP
 Everything in §5, plus: multi-branch, advanced processing, third role, hardware integration, English UI,
@@ -991,21 +1064,17 @@ These four cannot be, because they are facts about a specific business's behavio
 
 ---
 
-### Owner decision required before launch — not a yard-owner question
+### Owner decision — resolved
 
-**Who curates the central buyers directory, and at what recurring cost?** FR-16A is the first part of the product
-that is an ongoing service rather than software: somebody must gather the initial entries, verify phone numbers,
-and re-verify them periodically. This is a real recurring cost and a reputational commitment (R18), and it is the
-owner's call, not a product decision.
+**The central buyers directory is approved for the MVP (D31).** Both layers ship together. We own curation as an
+ongoing service. Rollout order: **البحيرة → الإسكندرية → القاهرة والجيزة**, then the rest of the country
+gradually. Opening materials: iron, copper, aluminium, plastic, paper/cardboard. Every entity carries a
+verification status and a last-verified date, and **an unverified entity is never presented as if its data were
+confirmed** — this is a display requirement, not a preference (FR-16A, DoD #12).
 
-**Recommendation:** launch the central directory **small and honest** — one governorate and the three or four
-materials that matter most, seeded from publicly advertised business contact details, every entry marked
-`unverified` until someone has actually called it. Do not launch a large unverified list; a directory that wastes
-an owner's time on dead numbers is worse than no directory. Removal on request is honoured without argument.
-
-**The single approval needed:** confirm that someone will own directory curation as an ongoing task before FR-16A
-ships. If nobody will, the correct decision is to ship only FR-16B (the private relationship layer) in the MVP and
-add the central layer later — which is a clean split, since the two layers are separate by design.
+The recurring curation cost and the reputational exposure in R18 are accepted by the owner. The mitigations in
+R18 remain binding: visible statuses, the "contact information, not a recommendation" statement, user reports,
+and removal on request.
 
 ---
 
