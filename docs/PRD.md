@@ -1017,7 +1017,7 @@ and the legitimate way forward, never just refuse.
     - when the owner later supplies a copper reference sell price of 400.00/kg and resolves the allocation,
     - then allocation over the **original** quantities gives copper 100×400 = 40,000 and iron 900×8 = 7,200, total notional 47,200 → **copper 16,949.15 (169.4915/kg)** and **iron 3,050.85 (3.3898/kg)**;
     - and the sold shares — **copper 8,474.58** (50/100) and **iron 1,355.93** (400/900), **total 9,830.51** — are recorded as `تكلفة فرز غير منسوبة` in the current period and added to **no** inventory;
-    - and only the remaining shares — **copper 8,474.58** (50 kg) and **iron 1,694.92** (500 kg), **total 10,169.49** — are added to inventory value and folded into the weighted-average cost of the quantity on hand;
+    - and only the remaining shares — **copper 8,474.57** (50 kg; the rounding residue stays inside the output so the total is exact) and **iron 1,694.92** (500 kg), **total 10,169.49** — are added to inventory value and folded into the weighted-average cost of the quantity on hand;
     - and 9,830.51 + 10,169.49 = **20,000.00** exactly;
     - and the four earlier sales are **not** rewritten and still report `غير محسوب`.
 11. **Pending cash verified — exact test (D32, release-blocking):** an operator's above-balance sale collecting 12,000 creates one pending cash movement of 12,000; revenue, profit and the party balance are unchanged; the drawer's expected total includes it while `الرصيد المتوقع من العمليات المرحّلة` does not; on resolution the **same record** flips to posted atomically with the sale, the cash box total is unchanged by the flip, and the ledger contains exactly one 12,000 movement — never two.

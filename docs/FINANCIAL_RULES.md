@@ -72,7 +72,8 @@ cost_per_kg_i  = value_i / output_kg_i                                     -- 6 
 sold_kg_i      = min(Σ outbound of material i between regrade and resolution, output_kg_i)
 remaining_kg_i = output_kg_i − sold_kg_i
 unattributed_i = round(value_i × sold_kg_i      / output_kg_i, 2)   -- current period cost line
-to_inventory_i = value_i − unattributed_i                            -- inventory only
+to_inventory_i = value_i − unattributed_i    -- inventory only; keeps the rounding residue
+                                             -- INSIDE the output so the sum is exact
 new_avg        = (current_value + to_inventory_i) / current_quantity_kg
 ```
 `Σ(unattributed_i + to_inventory_i) = consumed_value` **exactly**. Past sales are never rewritten and keep
@@ -120,7 +121,7 @@ Not inventory age. No FIFO implied.
 | **G-6** | From G-5, sell 400 kg @ 20.00 | revenue 8,000.00 · cost 4,800.00 · **profit 3,200.00** · margin **40.000 %** |
 | **G-7** | Sell 100 kg @ 15.00 where avg cost = 0 | revenue 1,500.00 · profit **`غير محسوب`** (not 100 %) |
 | **G-8** | Regrade 1,000 kg @ 20.00 (= 20,000.00) → 100 kg copper (sell 400.00) + 900 kg iron (sell 8.00) | notional 40,000 / 7,200 / 47,200 · copper **16,949.15** (**169.491500**/kg) · iron **3,050.85** (**3.389833**/kg) · Σ = **20,000.00** |
-| **G-9** | G-8 deferred (copper unpriced), 50 kg copper + 400 kg iron sold, then copper priced at 400.00 and resolved | unattributed **9,830.51** (copper 8,474.58 + iron 1,355.93) · to inventory **10,169.49** (copper 8,474.58 + iron 1,694.92) · Σ = **20,000.00** · past sales remain `غير محسوب` |
+| **G-9** | G-8 deferred (copper unpriced), 50 kg copper + 400 kg iron sold, then copper priced at 400.00 and resolved | unattributed **9,830.51** (copper 8,474.58 + iron 1,355.93) · to inventory **10,169.49** (copper **8,474.57** + iron 1,694.92) · Σ = **20,000.00** · past sales remain `غير محسوب` |
 | **G-10** | Opening 45,000.00; posted in 20,000.00; posted out 8,000.00; pending in 12,000.00 | expected_posted **57,000.00** · pending **12,000.00** · expected_in_drawer **69,000.00** |
 | **G-11** | G-10 counted 68,600.00 | difference **−400.00** |
 | **G-12** | Closed-day purchase corrected: recorded 5,000.00, correct 4,600.00, current qty 500 kg @ 12.000000 | delta **−400.00** · new avg **11.200000**/kg · current period shows `فروق تصحيح مشتريات سابقة` −400.00 |
