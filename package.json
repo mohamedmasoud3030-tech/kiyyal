@@ -1,0 +1,35 @@
+{
+  "name": "kayyal",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "npm run typecheck && npm run guard:decimal",
+    "guard:decimal": "node scripts/guard-decimal.mjs",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/domain",
+    "test:db": "vitest run tests/db/schema.test.ts tests/db/immutability.test.ts",
+    "test:rls": "vitest run tests/db/isolation.test.ts tests/db/real-postgres-security.test.ts",
+    "test:auth": "vitest run tests/auth",
+    "test:atomicity": "vitest run tests/services",
+    "test:watch": "vitest",
+    "gate:staging": "node scripts/staging-gate.mjs"
+  },
+  "dependencies": {
+    "decimal.js": "^10.4.3",
+    "hash-wasm": "^4.12.0",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.17",
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.23.1",
+    "embedded-postgres": "^18.4.0-beta.17",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
