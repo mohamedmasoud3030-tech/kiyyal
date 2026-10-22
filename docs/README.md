@@ -1,5 +1,11 @@
 # Kayyal (كيّال) — Documentation Index
 
+One canonical set (portfolio rule, 2026-10-22): this index and the files it
+lists are the only documentation. Stage reports and the PRD changelog were
+removed 2026-10-22 (their standing conclusions are in `STATUS.md`); Git
+history is the archive. Current state: [`STATUS.md`](STATUS.md). Decisions:
+the register is [`adr/`](adr/) (0001–0012) summarized in `ARCHITECTURE.md`.
+
 Scrap yard operations system for Egypt. **Read `PROJECT_RULES.md` first.**
 
 ## Source-of-truth hierarchy
@@ -22,7 +28,6 @@ contract is deliberately changed.
 |---|---|
 | [PROJECT_RULES.md](PROJECT_RULES.md) | **Read first.** Non-negotiable rules |
 | [PRD.md](PRD.md) | Product definition v2.2 (approved) |
-| [PRD-changelog.md](PRD-changelog.md) | How the PRD evolved and why |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Stack and architecture, ADR-01…12 |
 | [adr/](adr/) | Domain and safety decision records 0001…0012 |
 | [DATABASE_CONTRACT.md](DATABASE_CONTRACT.md) | Every table, column, type, constraint, index |
@@ -45,5 +50,4 @@ contract is deliberately changed.
 | [PRIVACY_SECURITY_RULES.md](PRIVACY_SECURITY_RULES.md) | Data, claims, secrets, rights |
 | [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md) | Environments, backups, incidents, recovery |
 | [TRACEABILITY_MATRIX.md](TRACEABILITY_MATRIX.md) | Every MUST → data, API, permission, test, screen |
-| [STAGE_MINUS_1_REPORT.md](STAGE_MINUS_1_REPORT.md) | Baseline v1 gate report |
 | [pilot-yard-visit-checklist.md](pilot-yard-visit-checklist.md) | Field guide for the pilot visit |
