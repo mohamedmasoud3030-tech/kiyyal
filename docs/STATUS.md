@@ -21,3 +21,15 @@ history — the finance source asset behind the Nile engines.
 Source asset (not a selling surface). One PR is frozen pending a security
 review (portfolio register 1.2). Any resumption starts from `PRD.md` +
 `PROJECT_RULES.md` and the contract set, not from the frozen PR.
+
+---
+
+## قرار المالك — استئناف رسمي (2026-10-21 · مركز القيادة)
+
+قرر المالك **استئناف** هذا المشروع (وليس تجميده). الخطوات المعتمدة بالترتيب:
+
+1. فتح **Stage 1** رسمياً بقرار من المالك — النطاق المقترح: أول واجهة مشغّل (شاشة وزن/استلام يومية) وفق `docs/PRD.md`.
+2. إضافة **GitHub Actions CI** (typecheck + lint + test) قبل أي كود جديد — المستودع حالياً بلا CI.
+3. بند مؤجل بقرار المالك: إعادة تسمية المستودع `bug-free-garbanzo` → `kayyal`.
+
+> مصدر هذا القرار: مستودع `command-center-` (جلسة إدارة المحفظة 2026-10-21). يُكمل حملة «canonical documentation set» المدموجة في 2026-10-22 ولا يعارضها.
