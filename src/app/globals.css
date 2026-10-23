@@ -108,3 +108,14 @@
 .cost-adjustment-confirmation{display:flex;align-items:flex-start;gap:.625rem;color:var(--color-ink);font-weight:700}
 .cost-adjustment-confirmation input{accent-color:var(--color-primary);flex:none;inline-size:1rem;block-size:1rem;margin-block-start:.2rem}
 @media (max-width:37.4375rem){.cost-adjustment-form,.cost-adjustment-source-facts,.cost-adjustment-result{grid-template-columns:1fr}}
+
+/* ── Login page: collapsed secondary operator access ────────────────────── */
+.login-operator{border:1px solid var(--color-border);background:var(--color-surface);border-radius:1rem;margin-block-start:1rem}
+.login-operator>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:1rem 1.25rem;font-weight:800;color:var(--color-primary-strong)}
+.login-operator>summary::-webkit-details-marker{display:none}
+.login-operator>summary::after{content:"";inline-size:.625rem;block-size:.625rem;border-inline-end:2px solid currentColor;border-block-end:2px solid currentColor;flex:none;transform:rotate(45deg);transition:transform .15s ease}
+.login-operator[open]>summary{border-block-end:1px solid var(--color-border)}
+.login-operator[open]>summary::after{transform:rotate(225deg)}
+.login-operator__body{display:grid;gap:1rem;padding:1.25rem}
+.login-operator__hint{color:var(--color-muted);font-size:.9375rem;margin:0}
+@media (prefers-reduced-motion:reduce){.login-operator>summary::after{transition:none}}
