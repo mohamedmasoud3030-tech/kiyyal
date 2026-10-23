@@ -69,7 +69,7 @@ export const ar = {
     csrfPreparing: 'يجري تجهيز حماية الدخول…',
     csrfUnavailable: 'تعذر تجهيز حماية الدخول. أعد تحميل الصفحة ثم حاول مرة أخرى.',
     ownerTitle: 'دخول مالك الساحة',
-    ownerDescription: 'يتم التحقق من جلسة المالك عبر مزود الهوية المؤسسي؛ لا يوجد بديل محلي أو رقم تعريف شخصي للمالك.',
+    ownerDescription: 'أدخل رقم هاتفك المسجّل وكلمة المرور للوصول إلى ساحتك.',
     ownerPhoneLabel: 'رقم الهاتف',
     ownerPasswordLabel: 'كلمة المرور',
     ownerSignInAction: 'دخول المالك',
