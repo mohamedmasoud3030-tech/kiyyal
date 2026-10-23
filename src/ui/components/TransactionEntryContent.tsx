@@ -231,7 +231,16 @@ export function TransactionEntryContent({ type }: { readonly type: EntryType }) 
     return <PageContainer><StatePanel description={ar.transactionEntry.materialsUnavailableDescription} title={ar.transactionEntry.materialsUnavailableTitle} tone="warning" /></PageContainer>;
   }
   if (loadState.materials.length === 0) {
-    return <PageContainer><StatePanel description={ar.transactionEntry.noMaterialsDescription} title={ar.transactionEntry.noMaterialsTitle} tone="warning" /></PageContainer>;
+    return (
+      <PageContainer>
+        <StatePanel
+          action={<Link className="ui-button ui-button--primary ui-button--md" href="/materials">{ar.transactionEntry.setupMaterialsAction}</Link>}
+          description={ar.transactionEntry.noMaterialsDescription}
+          title={ar.transactionEntry.noMaterialsTitle}
+          tone="warning"
+        />
+      </PageContainer>
+    );
   }
   if (result) {
     const pending = result.status === 'pending_stock_resolution';

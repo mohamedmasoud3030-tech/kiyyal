@@ -537,6 +537,7 @@ export const ar = {
     materialsUnavailableDescription: 'لم تُرسل أي عملية. أعد المحاولة بعد عودة الخدمة.',
     noMaterialsTitle: 'لا توجد أصناف مفعّلة',
     noMaterialsDescription: 'يحتاج المالك إلى إعداد صنف مفعّل قبل تسجيل شراء أو بيع.',
+    setupMaterialsAction: 'إعداد الأصناف الآن',
     savedTitle: 'تم حفظ العملية',
     pendingStockTitle: 'سُجلت العملية بانتظار تسوية المخزون',
     savedDescription: 'تم تأكيد النتيجة من الخادم. يمكنك مراجعة الحركة من متابعة اليوم.',
