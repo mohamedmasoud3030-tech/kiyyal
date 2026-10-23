@@ -32,6 +32,12 @@ export const ar = {
     required: 'مطلوب',
     validationTitle: 'راجع الحقول التالية',
   },
+  theme: {
+    toggle: 'المظهر',
+    light: 'نهاري',
+    dark: 'ليلي',
+    system: 'تلقائي',
+  },
   units: {
     currencyShort: 'ج.م',
     currencyLong: 'جنيه مصري',

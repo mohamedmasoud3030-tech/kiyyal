@@ -119,3 +119,72 @@
 .login-operator__body{display:grid;gap:1rem;padding:1.25rem}
 .login-operator__hint{color:var(--color-muted);font-size:.9375rem;margin:0}
 @media (prefers-reduced-motion:reduce){.login-operator>summary::after{transition:none}}
+
+/* ═══ Theme v2 — UI/UX Pro Max: minimal swiss × data-dense · نهاري/ليلي ═══ */
+
+/* ── Refinements shared by both modes ──────────────────────────────────── */
+.ui-section{box-shadow:0 1px 2px #17211d10,0 12px 28px -16px #17211d22}
+.ui-button{transition:background-color .2s ease,color .2s ease,border-color .2s ease,transform .2s ease,box-shadow .2s ease}
+.ui-button:hover:not(:disabled){transform:translateY(-1px)}
+.ui-button:active:not(:disabled){transform:translateY(0)}
+.app-shell__nav-link,.app-shell__mobile-nav-link,.ui-link,.theme-toggle{transition:background-color .2s ease,color .2s ease,border-color .2s ease}
+.inventory-list__item,.operational-list__item{transition:background-color .2s ease}
+.inventory-list__item:hover,.operational-list__item:hover{background:#f7faf8}
+.theme-toggle{min-block-size:2.75rem;min-inline-size:2.75rem;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-muted);border-radius:999px;align-items:center;justify-content:center;gap:.5rem;padding-block:.5rem;padding-inline:.875rem;font-size:.875rem;font-weight:700;cursor:pointer;display:inline-flex}
+.theme-toggle:hover{color:var(--color-ink);border-color:var(--color-primary)}
+.theme-toggle__label{white-space:nowrap}
+
+/* ── Night (explicit choice) ───────────────────────────────────────────── */
+:root[data-theme="dark"]{color-scheme:dark;--color-ink:#e7ece9;--color-muted:#9eb3a9;--color-surface:#17201d;--color-page:#111713;--color-border:#2a3731;--color-primary:#2e946e;--color-primary-strong:#9edec6;--color-primary-soft:#16382c;--color-warning:#f0b45c;--color-warning-soft:#3a2d12;--color-danger:#e08585;--color-danger-soft:#3c1c1c;--color-success:#2e946e;--color-focus:#7aaaff}
+:root[data-theme="dark"],:root[data-theme="dark"] body{background:var(--color-page)!important}
+:root[data-theme="dark"] .ui-section{box-shadow:0 1px 2px #00000059,0 12px 28px -16px #0000008c}
+:root[data-theme="dark"] .ui-section--muted{background:#1c2622}
+:root[data-theme="dark"] .ui-section--critical{border-color:#8a6224}
+:root[data-theme="dark"] .ui-button--danger{color:#1a0e0e}
+:root[data-theme="dark"] .ui-button--danger:hover:not(:disabled){background:#c76a6a}
+:root[data-theme="dark"] .ui-button--tertiary:hover:not(:disabled){background:#1f2a25}
+:root[data-theme="dark"] .ui-link{color:var(--color-primary-strong)}
+:root[data-theme="dark"] .text-input::placeholder,:root[data-theme="dark"] .numeric-input__control::placeholder{color:#7f9389}
+:root[data-theme="dark"] .text-input:disabled,:root[data-theme="dark"] .numeric-input__control:disabled{background:#1c2622}
+:root[data-theme="dark"] .validation-summary{border-color:#8a4848}
+:root[data-theme="dark"] .status-badge{background:#1c2622}
+:root[data-theme="dark"] .ui-alert--info{background:#16202e;border-color:#35507a}
+:root[data-theme="dark"] .ui-alert--success{border-color:#2f7a55}
+:root[data-theme="dark"] .ui-alert--warning{border-color:#8a6224}
+:root[data-theme="dark"] .ui-alert--danger{border-color:#8a4848}
+:root[data-theme="dark"] .state-panel{box-shadow:0 .75rem 2.25rem #00000066}
+:root[data-theme="dark"] .state-panel--warning{border-color:#8a6224}
+:root[data-theme="dark"] .state-panel--danger{border-color:#8a4848}
+:root[data-theme="dark"] .app-shell__mobile-nav{background:#111713f2}
+:root[data-theme="dark"] .form-actions--sticky-mobile{background:#111713f2;box-shadow:0 .5rem 1.5rem #00000075}
+:root[data-theme="dark"] .transaction-receipt{box-shadow:0 .75rem 2.25rem #00000059}
+:root[data-theme="dark"] .inventory-list__item:hover,:root[data-theme="dark"] .operational-list__item:hover{background:#1b2622}
+
+/* ── Night (device default — no stored choice) ─────────────────────────── */
+@media (prefers-color-scheme:dark){
+:root:not([data-theme="light"]){color-scheme:dark;--color-ink:#e7ece9;--color-muted:#9eb3a9;--color-surface:#17201d;--color-page:#111713;--color-border:#2a3731;--color-primary:#2e946e;--color-primary-strong:#9edec6;--color-primary-soft:#16382c;--color-warning:#f0b45c;--color-warning-soft:#3a2d12;--color-danger:#e08585;--color-danger-soft:#3c1c1c;--color-success:#2e946e;--color-focus:#7aaaff}
+:root:not([data-theme="light"]),:root:not([data-theme="light"]) body{background:var(--color-page)!important}
+:root:not([data-theme="light"]) .ui-section{box-shadow:0 1px 2px #00000059,0 12px 28px -16px #0000008c}
+:root:not([data-theme="light"]) .ui-section--muted{background:#1c2622}
+:root:not([data-theme="light"]) .ui-section--critical{border-color:#8a6224}
+:root:not([data-theme="light"]) .ui-button--danger{color:#1a0e0e}
+:root:not([data-theme="light"]) .ui-button--danger:hover:not(:disabled){background:#c76a6a}
+:root:not([data-theme="light"]) .ui-button--tertiary:hover:not(:disabled){background:#1f2a25}
+:root:not([data-theme="light"]) .ui-link{color:var(--color-primary-strong)}
+:root:not([data-theme="light"]) .text-input::placeholder,:root:not([data-theme="light"]) .numeric-input__control::placeholder{color:#7f9389}
+:root:not([data-theme="light"]) .text-input:disabled,:root:not([data-theme="light"]) .numeric-input__control:disabled{background:#1c2622}
+:root:not([data-theme="light"]) .validation-summary{border-color:#8a4848}
+:root:not([data-theme="light"]) .status-badge{background:#1c2622}
+:root:not([data-theme="light"]) .ui-alert--info{background:#16202e;border-color:#35507a}
+:root:not([data-theme="light"]) .ui-alert--success{border-color:#2f7a55}
+:root:not([data-theme="light"]) .ui-alert--warning{border-color:#8a6224}
+:root:not([data-theme="light"]) .ui-alert--danger{border-color:#8a4848}
+:root:not([data-theme="light"]) .state-panel{box-shadow:0 .75rem 2.25rem #00000066}
+:root:not([data-theme="light"]) .state-panel--warning{border-color:#8a6224}
+:root:not([data-theme="light"]) .state-panel--danger{border-color:#8a4848}
+:root:not([data-theme="light"]) .app-shell__mobile-nav{background:#111713f2}
+:root:not([data-theme="light"]) .form-actions--sticky-mobile{background:#111713f2;box-shadow:0 .5rem 1.5rem #00000075}
+:root:not([data-theme="light"]) .transaction-receipt{box-shadow:0 .75rem 2.25rem #00000059}
+:root:not([data-theme="light"]) .inventory-list__item:hover,:root:not([data-theme="light"]) .operational-list__item:hover{background:#1b2622}
+}
+@media (prefers-reduced-motion:reduce){.ui-button:hover:not(:disabled){transform:none}}

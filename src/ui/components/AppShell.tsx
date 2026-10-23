@@ -7,6 +7,7 @@ import { navigationFor } from '../navigation';
 import { classNames } from './classNames';
 import { StatusBadge, type StatusTone } from './StatusBadge';
 import { SignOutButton } from './SignOutButton';
+import { ThemeToggle } from './ThemeToggle';
 
 export interface ConnectionState {
   readonly label: string;
@@ -54,12 +55,14 @@ export function AppShell({ activePath, children, connection, role }: AppShellPro
           </ul>
         </nav>
         {connection ? <StatusBadge label={connection.label} tone={connection.tone} /> : null}
+        <ThemeToggle />
         <SignOutButton />
       </aside>
       <header className="app-shell__mobile-header">
         <Link aria-label={ar.app.name} className="brand" href="/today">{ar.app.name}</Link>
         <div className="app-shell__mobile-session">
           {connection ? <StatusBadge label={connection.label} tone={connection.tone} /> : null}
+          <ThemeToggle />
           <SignOutButton />
         </div>
       </header>
