@@ -10,3 +10,6 @@ coverage/
 .pglite/
 test-results/
 playwright-report/
+deploy_vercel.cjs
+poll.cjs
+.last_deploy.json
