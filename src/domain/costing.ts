@@ -5,7 +5,7 @@
 import {
   Decimal, type EGP, type EGPPerKg, type Kg,
   gt, isZero, roundCost, roundMoney, SCALE,
-} from './decimal.js';
+} from './decimal';
 
 export interface StockState {
   readonly quantityKg: Kg;

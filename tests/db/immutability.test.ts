@@ -29,6 +29,35 @@ beforeEach(async () => {
   `);
 });
 
+/** A minimal valid closed-day source plus its current-day correction child. */
+async function seedCostAdjustmentDetail() {
+  const original = await db.query<{ id: string }>(`
+    INSERT INTO app.transactions
+      (yard_id, type, number, status, business_date, total_amount, amount_cash, idempotency_key, created_by, posted_at)
+    VALUES ('${Y}','purchase',1,'posted',CURRENT_DATE - 1,'20.00','0.00',gen_random_uuid(),'${O}',now())
+    RETURNING id`);
+  const originalId = original.rows[0]!.id;
+  const line = await db.query<{ id: string }>(`
+    INSERT INTO app.transaction_lines
+      (transaction_id, yard_id, material_id, direction, gross_kg, net_kg, unit_price, price_unit, price_per_kg, line_total, line_no)
+    VALUES ('${originalId}','${Y}','${M}','in','1.00','1.00','20.0000','kg','20.000000','20.00',1)
+    RETURNING id`);
+  await db.exec(`
+    INSERT INTO app.day_closes (yard_id, business_date, opening_amount, expected_amount, counted_amount, closed_by)
+    VALUES ('${Y}',CURRENT_DATE - 1,'0','0','0','${O}')`);
+  const adjustment = await db.query<{ id: string }>(`
+    INSERT INTO app.transactions
+      (yard_id, type, number, status, business_date, total_amount, amount_cash, corrects_transaction_id, idempotency_key, created_by, posted_at)
+    VALUES ('${Y}','cost_adjustment',1,'posted',CURRENT_DATE,'0','0','${originalId}',gen_random_uuid(),'${O}',now())
+    RETURNING id`);
+  const adjustmentId = adjustment.rows[0]!.id;
+  await db.exec(`
+    INSERT INTO app.cost_adjustment_details
+      (transaction_id, yard_id, original_transaction_id, original_line_id, material_id, original_line_value, corrected_line_value, correction_reason, created_by)
+    VALUES ('${adjustmentId}','${Y}','${originalId}','${line.rows[0]!.id}','${M}','20.00','18.00','wrong_price','${O}')`);
+  return { adjustmentId, originalId, lineId: line.rows[0]!.id };
+}
+
 describe('DB-1 · stock can never go negative', () => {
   it('rejects a negative quantity outright', async () => {
     await db.exec(`INSERT INTO app.stock_balances (yard_id, material_id, quantity_kg) VALUES ('${Y}','${M}','100.00')`);
@@ -75,6 +104,113 @@ describe('DB-6 · a closed day is immutable', () => {
       INSERT INTO app.cash_movements (yard_id, business_date, direction, amount, source, posted_at, created_by)
       VALUES ('${Y}','2026-08-19','in','10.00','sale', now(), '${O}')`),
     ).rejects.toThrow(/day_closed_immutable/);
+  });
+
+  it('rejects a historical write once a later day has been closed', async () => {
+    await db.exec(`
+      INSERT INTO app.day_closes (yard_id, business_date, opening_amount, expected_amount, counted_amount, closed_by)
+      VALUES ('${Y}','2026-08-20','0','0','0','${O}')`);
+    await expect(db.exec(`
+      INSERT INTO app.transactions (yard_id, type, status, business_date, idempotency_key, created_by)
+      VALUES ('${Y}','purchase','draft','2026-08-19', gen_random_uuid(), '${O}')`),
+    ).rejects.toThrow(/day_closed_immutable/);
+  });
+
+  it('requires the financial write context to create a day close', async () => {
+    await db.exec(`RESET app.posting`);
+    await expect(db.exec(`
+      INSERT INTO app.day_closes (yard_id, business_date, opening_amount, expected_amount, counted_amount, closed_by)
+      VALUES ('${Y}','2026-08-19','0','0','0','${O}')`),
+    ).rejects.toThrow(/direct_ledger_write_forbidden/);
+  });
+
+  it('makes a completed day close immutable', async () => {
+    await db.exec(`
+      INSERT INTO app.day_closes (yard_id, business_date, opening_amount, expected_amount, counted_amount, closed_by)
+      VALUES ('${Y}','2026-08-19','0','0','0','${O}')`);
+    await expect(db.exec(`UPDATE app.day_closes SET note='tamper' WHERE yard_id='${Y}'`)).rejects.toThrow(/day_close_is_immutable/);
+    await expect(db.exec(`DELETE FROM app.day_closes WHERE yard_id='${Y}'`)).rejects.toThrow(/day_close_is_immutable/);
+  });
+});
+
+describe('cost-adjustment detail is generated, structurally bound, and immutable', () => {
+  it('stores only the generated delta and rejects every later mutation', async () => {
+    const { adjustmentId, originalId, lineId } = await seedCostAdjustmentDetail();
+    const detail = await db.query<{
+      original_transaction_id: string; original_line_id: string; original_line_value: string;
+      corrected_line_value: string; delta_value: string; correction_reason: string;
+    }>(`SELECT original_transaction_id, original_line_id, original_line_value, corrected_line_value, delta_value, correction_reason
+         FROM app.cost_adjustment_details WHERE transaction_id='${adjustmentId}'`);
+    expect(detail.rows[0]).toEqual({
+      original_transaction_id: originalId, original_line_id: lineId, original_line_value: '20.00',
+      corrected_line_value: '18.00', delta_value: '-2.00', correction_reason: 'wrong_price',
+    });
+    await expect(db.exec(`UPDATE app.cost_adjustment_details SET corrected_line_value='19.00' WHERE transaction_id='${adjustmentId}'`))
+      .rejects.toThrow(/cost_adjustment_detail_is_immutable/);
+    await expect(db.exec(`DELETE FROM app.cost_adjustment_details WHERE transaction_id='${adjustmentId}'`))
+      .rejects.toThrow(/cost_adjustment_detail_is_immutable/);
+  });
+
+  it('rejects a child whose original source value does not match the immutable purchase line', async () => {
+    const { adjustmentId, originalId, lineId } = await seedCostAdjustmentDetail();
+    const another = await db.query<{ id: string }>(`
+      INSERT INTO app.transactions
+        (yard_id, type, number, status, business_date, total_amount, amount_cash, corrects_transaction_id, idempotency_key, created_by, posted_at)
+      VALUES ('${Y}','cost_adjustment',2,'posted',CURRENT_DATE,'0','0','${originalId}',gen_random_uuid(),'${O}',now())
+      RETURNING id`);
+    await expect(db.exec(`
+      INSERT INTO app.cost_adjustment_details
+        (transaction_id, yard_id, original_transaction_id, original_line_id, material_id, original_line_value, corrected_line_value, correction_reason, created_by)
+      VALUES ('${another.rows[0]!.id}','${Y}','${originalId}','${lineId}','${M}','19.99','18.00','wrong_price','${O}')`))
+      .rejects.toThrow(/invalid_cost_adjustment_original_line/);
+    expect((await db.query(`SELECT transaction_id FROM app.cost_adjustment_details WHERE transaction_id='${adjustmentId}'`)).rows).toHaveLength(1);
+  });
+
+  it('cannot disguise a value-only correction as cash, party debt, or a physical line', async () => {
+    const { adjustmentId, originalId } = await seedCostAdjustmentDetail();
+    await expect(db.exec(`
+      INSERT INTO app.transactions
+        (yard_id, type, number, status, business_date, total_amount, amount_cash, corrects_transaction_id, idempotency_key, created_by, posted_at)
+      VALUES ('${Y}','cost_adjustment',2,'posted',CURRENT_DATE,'1.00','0','${originalId}',gen_random_uuid(),'${O}',now())`))
+      .rejects.toThrow(/tx_cost_adjustment_shape/);
+    await expect(db.exec(`
+      INSERT INTO app.transaction_lines
+        (transaction_id, yard_id, material_id, direction, gross_kg, net_kg, unit_price, price_unit, price_per_kg, line_total, line_no)
+      VALUES ('${adjustmentId}','${Y}','${M}','in','1.00','1.00','1.0000','kg','1.000000','1.00',1)`))
+      .rejects.toThrow(/cost_adjustment_transaction_line_forbidden/);
+    await expect(db.exec(`
+      INSERT INTO app.cash_movements
+        (yard_id, business_date, direction, amount, source, transaction_id, posted_at, created_by)
+      VALUES ('${Y}',CURRENT_DATE,'in','1.00','sale','${adjustmentId}',now(),'${O}')`))
+      .rejects.toThrow(/cost_adjustment_cash_forbidden/);
+  });
+
+  it('requires a current open correction header when attaching the immutable child', async () => {
+    const { originalId, lineId } = await seedCostAdjustmentDetail();
+    const laterHeader = await db.query<{ id: string }>(`
+      INSERT INTO app.transactions
+        (yard_id, type, number, status, business_date, total_amount, amount_cash, corrects_transaction_id, idempotency_key, created_by, posted_at)
+      VALUES ('${Y}','cost_adjustment',2,'posted',CURRENT_DATE + 1,'0','0','${originalId}',gen_random_uuid(),'${O}',now())
+      RETURNING id`);
+    await expect(db.exec(`
+      INSERT INTO app.cost_adjustment_details
+        (transaction_id, yard_id, original_transaction_id, original_line_id, material_id, original_line_value, corrected_line_value, correction_reason, created_by)
+      VALUES ('${laterHeader.rows[0]!.id}','${Y}','${originalId}','${lineId}','${M}','20.00','18.00','wrong_price','${O}')`))
+      .rejects.toThrow(/invalid_cost_adjustment_header/);
+
+    const currentHeader = await db.query<{ id: string }>(`
+      INSERT INTO app.transactions
+        (yard_id, type, number, status, business_date, total_amount, amount_cash, corrects_transaction_id, idempotency_key, created_by, posted_at)
+      VALUES ('${Y}','cost_adjustment',3,'posted',CURRENT_DATE,'0','0','${originalId}',gen_random_uuid(),'${O}',now())
+      RETURNING id`);
+    await db.exec(`
+      INSERT INTO app.day_closes (yard_id, business_date, opening_amount, expected_amount, counted_amount, closed_by)
+      VALUES ('${Y}',CURRENT_DATE,'0','0','0','${O}')`);
+    await expect(db.exec(`
+      INSERT INTO app.cost_adjustment_details
+        (transaction_id, yard_id, original_transaction_id, original_line_id, material_id, original_line_value, corrected_line_value, correction_reason, created_by)
+      VALUES ('${currentHeader.rows[0]!.id}','${Y}','${originalId}','${lineId}','${M}','20.00','18.00','wrong_price','${O}')`))
+      .rejects.toThrow(/day_closed_immutable/);
   });
 });
 

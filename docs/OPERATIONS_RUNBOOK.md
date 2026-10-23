@@ -14,9 +14,8 @@ Environments never share a database, a secret or a Supabase project.
 
 ## 2. Secrets
 Held in the platform's secret store (Vercel environment variables), never in the repository.
-`DATABASE_URL` (runtime role) · `MIGRATION_DATABASE_URL` (migrator role, CI only) · Supabase URL and anon key ·
-Supabase JWT secret · session pepper · Argon2 parameters.
-**`SUPABASE_SERVICE_ROLE_KEY` is not present in production runtime** — the boot check fails if it is.
+`DATABASE_URL` (runtime role) · `MIGRATION_DATABASE_URL` (migrator role, CI only) · `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` · matching build-time `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` · session pepper · Argon2 parameters.
+The Next.js application does **not** need a Supabase JWT secret because owner identity is verified provider-side. **`SUPABASE_SERVICE_ROLE_KEY` is not present in production runtime** — the boot check fails if it is.
 Rotation: annually, on any staff change, and immediately on suspected exposure.
 
 ## 3. Backups

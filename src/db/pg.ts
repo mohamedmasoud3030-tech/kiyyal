@@ -1,6 +1,6 @@
 /** node-postgres adapter. Production and integration tests use this. */
 import pg from 'pg';
-import type { Database, Queryable, QueryResult } from './types.js';
+import type { Database, Queryable, QueryResult } from './types';
 
 // Return numeric as a string, never a JS float (ADR-0004).
 pg.types.setTypeParser(1700, (v) => v);            // numeric

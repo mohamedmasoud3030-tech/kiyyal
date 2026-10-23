@@ -20,6 +20,12 @@ jobs:
       - name: Lint + decimal/RTL guard (ADR-0004, CODING_RULES)
         run: npm run guard:decimal
 
+      - name: UI foundation rendering
+        run: npm run test:ui
+
+      - name: Production build
+        run: npm run build
+
       - name: Unit + golden calculations (FINANCIAL_RULES §11)
         run: npm run test:unit
 

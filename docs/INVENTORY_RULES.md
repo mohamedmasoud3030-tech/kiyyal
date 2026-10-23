@@ -1,6 +1,6 @@
 # Inventory Rules
 
-**Version:** 1.0 · **Sources:** PRD FR-5, D22, D24, D29, D33 · ADR-0005, 0006, 0007
+**Version:** 1.1 · **Sources:** PRD FR-5, D22, D24, D29, D33 · ADR-0005, 0006, 0007, 0014
 
 ## 1. Derivation
 Stock is **derived from the ledger**, never authored:
@@ -16,7 +16,7 @@ quantity_kg = Σ posted inbound net_kg − Σ posted outbound net_kg
 |---|---|---|
 | Purchase line | in | Recomputes weighted average |
 | Opening balance | in | Seeds quantity and average cost |
-| Adjustment (increase) | in | Requires a cost per kg (defaults to current average) |
+| Adjustment (increase) | in | Requires an explicit cost per kg; UI may visibly prefill current average |
 | Regrade output | in | Allocated cost (ADR-0007), or unallocated if deferred |
 | Sale line | out | Consumes at the current average; snapshot stored on the line |
 | Adjustment (decrease) | out | At the current average; capped at available quantity |
@@ -40,18 +40,21 @@ When an outbound movement exceeds the balance:
 | **Owner** | Inline on the same screen: stock adjustment (reason required) or record the missing purchase → the transaction posts immediately in the same interaction |
 | **Operator** | Cannot create stock. The sale is saved complete as `pending_stock_resolution`: affects no posted figure, records **pending cash** if money was taken (ADR-0009), tops the attention list, and **blocks the daily close** |
 
-Resolution posts the original data atomically — original device timestamp, original business date if still open.
+Resolution posts the original data atomically — original device timestamp, original business date if still open. If a physical correction is used, it first creates a linked immutable `adjustment` header/line (`corrects_transaction_id` points at the held sale) on the server-current day, then posts the original sale and flips its existing pending cash row; no second cash movement is created.
 If a genuine purchase clears the shortfall first, the sale posts directly with no adjustment (E28).
 
 ## 6. Adjustments
-Owner only. Mandatory reason: `physical_count` · `loss` · `theft` · `weighing_error` · `correction`.
-A decrease is capped at the available quantity. An increase requires a cost per kg. Every adjustment is a ledger
-row with an actor, a reason and an audit entry — never a direct edit (R-04).
+Owner only. Mandatory reason: `physical_count` · `loss` · `theft` · `weighing_error` · `correction`; `loss` and
+`theft` are decrease-only. A decrease is capped at the locked available quantity and stores the current average as
+its frozen cost; it accepts no browser cost. An increase requires an explicit cost per kg. Every adjustment is a
+posted header and one line with actor, reason and audit entry — never a direct edit (R-04).
 
 ## 7. Opening stock
-Entered at setup or when a material is added later: quantity + optional cost per kg. Posts as an `opening`
-transaction. **Not required** — a yard may start from zero (FR-15). Without a cost, sales of that stock report
-profit as `غير محسوب` (G-7), and the material is flagged so the owner can set one.
+Entered at setup or when a material is added later: quantity + optional source cost per kg. Posts as an inbound
+`opening` transaction on the server-current Cairo day only when the active material has neither a stock row nor any
+historical line. **Not required** — a yard may start from zero (FR-15). Without a cost, the movement stores a NULL
+cost snapshot and is labelled `تكلفة غير محددة`, never a known zero; sales while the moving average remains zero
+report profit as `غير محسوب` (G-7). A later historical-cost correction is its own FR-10 workflow, not a second opening.
 
 ## 8. Physical count
 MVP: a `physical_count` adjustment recording the counted quantity; the system posts the difference.

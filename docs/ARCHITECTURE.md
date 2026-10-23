@@ -3,7 +3,7 @@
 **Version:** 1.0
 **Date:** 2026-08-20
 **Basis:** `docs/PRD.md` v2.2 (approved)
-**Status:** Proposed for owner approval. No code written yet.
+**Status:** Approved technical direction with a current implementation checkpoint on 2026-09-10. Stage 0/domain/database foundations and an authenticated web subset are implemented; configured provider/browser journeys remain `IMPLEMENTED BUT NOT VERIFIED`. See `INTERFACE_MIGRATION_PLAN.md` for route-level limits.
 
 Format: one Architecture Decision Record (ADR) per choice — decision, why, what was rejected, and how reversible
 it is. Reversibility matters more than elegance: this is a one-yard MVP that must survive being wrong.
@@ -22,7 +22,7 @@ it is. Reversibility matters more than elegance: this is a one-yard MVP that mus
 | Central directory is shared across tenants | FR-16A | A deliberately non-tenant-scoped table set, read-only to yard users. |
 | ≤30 s purchase entry, ≤300 ms local save confirmation, ≤300 KB JS | FR-2, Part 4 Performance | Small bundle, optimistic UI, no heavy client framework baggage. |
 | Arabic-first RTL on phone and desktop | D4, Part 4 Localization | RTL-native styling with logical properties; not an LTR app with a flipped stylesheet. |
-| Resilient-online, upgradeable to a full offline queue | D23, FR-14, S-09 | Service worker + a local outbox + idempotency keys from day one. |
+| Resilient-online, upgradeable to a full offline queue | D23, FR-14, S-09 | Server idempotency keys are implemented; service worker/local outbox are `NOT STARTED` and must not be claimed as current resilience. |
 
 ---
 
@@ -84,24 +84,20 @@ no ops capacity, and losing a yard's ledger to a bad backup is unacceptable).
 
 ---
 
-## ADR-04 — Data access: Drizzle ORM over a direct Postgres connection (not PostgREST)
+## ADR-04 — Data access: typed `pg` adapter over a direct Postgres connection (not PostgREST)
 
-**Decision.** Drizzle ORM with `postgres.js`, connecting to Postgres directly from the Next.js server.
+**Decision.** The implemented server data layer uses `pg` behind the small `Database` / `Queryable` interfaces in `src/db/types.ts`, with `PgDatabase` in `src/db/pg.ts`. It connects directly from Next.js route handlers and services.
 **The browser never talks to the database.** Supabase's auto-generated PostgREST API is not used by the app.
 
 **Why.** Supabase's headline pattern — the client querying the database directly with RLS as the only guard — is
 wrong for this product. Every financial write here is a multi-table posting with arithmetic that must not be
 computable by the client (FR-2, FR-3, FR-9, D32). Routing writes through the server is what makes DoD #2 provable.
+The small adapter preserves explicit `FOR UPDATE`, transaction-local RLS context, and SQL migrations while retaining
+typed query-result seams for tests. PostgreSQL `numeric` and `int8` parsers are explicitly returned as strings.
 
-**Why Drizzle over Prisma.** SQL-first and explicit, so `FOR UPDATE`, CTEs and the replay query in FR-10 are
-written plainly rather than fought with. It returns `numeric` as a **string**, which prevents the silent
-float-rounding bug that would otherwise be the most expensive defect in this system. Migrations are plain SQL files
-that can be reviewed.
+**Rejected.** Prisma (heavier generated abstraction and awkward SQL for guarded posting) · browser PostgREST (see above) · an ORM not present in the runtime. The earlier Drizzle/`postgres.js` proposal is superseded by this implemented adapter.
 
-**Rejected.** Prisma (returns `Decimal` objects, heavier runtime, awkward raw SQL) · raw `pg` with hand-written SQL
-(no type safety on a 14-entity schema) · PostgREST from the client (see above).
-
-**Reversibility.** Medium-high — Drizzle is a thin layer over SQL. Confidence: high.
+**Reversibility.** High — service code targets the `Database` interface and standard SQL. Confidence: high.
 
 ---
 
@@ -201,19 +197,16 @@ can see nothing financial even when authenticated (§6, DoD #2).
 
 **Reversibility.** Medium-high. Both halves are behind one `getAuthContext()` boundary.
 
-## ADR-08 — Styling and UI: Tailwind CSS v4 with logical properties, Radix primitives, no component library
+## ADR-08 — Styling and UI: Tailwind CSS v4 with logical properties; no component library
 
-**Decision.** Tailwind CSS v4, RTL-native via CSS logical properties (`ms-`/`me-`/`ps-`/`pe-`, never `ml-`/`mr-`).
-`<html dir="rtl" lang="ar">`. Unstyled accessible primitives from Radix UI for dialogs, popovers and selects.
-No Material/Ant/Chakra.
+**Decision.** Tailwind CSS v4 plus RTL-native CSS logical properties is implemented (`<html dir="rtl" lang="ar">`). No Material/Ant/Chakra or broad component library is used. Radix primitives are a future option for verified dialogs/popovers/selects; Radix is not currently installed and no overlay abstraction is claimed.
 
 **Why.** The PRD's interface requirements are unusual and specific: 48 px targets, 24 px+ bold numbers, sunlight
 contrast, one-thumb reach, a large-button material grid instead of dropdowns, and a genuinely different desktop
 layout. A general-purpose component library would be fought with, not used. Tailwind's logical properties make RTL
 correct by construction rather than by a flipping plugin.
 
-**Fonts.** IBM Plex Sans Arabic (self-hosted, subset) — high legibility at small sizes and clear numerals, which is
-what matters on a dusty phone in the sun.
+**Fonts.** The current CSS prefers IBM Plex Sans Arabic when the device provides it, then Arabic-capable system fallbacks. No self-hosted webfont asset is currently bundled; font-subset delivery remains `NOT STARTED`.
 
 **Rejected.** MUI/Ant (heavy, LTR-first, wrong ergonomics) · shadcn/ui as a whole (useful patterns, but we need
 roughly eight bespoke components, not fifty).
@@ -222,13 +215,15 @@ roughly eight bespoke components, not fifty).
 
 ---
 
-## ADR-09 — PWA and resilience: Serwist service worker + an IndexedDB outbox
+## ADR-09 — PWA and resilience target: service worker + IndexedDB outbox
 
-**Decision.**
-- **Serwist** (the maintained successor to `next-pwa`) for the service worker: precache the app shell, stale-while-revalidate for reference data (materials, prices, favourites, recent parties, directory).
-- **An outbox in IndexedDB** (`idb-keyval`) holding writes that were interrupted, each with a client-generated UUID **idempotency key**, retried with exponential backoff.
-- **Server-assigned sequential numbers** (ADR-10), so a retry can never mint a duplicate number.
-- Drafts of in-progress entries persisted locally so a dead battery loses nothing (E8).
+**Decision (target architecture; implementation status: `NOT STARTED`).**
+- A future service-worker choice (such as Serwist) would precache the app shell and safely cache reference data.
+- A future IndexedDB outbox would hold interrupted writes, each with a client-generated UUID **idempotency key**, retried with exponential backoff.
+- **Server-assigned sequential numbers** (ADR-10), so a retry can never mint a duplicate number, are implemented independently.
+- Local persistence of in-progress drafts remains future work.
+
+No service worker, IndexedDB outbox, or local draft persistence is currently installed. The browser must remain online while a current write is submitted; idempotency protects a retry after an ambiguous network outcome but is not an offline queue.
 
 **Why this exact shape.** It delivers the MVP requirement — *no entry is ever lost* — while deferring the expensive
 part (a multi-hour offline queue, S-09). Because the idempotency key and server-side numbering are in place from
@@ -272,17 +267,17 @@ properties. They belong in one auditable place with database-level backup, not s
 
 ---
 
-## ADR-11 — Testing: Vitest for the money math, Playwright for the DoD scenarios
+## ADR-11 — Testing: Vitest and real-Postgres security tests; browser E2E remains a target
 
 **Decision.**
-- **Vitest** unit tests over the pure domain layer. The twenty release-gate calculations in §9.2 and the DoD are encoded as test cases, including the two exact numeric scenarios the owner specified: the 169.4915 / 3.3898 regrade split, and the 9,830.51 / 10,169.49 deferred resolution summing to exactly 20,000.00.
-- **Playwright** end-to-end tests for the DoD journeys: the safe-recovery flow (DoD #6), pending-cash conversion (#11), the full-day cycle (#15), and operator-permission probes issued as **direct API calls** (#2).
-- **RLS tests** that connect as the application role and assert that cross-yard reads return nothing.
-- CI on every push: typecheck → lint → unit → build → E2E.
+- **Vitest** covers pure domain calculations, services, route/UI rendering assertions, and real-Postgres integration/RLS suites. The financial release-gate calculations include the two exact numeric scenarios the owner specified: the 169.4915 / 3.3898 regrade split, and the 9,830.51 / 10,169.49 deferred resolution summing to exactly 20,000.00.
+- **RLS tests** connect through the application role/context and assert cross-yard and operator-output isolation.
+- CI runs the available scripts: typecheck/decimal guard, UI rendering, build, unit, database, RLS/auth/atomicity, then the full suite.
+- Browser E2E (for example Playwright) is a future target, not an installed dependency or an evidence source for the current checkpoint. Authenticated visual, keyboard, viewport, and configured-provider flows therefore remain `BLOCKED BY OWNER OR EXTERNAL ACTION` until run in a suitable environment.
 
-**Why.** The PRD makes these release-blocking. A gate that is not automated is not a gate.
+**Why.** The PRD makes these release-blocking. A gate that is not automated is not a gate; equally, a browser claim without a runnable browser gate is not evidence.
 
-**Reversibility.** N/A. Confidence: high.
+**Reversibility.** N/A. Confidence: high for current test evidence; browser coverage pending.
 
 ---
 
@@ -326,16 +321,16 @@ later is a deployment change, not a rewrite. Confidence: high.
 |---|---|
 | Language | TypeScript (strict) |
 | Framework | Next.js 16, App Router — **latest patched stable at implementation time**; automated dependency/security updates enabled |
-| UI | React 19 · Tailwind CSS v4 (logical properties, RTL) · Radix primitives · IBM Plex Sans Arabic |
-| State | React Server Components + minimal client state; TanStack Query only where optimistic updates need it |
-| API | Next.js route handlers (REST), explicit request bodies, idempotency keys |
+| UI | React 19 · Tailwind CSS v4/logical CSS (Arabic RTL); no broad component library currently installed |
+| State | Server page guards plus focused React client state/hooks; no TanStack Query currently installed |
+| API | Next.js route handlers (REST), explicit request bodies, CSRF and idempotency keys for business mutations |
 | Domain | Framework-free TypeScript modules under `src/domain/**` |
-| Money math | `decimal.js-light` with branded types |
-| ORM | Drizzle ORM + `postgres.js` |
+| Money math | `decimal.js` with branded types |
+| Data access | Typed `pg` adapter + explicit SQL transactions |
 | Database | PostgreSQL 15+ (Supabase, EU) with RLS |
-| Auth | **Hybrid:** Supabase Auth (owner) + narrow Argon2id PIN layer with opaque server sessions (operator) |
-| PWA | Serwist service worker + IndexedDB outbox + idempotency keys |
-| Testing | Vitest (unit) · Playwright (E2E, RLS, permission probes) |
+| Auth | **Hybrid:** provider-verified Supabase Auth browser session (owner) + narrow Argon2id PIN layer with opaque server sessions (operator) |
+| PWA | `NOT STARTED`; no service worker or IndexedDB outbox is currently installed |
+| Testing | Vitest (unit/service/real-Postgres RLS) · browser E2E `BLOCKED BY OWNER OR EXTERNAL ACTION` in this environment |
 | CI/CD | GitHub Actions → Vercel |
 | Hosting | Vercel + Supabase |
 

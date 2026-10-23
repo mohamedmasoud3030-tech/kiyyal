@@ -2,9 +2,10 @@
  * Operator sessions: opaque token, hashed at rest, revocable, rotatable, expiring.
  * Contract: docs/AUTH_SESSION_CONTRACT.md §2 and §3 · ADR-0001
  */
-import type { Database, Queryable } from '../db/types.js';
-import type { AuthContext } from './context.js';
-import { generateSessionToken, hashSessionToken, verifyPin } from './hash.js';
+import type { Database, Queryable } from '../db/types';
+import { applyContext, type AuthContext } from './context';
+import { generateSessionToken, hashSessionToken, verifyPin } from './hash';
+import { requireCapability } from '../server/capabilities';
 
 export const IDLE_TIMEOUT_MS = 12 * 60 * 60 * 1000;      // 12 hours (FR-13)
 export const ABSOLUTE_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
@@ -32,12 +33,39 @@ export class AuthError extends Error {
 export async function signInOperator(
   db: Database, yardId: string, displayName: string, pin: string, meta: { userAgent?: string; ipHash?: string } = {},
 ): Promise<SignInResult> {
-  const { rows } = await db.query<UserRow>(
+  return signInOperatorByLookup(
+    db, pin, meta,
     `SELECT id, yard_id, role, display_name, pin_hash, failed_attempts, locked_until, is_active
-       FROM app.users
-      WHERE yard_id = $1 AND lower(display_name) = lower($2) AND role = 'operator'`,
+       FROM app.auth_lookup_operator($1::uuid, $2::text)`,
     [yardId, displayName],
   );
+}
+
+/** Shared-device login uses an owner-provisioned code rather than exposing a UUID in UI. */
+export async function signInOperatorWithCode(
+  db: Database, operatorLoginCode: string, displayName: string, pin: string,
+  meta: { userAgent?: string; ipHash?: string } = {},
+): Promise<SignInResult> {
+  return signInOperatorByLookup(
+    db, pin, meta,
+    `SELECT id, yard_id, role, display_name, pin_hash, failed_attempts, locked_until, is_active
+       FROM app.auth_lookup_operator_by_code($1::text, $2::text)`,
+    [operatorLoginCode, displayName],
+  );
+}
+
+/** Fixed-query pre-session lookup followed by the common lockout/session flow. */
+async function signInOperatorByLookup(
+  db: Database,
+  pin: string,
+  meta: { userAgent?: string; ipHash?: string },
+  lookupSql: string,
+  lookupParameters: readonly unknown[],
+): Promise<SignInResult> {
+  // This SECURITY DEFINER function is the only pre-session lookup. It discovers
+  // the operator's yard without granting the runtime connection a general
+  // unscoped read of users or sessions (migration 0006/0011).
+  const { rows } = await db.query<UserRow>(lookupSql, lookupParameters);
   const user = rows[0];
 
   // Uniform failure: never reveal whether the display name exists.
@@ -53,6 +81,7 @@ export async function signInOperator(
   if (!ok) {
     // Committed independently so the counter survives the thrown error.
     const locked = await db.transaction(async (tx) => {
+      await applyContext(tx, { yardId: user.yard_id, actorId: user.id, role: 'operator' });
       const r = await tx.query<{ failed_attempts: number; locked: boolean }>(
         `UPDATE app.users
             SET failed_attempts = CASE WHEN failed_attempts + 1 >= $2 THEN 0 ELSE failed_attempts + 1 END,
@@ -62,7 +91,7 @@ export async function signInOperator(
         [user.id, MAX_FAILED_ATTEMPTS],
       );
       const didLock = r.rows[0]?.locked === true;
-      await audit(tx, yardId, user.id, 'operator', 'auth.pin_failed', 'user', user.id,
+      await audit(tx, user.yard_id, user.id, 'operator', 'auth.pin_failed', 'user', user.id,
         didLock ? 'locked_after_5_attempts' : 'failed_attempt');
       return didLock;
     });
@@ -71,15 +100,16 @@ export async function signInOperator(
   }
 
   return db.transaction(async (tx) => {
+    await applyContext(tx, { yardId: user.yard_id, actorId: user.id, role: 'operator' });
     await tx.query(`UPDATE app.users SET failed_attempts = 0, locked_until = NULL WHERE id = $1`, [user.id]);
     const token = generateSessionToken();
     const { rows: s } = await tx.query<{ id: string }>(
       `INSERT INTO app.sessions (yard_id, user_id, token_hash, expires_at, user_agent, ip_hash)
        VALUES ($1, $2, $3, now() + interval '12 hours', $4, $5) RETURNING id`,
-      [yardId, user.id, hashSessionToken(token), meta.userAgent ?? null, meta.ipHash ?? null],
+      [user.yard_id, user.id, hashSessionToken(token), meta.userAgent ?? null, meta.ipHash ?? null],
     );
-    await audit(tx, yardId, user.id, 'operator', 'auth.session_created', 'session', s[0]!.id, null);
-    return { token, sessionId: s[0]!.id, context: { yardId, actorId: user.id, role: 'operator' as const } };
+    await audit(tx, user.yard_id, user.id, 'operator', 'auth.session_created', 'session', s[0]!.id, null);
+    return { token, sessionId: s[0]!.id, context: { yardId: user.yard_id, actorId: user.id, role: 'operator' as const } };
   });
 }
 
@@ -96,28 +126,40 @@ export async function validateSession(db: Database, token: string): Promise<Auth
   if (typeof token !== 'string' || token.length < 20) throw new AuthError('unauthenticated', 'يجب تسجيل الدخول');
   const hash = hashSessionToken(token);
 
-  const { rows } = await db.query<SessionRow>(
-    `SELECT s.id, s.yard_id, s.user_id, s.expires_at, s.revoked_at, s.issued_at, u.role, u.is_active
-       FROM app.sessions s JOIN app.users u ON u.id = s.user_id
-      WHERE s.token_hash = $1`,
-    [hash],
-  );
-  const s = rows[0];
-  if (!s) throw new AuthError('unauthenticated', 'يجب تسجيل الدخول');
-  if (s.revoked_at) throw new AuthError('unauthenticated', 'انتهت الجلسة');
-  if (new Date(s.expires_at) <= new Date()) throw new AuthError('unauthenticated', 'انتهت الجلسة');
-  if (new Date(s.issued_at).getTime() + ABSOLUTE_TIMEOUT_MS <= Date.now()) {
-    throw new AuthError('unauthenticated', 'انتهت الجلسة');
-  }
-  if (!s.is_active) throw new AuthError('unauthenticated', 'الحساب غير مفعّل');
+  return db.transaction(async (tx) => {
+    // No tenant context exists until this fixed-query function finds a session.
+    // The function returns no PIN/token hash and has no general-table caller access.
+    const { rows } = await tx.query<SessionRow>(
+      `SELECT id, yard_id, user_id, expires_at, revoked_at, issued_at, role, is_active
+         FROM app.auth_lookup_operator_session($1::text)`,
+      [hash],
+    );
+    const s = rows[0];
+    if (!s) throw new AuthError('unauthenticated', 'يجب تسجيل الدخول');
+    if (s.revoked_at) throw new AuthError('unauthenticated', 'انتهت الجلسة');
+    if (new Date(s.expires_at) <= new Date()) throw new AuthError('unauthenticated', 'انتهت الجلسة');
+    if (new Date(s.issued_at).getTime() + ABSOLUTE_TIMEOUT_MS <= Date.now()) {
+      throw new AuthError('unauthenticated', 'انتهت الجلسة');
+    }
+    if (!s.is_active) throw new AuthError('unauthenticated', 'الحساب غير مفعّل');
 
-  await db.query(`UPDATE app.sessions SET last_seen_at = now(), expires_at = now() + interval '12 hours' WHERE id = $1`, [s.id]);
-  return { yardId: s.yard_id, actorId: s.user_id, role: s.role === 'owner' ? 'owner' : 'operator' };
+    const context: AuthContext = { yardId: s.yard_id, actorId: s.user_id, role: 'operator' };
+    await applyContext(tx, context);
+    await tx.query(
+      `UPDATE app.sessions
+          SET last_seen_at = now(), expires_at = now() + interval '12 hours'
+        WHERE id = $1 AND user_id = $2`,
+      [s.id, s.user_id],
+    );
+    return context;
+  });
 }
 
 /** Rotation: issue a new token and revoke the old one in the SAME transaction. */
 export async function rotateSession(db: Database, oldToken: string): Promise<{ token: string }> {
+  const context = await validateSession(db, oldToken);
   return db.transaction(async (tx) => {
+    await applyContext(tx, context);
     const oldHash = hashSessionToken(oldToken);
     const { rows } = await tx.query<{ id: string; yard_id: string; user_id: string }>(
       `SELECT id, yard_id, user_id FROM app.sessions
@@ -135,9 +177,39 @@ export async function rotateSession(db: Database, oldToken: string): Promise<{ t
   });
 }
 
+/**
+ * Owner browser sign-in is an explicit shared-device switch. Revoke the opaque
+ * operator token presented by that same browser (if any), then let the route
+ * expire its cookie. A missing/stale token is intentionally a harmless no-op.
+ */
+export async function revokePresentedOperatorSessionForOwnerSwitch(
+  db: Database,
+  ctx: AuthContext,
+  token: string | null,
+): Promise<boolean> {
+  requireCapability(ctx, 'user.manage');
+  if (!token) return false;
+  return db.transaction(async (tx) => {
+    await applyContext(tx, ctx);
+    const result = await tx.query<{ id: string }>(
+      `UPDATE app.sessions
+          SET revoked_at = now(), revoked_by = $3
+        WHERE yard_id = $1 AND token_hash = $2 AND revoked_at IS NULL
+        RETURNING id`,
+      [ctx.yardId, hashSessionToken(token), ctx.actorId],
+    );
+    if (result.rowCount > 0) {
+      await audit(tx, ctx.yardId, ctx.actorId, ctx.role, 'auth.session_revoked', 'session', result.rows[0]!.id, 'owner_sign_in_switch');
+    }
+    return result.rowCount > 0;
+  });
+}
+
 /** Owner action: revoke every session of one operator, instantly (FR-13). */
 export async function revokeUserSessions(db: Database, ctx: AuthContext, userId: string): Promise<number> {
+  requireCapability(ctx, 'user.manage');
   return db.transaction(async (tx) => {
+    await applyContext(tx, ctx);
     const r = await tx.query(
       `UPDATE app.sessions SET revoked_at = now(), revoked_by = $2
         WHERE user_id = $1 AND revoked_at IS NULL`, [userId, ctx.actorId]);
@@ -148,7 +220,9 @@ export async function revokeUserSessions(db: Database, ctx: AuthContext, userId:
 
 /** Owner action: deactivate an operator. Deactivation revokes sessions and preserves history (AUTH-7). */
 export async function deactivateOperator(db: Database, ctx: AuthContext, userId: string): Promise<void> {
+  requireCapability(ctx, 'user.manage');
   await db.transaction(async (tx) => {
+    await applyContext(tx, ctx);
     await tx.query(`UPDATE app.users SET is_active = false WHERE id = $1 AND yard_id = $2`, [userId, ctx.yardId]);
     await tx.query(`UPDATE app.sessions SET revoked_at = now(), revoked_by = $2 WHERE user_id = $1 AND revoked_at IS NULL`,
       [userId, ctx.actorId]);

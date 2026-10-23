@@ -5,8 +5,8 @@
 import {
   Decimal, type EGP, type EGPPerKg, type EGPPerUnit, type Kg, type Percent,
   gt, gte, roundMoney, roundWeight, SCALE, round,
-} from './decimal.js';
-import { toPricePerKg, type PriceUnit } from './units.js';
+} from './decimal';
+import { toPricePerKg, type PriceUnit } from './units';
 
 export type DeductionType = 'none' | 'percent' | 'kg';
 

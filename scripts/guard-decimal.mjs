@@ -45,6 +45,12 @@ for (const root of ROOTS) {
           violations++;
         }
       }
+      const isUiSource = normalized.startsWith('src/app/') || normalized.startsWith('src/ui/components/');
+      if (isUiSource && /[\u0600-\u06ff]/.test(line)) {
+        console.error(`${file}:${i + 1}  [externalized-ui-copy]  UI copy must live in src/ui/copy/.`);
+        console.error(`    ${line.trim()}`);
+        violations++;
+      }
     });
   }
 }

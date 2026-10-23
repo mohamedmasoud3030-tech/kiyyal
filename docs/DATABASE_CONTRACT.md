@@ -1,7 +1,7 @@
 # Database Contract
 
-**Version:** 1.0 (Baseline v1) · **Date:** 2026-08-20 · **Authority:** binding on all migrations and code.
-**Sources:** PRD 2.2 §9.1, §9.2 · ADR-0002, 0004, 0005, 0012
+**Version:** 1.1 (Baseline v1) · **Date:** 2026-09-15 · **Authority:** binding on all migrations and code.
+**Sources:** PRD 2.2 §9.1, §9.2 · ADR-0002, 0004, 0005, 0008, 0012
 
 > This is the **highest authority on database structure**, above any migration and any code. A migration that
 > disagrees with this document is a bug in the migration. Changing the schema means changing this contract first,
@@ -211,8 +211,31 @@ The single header table for every movement. **Append-only; status changes only a
 | cost_snapshot_per_kg | numeric(18,6) | NULL — sales and regrade outputs |
 | line_no | int | NOT NULL, CHECK > 0 |
 
-UNIQUE `(transaction_id, line_no)` · Index `(yard_id, material_id)`
+UNIQUE `(transaction_id, line_no)` · UNIQUE `(id, yard_id)` for cross-tenant child references · Index `(yard_id, material_id)`
 **Immutable after posting.** All of these fields are write-once.
+
+### `app.cost_adjustment_details` — closed-day purchase correction fact
+
+A `cost_adjustment` deliberately has **no zero-weight `transaction_line`**: it changes a material’s prospective value, not physical quantity. Its parent `transactions` row is a posted, current-Cairo-day header with `corrects_transaction_id = original_transaction_id`, zero cash and zero operational total.
+
+| Column | Type | Constraints |
+|---|---|---|
+| transaction_id | uuid | PK; same-yard FK → `transactions(id, yard_id)`; parent type/status must be posted `cost_adjustment` |
+| yard_id | uuid | NOT NULL FK, RLS tenant key |
+| original_transaction_id | uuid | NOT NULL same-yard FK → `transactions`; must be a posted purchase in a closed day |
+| original_line_id | uuid | NOT NULL same-yard FK → `transaction_lines`; must belong to original purchase |
+| material_id | uuid | NOT NULL same-yard FK → `materials`; must equal the original line material |
+| original_line_value | numeric(14,2) | NOT NULL >= 0; trigger verifies immutable equality with the original line total |
+| corrected_line_value | numeric(14,2) | NOT NULL >= 0; owner-entered corrected source value |
+| delta_value | numeric(14,2) | generated `corrected_line_value - original_line_value`; signed current-period `فروق تصحيح مشتريات سابقة` fact |
+| correction_reason | text | NOT NULL CHECK IN (`wrong_weight`,`wrong_price`,`wrong_unit`,`supplier_invoice`,`other`) |
+| created_at, created_by | timestamptz, uuid | NOT NULL; `created_by` must equal parent header creator/current owner |
+
+- Owner-only RLS read/insert; the parent `cost_adjustment` transaction type is likewise blocked for operators, and no runtime `UPDATE` or `DELETE` grant exists for the child.
+- Insert requires the transaction-local approved financial-service `app.posting` window.
+- A narrow SECURITY DEFINER trigger validates the current-Cairo-day zero-money/zero-party header, same-yard original/line/material/value and closed-source/open-current boundary without exposing source rows to an operator; update/delete are unconditionally rejected.
+- `tx_cost_adjustment_shape` plus line/cash triggers prohibit a party debt, non-zero operational amount, physical line or cash movement under this value-only header.
+- A service locks the original line and refuses a second **posted** cost adjustment for it. A later correction must first use the explicit reversal flow when that capability exists.
 
 ### `app.regrade_allocations`
 | Column | Type | Constraints |
@@ -266,7 +289,7 @@ UNIQUE `(transaction_id, line_no)` · Index `(yard_id, material_id)`
 | last_in_date, last_out_date | date | NULL (D24 — no lot tracking) |
 | updated_at | timestamptz | NOT NULL |
 
-PK `(yard_id, material_id)`. Written **only** by `postTransaction()` under `FOR UPDATE`.
+PK `(yard_id, material_id)`. Written **only** by an approved financial posting service under `FOR UPDATE`; `postTransaction()` changes quantity/value for operational movements and `postCostAdjustment()` changes value/average only for a closed-day correction.
 
 ### `app.day_closes`
 | Column | Type | Constraints |
@@ -280,8 +303,9 @@ PK `(yard_id, material_id)`. Written **only** by `postTransaction()` under `FOR 
 | note | text | NULL |
 | closed_at, closed_by | | NOT NULL |
 
-UNIQUE `(yard_id, business_date)` · **A closed date is immutable** (ADR-0008), enforced by a trigger that rejects
-any insert or update of a ledger row whose `business_date` is closed.
+UNIQUE `(yard_id, business_date)` · **A closed date is immutable** (ADR-0008). A database trigger rejects any
+insert or update of a ledger row on or before a closed reconciliation boundary; a separate immutable trigger
+rejects updates/deletes of the close itself. Insert requires the transaction-local financial-service write context.
 
 ### `app.transaction_counters`
 | Column | Type | Constraints |
@@ -371,10 +395,11 @@ Free-text taxonomy, matched to a yard's own materials by name — the yard's tax
 **Server-generated — a client value in these fields is rejected, never trusted:**
 `id` · `number` · `created_at` · `posted_at` · `price_per_kg` · `line_total` · `net_kg` · `total_amount` ·
 `balance_amount` · `cost_snapshot_per_kg` · `weighted_avg_cost_per_kg` · `total_value` · `difference` ·
-every `allocated_*`, `unattributed_value`, `to_inventory_value` · every audit column.
+`cost_adjustment_details.original_line_value` · `.delta_value` · every `allocated_*`, `unattributed_value`,
+`to_inventory_value` · every audit column.
 
 **Immutable after posting — no `UPDATE` path exists:**
-all of `transaction_lines` · all of `regrade_allocations` except the resolution columns (write-once) ·
+all of `transaction_lines` · all of `cost_adjustment_details` · all of `regrade_allocations` except the resolution columns (write-once) ·
 `transactions.number`, `.type`, `.business_date`, `.created_by`, `.idempotency_key`, `.total_amount` ·
 `cash_movements.amount`, `.direction`, `.source` · every row in `audit_log` · every row in `day_closes`.
 

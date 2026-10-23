@@ -46,7 +46,7 @@ describe('the runtime role is genuinely least-privilege', () => {
   });
 
   it('cannot DELETE from any ledger table (SEC-9)', async () => {
-    for (const table of ['transactions', 'transaction_lines', 'cash_movements', 'stock_balances', 'audit_log']) {
+    for (const table of ['transactions', 'transaction_lines', 'cost_adjustment_details', 'cash_movements', 'stock_balances', 'audit_log']) {
       await expect(asYard(A.yardId, 'owner', A.ownerId, (tx) => tx.query(`DELETE FROM app.${table}`)))
         .rejects.toThrow(/permission denied/i);
     }
@@ -127,12 +127,113 @@ describe('SEC-3 · forged yard_id fails at the database, not only in code', () =
   });
 });
 
+describe('closed-day cost-adjustment detail owner boundary', () => {
+  it('is visible only to its owner tenant and cannot be directly inserted or updated by the runtime role', async () => {
+    // Keep the close isolated to a fresh tenant: a closed financial day
+    // intentionally blocks subsequent historic writes in the shared A fixture.
+    const C = await seedYard(t.admin, 'تسوية', await hashPin('3333'));
+    const fixture = await t.admin.transaction(async (tx) => {
+      await tx.query(`SELECT set_config('app.posting', 'on', true)`);
+      await tx.query(`SET LOCAL TIME ZONE 'Africa/Cairo'`);
+
+      const createSourceAndHeader = async (number: number, createdBy: string) => {
+        const source = await tx.query<{ id: string }>(
+          `INSERT INTO app.transactions
+             (yard_id, type, number, status, business_date, total_amount, amount_cash, idempotency_key, created_by, posted_at)
+           VALUES ($1,'purchase',$2,'posted',CURRENT_DATE - 1,'20.00','0.00',gen_random_uuid(),$3,now())
+           RETURNING id`, [C.yardId, number, createdBy]);
+        const originalId = source.rows[0]!.id;
+        const line = await tx.query<{ id: string }>(
+          `INSERT INTO app.transaction_lines
+             (transaction_id, yard_id, material_id, direction, gross_kg, net_kg, unit_price, price_unit, price_per_kg, line_total, line_no)
+           VALUES ($1,$2,$3,'in','1.00','1.00','20.0000','kg','20.000000','20.00',1)
+           RETURNING id`, [originalId, C.yardId, C.copperId]);
+        const adjustment = await tx.query<{ id: string }>(
+          `INSERT INTO app.transactions
+             (yard_id, type, number, status, business_date, total_amount, amount_cash, corrects_transaction_id, idempotency_key, created_by, posted_at)
+           VALUES ($1,'cost_adjustment',$2,'posted',CURRENT_DATE,0,0,$3,gen_random_uuid(),$4,now())
+           RETURNING id`, [C.yardId, number, originalId, createdBy]);
+        return { adjustmentId: adjustment.rows[0]!.id, originalId, lineId: line.rows[0]!.id };
+      };
+
+      // Both header pairs exist before closing their source day. The owner pair
+      // proves read isolation; the operator's otherwise-valid pair reaches RLS
+      // after SECURITY DEFINER structural validation, proving the owner-only
+      // INSERT policy without exposing the historical source row.
+      const ownerFixture = await createSourceAndHeader(900001, C.ownerId);
+      const operatorFixture = await createSourceAndHeader(900002, C.operatorId);
+      await tx.query(
+        `INSERT INTO app.day_closes
+           (yard_id, business_date, opening_amount, expected_amount, counted_amount, pending_amount, closed_by)
+         VALUES ($1,CURRENT_DATE - 1,0,0,0,0,$2)`, [C.yardId, C.ownerId],
+      );
+      await tx.query(
+        `INSERT INTO app.cost_adjustment_details
+           (transaction_id, yard_id, original_transaction_id, original_line_id, material_id, original_line_value, corrected_line_value, correction_reason, created_by)
+         VALUES ($1,$2,$3,$4,$5,'20.00','18.00','wrong_price',$6)`,
+        [ownerFixture.adjustmentId, C.yardId, ownerFixture.originalId, ownerFixture.lineId, C.copperId, C.ownerId],
+      );
+      return { ownerFixture, operatorFixture };
+    });
+
+    const ownerRows = await asYard(C.yardId, 'owner', C.ownerId, (tx) =>
+      tx.query<{ delta_value: string }>(`SELECT delta_value FROM app.cost_adjustment_details WHERE transaction_id = $1`, [fixture.ownerFixture.adjustmentId]));
+    expect(ownerRows.rows).toEqual([{ delta_value: '-2.00' }]);
+    const operatorRows = await asYard(C.yardId, 'operator', C.operatorId, (tx) =>
+      tx.query(`SELECT * FROM app.cost_adjustment_details`));
+    expect(operatorRows.rows).toHaveLength(0);
+    // The fixture includes an operator-created current-day header; normal
+    // transaction RLS would reveal it, so zero rows proves the new type policy.
+    const operatorHeaders = await asYard(C.yardId, 'operator', C.operatorId, (tx) =>
+      tx.query(`SELECT id FROM app.transactions WHERE type = 'cost_adjustment'`));
+    expect(operatorHeaders.rows).toHaveLength(0);
+    const otherYardRows = await asYard(B.yardId, 'owner', B.ownerId, (tx) =>
+      tx.query(`SELECT * FROM app.cost_adjustment_details`));
+    expect(otherYardRows.rows).toHaveLength(0);
+
+    await expect(asYard(C.yardId, 'operator', C.operatorId, async (tx) => {
+      await tx.query(`SELECT set_config('app.posting', 'on', true)`);
+      return tx.query(
+        `INSERT INTO app.cost_adjustment_details
+           (transaction_id, yard_id, original_transaction_id, original_line_id, material_id, original_line_value, corrected_line_value, correction_reason, created_by)
+         VALUES ($1,$2,$3,$4,$5,'20.00','18.00','wrong_price',$6)`,
+        [
+          fixture.operatorFixture.adjustmentId, C.yardId, fixture.operatorFixture.originalId,
+          fixture.operatorFixture.lineId, C.copperId, C.operatorId,
+        ],
+      );
+    })).rejects.toThrow(/row-level security/i);
+    await expect(asYard(C.yardId, 'operator', C.operatorId, async (tx) => {
+      await tx.query(`SELECT set_config('app.posting', 'on', true)`);
+      return tx.query(
+        `INSERT INTO app.transactions
+           (yard_id, type, number, status, business_date, total_amount, amount_cash, corrects_transaction_id, idempotency_key, created_by, posted_at)
+         VALUES ($1,'cost_adjustment',900003,'posted',CURRENT_DATE,0,0,$2,gen_random_uuid(),$3,now())`,
+        [C.yardId, fixture.operatorFixture.originalId, C.operatorId],
+      );
+    })).rejects.toThrow(/row-level security/i);
+    await expect(asYard(C.yardId, 'owner', C.ownerId, (tx) =>
+      tx.query(`UPDATE app.cost_adjustment_details SET corrected_line_value = '19.00' WHERE transaction_id = $1`, [fixture.ownerFixture.adjustmentId])))
+      .rejects.toThrow(/permission denied/i);
+  });
+});
+
 describe('SEC-4 · operator restrictions hold at the database', () => {
   beforeAll(async () => {
     await t.admin.query(`SET app.posting = 'on'`);
     await t.admin.query(
       `INSERT INTO app.cash_movements (yard_id, business_date, direction, amount, source, posted_at, created_by)
        VALUES ($1,'2026-08-20','in','5000.00','sale', now(), $2)`, [A.yardId, A.ownerId]);
+    // Same yard, three identities/dates: the operator may only see its own
+    // current Cairo business-day header despite the generic tenant policy.
+    await t.admin.query(`SET TIME ZONE 'Africa/Cairo'`);
+    await t.admin.query(
+      `INSERT INTO app.transactions (yard_id, type, status, business_date, idempotency_key, created_by)
+       VALUES ($1,'purchase','draft',CURRENT_DATE,gen_random_uuid(),$2),
+              ($1,'purchase','draft',CURRENT_DATE,gen_random_uuid(),$3),
+              ($1,'purchase','draft','2026-01-01',gen_random_uuid(),$2)`,
+      [A.yardId, A.operatorId, A.ownerId]);
+    await t.admin.query(`RESET TIME ZONE`);
     await t.admin.query(`RESET app.posting`);
   });
 
@@ -146,6 +247,41 @@ describe('SEC-4 · operator restrictions hold at the database', () => {
   it('operator sees zero audit rows (AUD-6)', async () => {
     const op = await asYard(A.yardId, 'operator', A.operatorId, (tx) => tx.query(`SELECT * FROM app.audit_log`));
     expect(op.rows).toHaveLength(0);
+  });
+
+  it('operator sees only its own current-business-day transaction (SEC-5)', async () => {
+    const op = await asYard(A.yardId, 'operator', A.operatorId, (tx) =>
+      tx.query<{ created_by: string; business_date: string }>(`SELECT created_by, business_date::text FROM app.transactions`));
+    expect(op.rows).toHaveLength(1);
+    expect(op.rows[0]!.created_by).toBe(A.operatorId);
+  });
+
+  it('operator sees only itself in the user table and cannot update a material', async () => {
+    const users = await asYard(A.yardId, 'operator', A.operatorId, (tx) =>
+      tx.query<{ id: string }>(`SELECT id FROM app.users`));
+    expect(users.rows).toEqual([{ id: A.operatorId }]);
+
+    const update = await asYard(A.yardId, 'operator', A.operatorId, (tx) =>
+      tx.query(`UPDATE app.materials SET display_name='محاولة غير مصرح بها' WHERE id=$1`, [A.copperId]));
+    expect(update.rowCount).toBe(0);
+  });
+
+  it('operator cannot attach a line to an owner-created transaction', async () => {
+    const header = await t.admin.transaction(async (tx) => {
+      await tx.query(`SELECT set_config('app.posting', 'on', true)`);
+      return tx.query<{ id: string }>(
+        `INSERT INTO app.transactions (yard_id, type, status, business_date, idempotency_key, created_by)
+         VALUES ($1,'purchase','draft','2026-08-20',gen_random_uuid(),$2) RETURNING id`,
+        [A.yardId, A.ownerId]);
+    });
+    await expect(asYard(A.yardId, 'operator', A.operatorId, async (tx) => {
+      await tx.query(`SELECT set_config('app.posting', 'on', true)`);
+      return tx.query(
+        `INSERT INTO app.transaction_lines (transaction_id, yard_id, material_id, direction, gross_kg, net_kg,
+           unit_price, price_unit, price_per_kg, line_total, line_no)
+         VALUES ($1,$2,$3,'in','1.00','1.00','1.0000','kg','1.000000','1.00',1)`,
+        [header.rows[0]!.id, A.yardId, A.copperId]);
+    })).rejects.toThrow(/row-level security/i);
   });
 });
 

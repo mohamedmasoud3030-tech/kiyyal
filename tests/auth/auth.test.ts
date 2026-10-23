@@ -6,9 +6,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { freshRealDatabase, seedYard, stopServer, type TestDb, type Seed } from '../db/pg-harness.js';
 import { hashPin, hashSessionToken, generateSessionToken, verifyPin } from '../../src/auth/hash.js';
 import {
-  AuthError, deactivateOperator, revokeUserSessions, rotateSession, signInOperator, validateSession,
+  AuthError, deactivateOperator, revokePresentedOperatorSessionForOwnerSwitch, revokeUserSessions, rotateSession,
+  signInOperator, signInOperatorWithCode, validateSession,
 } from '../../src/auth/session.js';
 import { resolveYardId, requireOwner, SecurityError } from '../../src/auth/context.js';
+import { assertSafeRuntimeEnvironment, getRuntimeDatabase, resetRuntimeDatabaseForTests } from '../../src/server/runtimeDb.js';
+import { hasPotentialWebSessionCookie, isSupabaseAuthCookieName } from '../../src/auth/cookies.js';
+import { operatorCookieFallbackAllowed } from '../../src/server/requestAuth.js';
+import { supabasePublicConfiguration } from '../../src/server/supabase.js';
 
 let t: TestDb; let A: Seed; let B: Seed;
 const PIN = '4271';
@@ -40,6 +45,60 @@ describe('AUTH-1/2 · hashing', () => {
   });
 });
 
+describe('runtime database configuration', () => {
+  it('accepts a non-bypass LOGIN member of app_runtime, not only the NOLOGIN group role', async () => {
+    const previous = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = `postgres://${t.runtimeUser}:rtpw@localhost:${process.env.TEST_PG_PORT ?? '55433'}/${t.dbName}`;
+    await resetRuntimeDatabaseForTests();
+    try {
+      const db = await getRuntimeDatabase();
+      expect((await db.query<{ current_user: string }>('SELECT current_user')).rows[0]!.current_user).toBe(t.runtimeUser);
+    } finally {
+      await resetRuntimeDatabaseForTests();
+      if (previous === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = previous;
+    }
+  });
+});
+
+describe('runtime environment guard', () => {
+  it('fails closed when a Supabase service credential is placed in the web runtime', () => {
+    expect(() => assertSafeRuntimeEnvironment({ ...process.env, SUPABASE_SERVICE_ROLE_KEY: 'must-not-be-here' }))
+      .toThrow(/must not be present/);
+  });
+});
+
+describe('browser session cookie recognition', () => {
+  it('recognizes only Supabase auth-token chunks and never treats a verifier cookie as a session', () => {
+    expect(isSupabaseAuthCookieName('sb-project-auth-token')).toBe(true);
+    expect(isSupabaseAuthCookieName('sb-project-auth-token.1')).toBe(true);
+    expect(isSupabaseAuthCookieName('sb-project-auth-token-code-verifier')).toBe(false);
+    expect(hasPotentialWebSessionCookie([{ name: 'kayyal_operator_session' }])).toBe(true);
+    expect(hasPotentialWebSessionCookie([{ name: 'sb-project-auth-token.0' }])).toBe(true);
+    expect(hasPotentialWebSessionCookie([{ name: 'sb-project-auth-token-code-verifier' }])).toBe(false);
+  });
+
+  it('blocks a stale owner cookie from falling back to a shared-device operator cookie', () => {
+    const operatorOnly = new Request('https://example.test/api/session', {
+      headers: { cookie: 'kayyal_operator_session=operator-token' },
+    });
+    const mixed = new Request('https://example.test/api/session', {
+      headers: { cookie: 'kayyal_operator_session=operator-token; sb-project-auth-token.0=stale' },
+    });
+    expect(operatorCookieFallbackAllowed(operatorOnly)).toBe(true);
+    expect(operatorCookieFallbackAllowed(mixed)).toBe(false);
+  });
+
+  it('requires HTTPS for a production provider configuration', () => {
+    expect(() => supabasePublicConfiguration({
+      NODE_ENV: 'production', SUPABASE_URL: 'http://provider.example.test', SUPABASE_ANON_KEY: 'public-key',
+    })).toThrow(/HTTPS/);
+    expect(supabasePublicConfiguration({
+      NODE_ENV: 'production', SUPABASE_URL: 'https://provider.example.test', SUPABASE_PUBLISHABLE_KEY: 'public-key',
+    }).url.toString()).toBe('https://provider.example.test/');
+  });
+});
+
 describe('operator sign-in', () => {
   it('accepts the correct PIN and issues a session', async () => {
     const r = await signInOperator(t.admin, A.yardId, 'عامل أ', PIN);
@@ -48,6 +107,23 @@ describe('operator sign-in', () => {
     const stored = await t.admin.query<{ token_hash: string }>(`SELECT token_hash FROM app.sessions WHERE id = $1`, [r.sessionId]);
     expect(stored.rows[0]!.token_hash).toBe(hashSessionToken(r.token));
     expect(stored.rows[0]!.token_hash).not.toBe(r.token);
+  });
+
+  it('uses the ordinary runtime connection for pre-session lookup and per-request validation', async () => {
+    const r = await signInOperator(t.runtime, A.yardId, 'عامل أ', PIN);
+    const context = await validateSession(t.runtime, r.token);
+
+    expect(context).toEqual({ yardId: A.yardId, actorId: A.operatorId, role: 'operator' });
+    await expect(t.runtime.query(`SELECT token_hash FROM app.sessions WHERE id = $1`, [r.sessionId]))
+      .resolves.toMatchObject({ rows: [] });
+  });
+
+  it('uses the owner-provisioned login code without exposing a yard UUID to the device UI', async () => {
+    const code = (await t.admin.query<{ operator_login_code: string }>(
+      `SELECT operator_login_code FROM app.yards WHERE id = $1`, [A.yardId],
+    )).rows[0]!.operator_login_code;
+    const result = await signInOperatorWithCode(t.runtime, code.toLowerCase(), 'عامل أ', PIN);
+    expect(result.context).toEqual({ yardId: A.yardId, actorId: A.operatorId, role: 'operator' });
   });
 
   it('rejects a wrong PIN without revealing whether the name exists', async () => {
@@ -75,6 +151,13 @@ describe('AUTH-6 · lockout after 5 failed attempts', () => {
     const r = await t.admin.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM app.audit_log WHERE action = 'auth.pin_failed'`);
     expect(Number(r.rows[0]!.n)).toBeGreaterThanOrEqual(5);
+  });
+});
+
+describe('AUTH-4 · operator cannot elevate management actions', () => {
+  it('rejects an operator attempt to revoke another user’s sessions at the capability boundary', async () => {
+    await expect(revokeUserSessions(t.runtime, { yardId: A.yardId, actorId: A.operatorId, role: 'operator' }, A.ownerId))
+      .rejects.toMatchObject({ code: 'unauthorized_capability' });
   });
 });
 
@@ -117,6 +200,16 @@ describe('AUTH-3 · session validation', () => {
     await validateSession(t.admin, r.token);
     await revokeUserSessions(t.admin, { yardId: A.yardId, actorId: A.ownerId, role: 'owner' }, A.operatorId);
     await expect(validateSession(t.admin, r.token)).rejects.toThrow(AuthError);
+  });
+});
+
+describe('shared-device owner switch', () => {
+  it('revokes the operator token presented by the browser before owner use', async () => {
+    const operatorSession = await signInOperator(t.runtime, A.yardId, 'عامل أ', PIN);
+    const owner = { yardId: A.yardId, actorId: A.ownerId, role: 'owner' as const };
+    expect(await revokePresentedOperatorSessionForOwnerSwitch(t.runtime, owner, operatorSession.token)).toBe(true);
+    await expect(validateSession(t.runtime, operatorSession.token)).rejects.toThrow(AuthError);
+    expect(await revokePresentedOperatorSessionForOwnerSwitch(t.runtime, owner, 'stale-token')).toBe(false);
   });
 });
 

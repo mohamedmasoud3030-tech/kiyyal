@@ -2,18 +2,28 @@
 
 **Version:** 1.0 · **Sources:** ADR-0001 · PRD FR-13, Part 4 Security
 
+**Implementation boundary (2026-09-10):** this contract remains the target security rule set. The provider-backed owner session mapping, operator sign-in/lockout/session validation, cookie CSRF boundary, and direct API security tests are implemented; provisioning, reset/deactivation UI, scheduled cleanup/rotation, edge rate limits, and live provider/browser verification remain `NOT STARTED` or `BLOCKED BY OWNER OR EXTERNAL ACTION` as recorded in `INTERFACE_MIGRATION_PLAN.md`. Target rows below are not evidence that every lifecycle surface is deployed.
+
 ## 1. Owner lifecycle — Supabase Auth
 | Stage | Behaviour |
 |---|---|
 | Sign up | Phone + password, via Supabase Auth. An `app.users` row with `role='owner'` and `auth_user_id` is created in the same server operation |
-| Sign in | Supabase Auth verifies the password and issues its session. **We never see or store the password** |
-| Session | Supabase session cookie handled by `@supabase/ssr`; refreshed by middleware |
+| Sign in | The browser passes phone/password directly to the Supabase browser client; Supabase verifies it and issues its session. The application server never receives, stores, logs, hashes, verifies, or decodes the password. |
+| Session | Supabase session cookie is refreshed by `middleware.ts`; each protected API request calls provider-side `getUser()` then maps the verified subject to active local `app.users`. |
 | Password reset | Supabase Auth (phone OTP). Not reimplemented |
-| Sign out | Supabase session revoked; any operator session on the device is also cleared |
+| Sign out | The server invokes Supabase sign-out for an owner browser cookie and clears the operator cookie. Explicit switch to the operator form clears the browser's prior owner session locally first. |
 | MFA | Not in the MVP; available from the provider later at no architectural cost |
 
 Every request maps the Supabase subject → `app.users` → `yard_id`, `role`. **If no active mapping exists, the
 request is unauthenticated** — a valid Supabase token alone grants nothing.
+
+### Owner browser-session boundary
+
+- Only a public/publishable/anon provider key may be configured for browser/session verification. `SUPABASE_SERVICE_ROLE*` remains forbidden in normal runtime.
+- Middleware refreshes a possible `sb-*-auth-token` cookie but never assigns a yard role. It tolerates provider outage for public routing; protected API authentication then fails closed.
+- A valid Supabase cookie is verified provider-side before local owner mapping. A malformed, expired, or revoked owner cookie **must not** fall back to a shared-device operator cookie.
+- Page-entry guards may recognize a potential provider cookie solely to render a data-free session-check state. They never render yard data from its presence.
+- The current provider implementation is `IMPLEMENTED BUT NOT VERIFIED`: configured Supabase sign-in, cookie refresh, logout and local owner mapping need staging/browser evidence before release.
 
 ## 2. Operator lifecycle — narrow PIN layer
 | Stage | Behaviour |
@@ -43,15 +53,13 @@ IndexedDB or any client state · returned by any API · included in an error mes
 | Cleanup | Expired rows deleted by a scheduled job — the only permitted hard delete in the system |
 
 ## 4. Shared-device switching
-The realistic case: one phone, several operators. Switching is a first-class flow — the current session is revoked
-and a new one issued after a PIN entry, without a full logout or app reload. **Every transaction is attributed to
-the operator whose session created it**, which is what makes accountability real (R7).
+The realistic case: one phone, several operators. The current implementation makes switching explicit at the login boundary: an operator session is revoked on sign-out and a prior owner browser session is cleared locally before operator sign-in. After a provider-verified owner mapping succeeds, the server revokes the presented same-yard operator token (if any) and expires its cookie, so later provider sign-out cannot revive the previous operator identity. A dedicated no-reload switch endpoint remains `NOT STARTED`. **Every transaction is attributed to the operator whose session created it**, which is what makes accountability real (R7).
 
 ## 5. CSRF
 - `SameSite=Lax` blocks cross-site form posts.
-- All mutations are `POST`/`PATCH` with `Content-Type: application/json` — never `GET`, never form-encoded.
-- The `Origin` header is validated against an allow-list on every mutation.
-- A double-submit CSRF token is added if any flow ever needs form-encoded submission.
+- All state-changing application requests are `POST`/`PATCH`/`DELETE`, never `GET`; any request body is JSON and no form-encoded mutation is accepted.
+- **Current cookie-session implementation:** every browser mutation validates `Origin` against that request's exact same origin and requires a non-`HttpOnly` `kayyal_csrf` double-submit cookie/header pair, including JSON requests. `/api/auth/csrf` issues the random cookie but never returns its value in JSON.
+- **Bearer compatibility:** a valid `Authorization: Bearer …` credential is not ambient browser authentication, so a non-browser caller may omit Origin/CSRF. If it sends `Origin`, it must be that request's exact same origin. Routes still provider-verify the bearer and map it to an active local owner.
 
 ## 6. Rate limits
 | Endpoint | Limit |
@@ -72,7 +80,7 @@ role of every request.
 ## 8. Invariants
 | # | Invariant |
 |---|---|
-| AUTH-1 | No password handling code exists in this repository |
+| AUTH-1 | No custom/server password storage, hashing, verification, logging, token issuance or decoding exists. The owner-login browser form only passes credentials directly to the provider client. |
 | AUTH-2 | No session token is stored in plain text anywhere |
 | AUTH-3 | A revoked or expired session is rejected on the very next request |
 | AUTH-4 | An operator session can never elevate to owner capabilities |

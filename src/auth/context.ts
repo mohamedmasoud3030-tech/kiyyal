@@ -4,7 +4,7 @@
  * yard_id ALWAYS comes from a verified session. A yard_id supplied by the client is
  * ignored, and a conflicting one is a security event.
  */
-import type { Queryable } from '../db/types.js';
+import type { Queryable } from '../db/types';
 
 export type ActorRole = 'owner' | 'operator' | 'platform_admin';
 
@@ -23,6 +23,9 @@ export async function applyContext(tx: Queryable, ctx: AuthContext): Promise<voi
   await tx.query(`SELECT set_config('app.current_yard_id', $1, true)`, [ctx.yardId ?? '']);
   await tx.query(`SELECT set_config('app.actor_id', $1, true)`, [ctx.actorId]);
   await tx.query(`SELECT set_config('app.actor_role', $1, true)`, [ctx.role]);
+  // Product business days use Egypt's operational timezone, not the database
+  // host's default (important for the operator's current-day RLS boundary).
+  await tx.query(`SET LOCAL TIME ZONE 'Africa/Cairo'`);
 }
 
 /**

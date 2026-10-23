@@ -7,29 +7,49 @@
     "node": ">=20"
   },
   "scripts": {
+    "dev": "next dev --hostname 0.0.0.0",
+    "build": "next build",
+    "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "lint": "npm run typecheck && npm run guard:decimal",
     "guard:decimal": "node scripts/guard-decimal.mjs",
     "test": "vitest run",
+    "test:ui": "vitest run tests/ui",
     "test:unit": "vitest run tests/domain",
     "test:db": "vitest run tests/db/schema.test.ts tests/db/immutability.test.ts",
     "test:rls": "vitest run tests/db/isolation.test.ts tests/db/real-postgres-security.test.ts",
     "test:auth": "vitest run tests/auth",
     "test:atomicity": "vitest run tests/services",
+    "test:routes": "vitest run tests/routes",
+    "test:e2e": "playwright test",
     "test:watch": "vitest",
     "gate:staging": "node scripts/staging-gate.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.116.0",
+    "@tailwindcss/postcss": "4.3.3",
     "decimal.js": "^10.4.3",
     "hash-wasm": "^4.12.0",
-    "pg": "^8.23.0"
+    "next": "16.3.4",
+    "pg": "^8.23.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "tailwindcss": "4.3.3",
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.2.17",
+    "@playwright/test": "1.63.0",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
     "@types/node": "^22.10.0",
     "@types/pg": "^8.23.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "embedded-postgres": "^18.4.0-beta.17",
+    "jsdom": "28.1.0",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^4.1.11"
   }
 }
