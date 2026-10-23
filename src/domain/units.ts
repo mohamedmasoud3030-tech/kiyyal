@@ -4,7 +4,7 @@
  * The unit belongs to the LINE, not the material. Switching a line's unit does NOT
  * convert the entered price — the user is quoting anew (D20).
  */
-import { Decimal, type EGPPerKg, type EGPPerUnit, egpPerKg, round, SCALE } from './decimal.js';
+import { Decimal, type EGPPerKg, type EGPPerUnit, egpPerKg, round, SCALE } from './decimal';
 
 export type PriceUnit = 'kg' | 'ton';
 export const KG_PER_TON = new Decimal(1000);

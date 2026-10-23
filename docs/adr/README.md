@@ -20,3 +20,6 @@ This folder holds the **domain and safety** decisions that outlive any technolog
 | [0010](0010-pwa-offline-policy.md) | PWA and offline policy | High |
 | [0011](0011-buyers-directory.md) | Two-layer buyers directory | Medium |
 | [0012](0012-audit-immutability.md) | Audit and immutability | **Very low** |
+| [0013](0013-client-transaction-preview.md) | Display-only client transaction preview | High |
+| [0014](0014-opening-stock-adjustments.md) | Opening balances and physical stock adjustments | Medium |
+| [0015](0015-cost-adjustment-ledger.md) | Immutable closed-day purchase cost-adjustment ledger | Low |

@@ -1,7 +1,7 @@
 # Financial Rules
 
-**Version:** 1.0 · **Authority:** the single source of truth for every calculation. Code implements this file;
-where they disagree, this file wins. **Sources:** PRD §9.2, FR-2/3/7/8/9/10, D27, D32, D33 · ADR-0004, 0006, 0007
+**Version:** 1.1 · **Authority:** the single source of truth for every calculation. Code implements this file;
+where they disagree, this file wins. **Sources:** PRD §9.2, FR-2/3/7/8/9/10, D26, D27, D32, D33 · ADR-0004, 0006, 0007, 0008
 
 ## 1. Absolute rules
 1. All arithmetic uses **decimal**, never binary floating point.
@@ -44,6 +44,23 @@ margin_pct           = line_total > 0 ? gross_profit / line_total × 100 : null
 -- cost_snapshot_per_kg = 0 → profit reported as "غير محسوب", never as 100 %
 ```
 
+### 4.1 Opening balances and physical adjustments (D22)
+
+Both facts are immutable posted ledger headers with one weight line and zero cash/total amount; `stock_balances` is their current projection, not an editable source of truth.
+
+- An `opening` is inbound-only, server-dated on the current Cairo workday, and permitted once only for an active material with no stock row and no historical line. Its supplied `cost_per_kg` follows the inbound rule above.
+- An omitted opening cost seeds the numerical average at `0.000000`, but stores a **NULL** line cost snapshot. UI/reporting must label the source cost `غير محددة` rather than claiming zero is known. A sale whose average remains zero follows E19 (`غير محسوب` profit).
+- A positive `adjustment` uses the inbound rule and requires a supplied cost. A negative adjustment is outbound at the locked current average:
+
+```
+new_qty   = qty_kg − adjustment_kg       -- CHECK: adjustment_kg > 0 and new_qty >= 0
+new_avg   = avg_cost                      -- unchanged
+new_value = round(new_qty × new_avg, 2)
+```
+
+- An adjustment has a documented enum reason and actor. `loss` / `theft` are negative only. The original adjustment line retains the applicable cost snapshot so later reference-price changes cannot reinterpret it.
+- A pending-sale recovery that needs physical stock writes a linked positive `adjustment` and posts the original sale in the same transaction. The sale's pending cash row changes status from pending to posted; a second cash movement is never created.
+
 ## 5. Cash
 ```
 expected_posted   = opening_amount + Σ posted cash in − Σ posted cash out
@@ -53,6 +70,27 @@ difference         = counted_amount − expected_in_drawer
 ```
 Pending cash counts toward the **drawer** and never toward revenue, profit or a final party balance (ADR-0009).
 The two lines are displayed separately and never merged.
+
+## 5.1 Party position, settlement and advance
+
+A party balance is **derived from posted ledger facts**, never stored as an editable party field. Let `P` be its signed position:
+
+```
+P = Σ posted sale.balance_amount
+  − Σ posted purchase.balance_amount
+  − Σ posted payment cash where direction = 'in'
+  + Σ posted payment cash where direction = 'out'
+```
+
+- `P > 0` means `owed_by_party`: the party owes the yard.
+- `P < 0` means `owed_to_party`: the yard owes the party.
+- `P = 0` means `settled`.
+- Purchase/sale cash already paid is excluded through the generated `balance_amount = total_amount − amount_cash`; a fully cash deal has zero party-position effect.
+- A payment is one posted `payment` transaction and exactly one linked, posted cash movement with source `payment`; its header amount is cash amount and its effect comes from that direction. Pending cash is never a party final-balance fact.
+- Payments are intentionally **unallocated** in MVP. A receipt/payment can cross zero: excess cash received becomes an advance held by the yard (`P < 0`), and excess cash paid becomes an advance held by the party (`P > 0`). No implicit invoice matching or hidden reallocation occurs.
+- Before a *new* payment, a same-yard, same-party, same-direction, same-amount posted payment within five minutes requires explicit user confirmation. It is a warning, not a mathematical prohibition; an idempotent replay always returns the original receipt without another movement.
+
+Only the owner may read `P`, its direction, and chronological ledger. The permitted operator payment response has only its confirmed record receipt and never includes a party balance or cash-box total.
 
 ## 6. Regrade allocation (ADR-0007)
 ```
@@ -80,21 +118,52 @@ new_avg        = (current_value + to_inventory_i) / current_quantity_kg
 `غير محسوب`. `sold_kg_i` is a ledger approximation — no lot tracking (D24).
 
 ## 8. Historical correction (ADR-0008)
+
 **Open day:** reverse + re-enter, then replay that material forward in `(business_date, created_at, id)` order,
 recomputing the running average and every subsequent sale's cost snapshot. Blocked if the balance would go negative.
-**Closed day:** no rewrite. `cost_adjustment` dated today:
+The current slice returns the explicit `open_day_replay_required` conflict instead of silently applying a prospective
+cost change to an open purchase.
+
+### 8.1 Closed-day purchase correction
+
+A closed-day correction is available only to an owner for **one posted purchase line** whose source financial day
+has a day-close boundary. It is not a generic stock adjustment and it has these non-negotiable properties:
+
+- The browser sends only `original_line_id`, final `corrected_line_value`, documented reason and optional note
+  (`other` requires a note). The server derives the original header, material, original value, tenant, current
+  Cairo business date and signed delta under a financial-yard lock.
+- It creates one posted, current-day `cost_adjustment` header with `total_amount = 0`, `amount_cash = 0`, no cash
+  movement and **no zero-weight transaction line**, plus one immutable `cost_adjustment_details` child and audit fact.
+  Quantity and the original purchase/sale facts are never rewritten.
+- The child stores immutable original-line identity/value, corrected final value, generated delta, reason and actor.
+  A second posted correction of the same original line is rejected until a future explicit reversal capability exists.
+- A repeat of the same idempotency key returns the original immutable receipt; it does not read a potentially changed
+  live stock projection or create another ledger fact.
+
 ```
-delta_value = corrected_value − originally_recorded_value
-new_avg     = quantity_kg > 0 ? (quantity_kg × avg_cost + delta_value) / quantity_kg : avg_cost
+delta_value = corrected_line_value − original_line_value
+
+if quantity_kg > 0:
+  prospective_value = quantity_kg × avg_cost + delta_value
+  reject prospective_value < 0
+  new_avg   = round(prospective_value / quantity_kg, 6)
+  new_value = round(quantity_kg × new_avg, 2)
+else:
+  new_avg/new_value remain unchanged
+  -- delta remains the explicit current-period correction fact, not inventory value
 ```
-`delta_value` is reported in the current period as `فروق تصحيح مشتريات سابقة`.
+
+`delta_value` is reported in the current period as `فروق تصحيح مشتريات سابقة`; it is owner-only cost information.
+A `cost_adjustment` never changes physical stock quantity, drawer cash, party balance, historical invoice amount or a
+past sale cost snapshot.
 
 ## 9. Reporting
 ```
 inventory_cost   = Σ stock_balances.total_value
 sales_value      = Σ posted sale line_total in period
 gross_profit     = Σ posted sale gross_profit in period        -- excludes lines marked غير محسوب
-profit_after_exp = gross_profit − Σ expenses in period
+historical_purchase_correction = Σ posted cost_adjustment.delta_value in period
+profit_after_exp = gross_profit − Σ expenses in period         -- correction is presented separately, not hidden in expense
 margin_material  = Σ profit / Σ revenue per material
 ```
 

@@ -1,27 +1,26 @@
 # ADR-0010 — PWA and offline policy
 
-**Status:** Accepted · **Date:** 2026-08-20 · **Sources:** PRD D23, FR-14, V8, S-09
+**Status:** Accepted target; implementation `NOT STARTED` · **Date:** 2026-08-20 · **Sources:** PRD D23, FR-14, V8, S-09
 
 ## Context
 An offline-first architecture is expensive: queueing, batch sync, conflict resolution, number reconciliation, and
 a large testing surface. Nobody has yet measured the network inside a real Egyptian scrap yard.
 
 ## Decision
-**Resilient-online, not offline-first.** In the MVP, Serwist provides:
+**Target: resilient-online, not offline-first.** When implemented, the MVP service worker/outbox will provide:
 - an installable, cached app shell that always opens;
 - safe caching of static assets and reference data (materials, prices, favourites, recent parties, directory);
 - local draft persistence so a dead battery loses nothing;
 - resilient retry of an **interrupted save** via an IndexedDB outbox with a client-generated idempotency key.
 
-**Explicitly not in the MVP:** a full multi-device transaction queue, an offline accounting engine, offline
-reconciliation. That is S-09, unlocked by the V8 field test.
+**Current implementation boundary (2026-09-10):** no service worker, cache, local draft, or IndexedDB outbox is installed. Server-assigned sequential numbers and client idempotency keys exist, so a user can manually retry an ambiguous submitted intent while its screen remains open; that is not browser-local persistence or offline operation.
 
-Server-assigned sequential numbers and client idempotency keys ship **now**, even though only strictly needed
-later, so S-09 is an extension rather than a redesign.
+**Explicitly not in the MVP target:** a full multi-device transaction queue, an offline accounting engine, offline
+reconciliation. That is S-09, unlocked by the V8 field test.
 
 ## Alternatives rejected
 - **Full offline-first now** — expensive, unvalidated, and delays the parts that certainly matter.
-- **No offline handling at all** — a dropped connection mid-save would lose a real transaction; unacceptable.
+- **No eventual resilience handling at all** — a dropped connection mid-save without a safe retry path would be unacceptable; the current implementation gap is explicitly tracked until this target is delivered.
 - **A local-first sync engine (ElectricSQL, PowerSync, RxDB)** — powerful, but pushes financial logic toward the client, contradicting ADR-0003.
 
 ## Consequences

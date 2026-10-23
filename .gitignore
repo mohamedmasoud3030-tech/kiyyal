@@ -2,8 +2,11 @@ node_modules/
 dist/
 .next/
 coverage/
+*.tsbuildinfo
 *.log
 .env
 .env.*
 !.env.example
 .pglite/
+test-results/
+playwright-report/

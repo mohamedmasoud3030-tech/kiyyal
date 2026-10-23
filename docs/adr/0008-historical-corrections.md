@@ -12,11 +12,11 @@ counted, reported and acted on.
 
 | Situation | Mechanism |
 |---|---|
-| Original is in an **open** day | Reverse and re-enter, then **replay** that material's postings forward in deterministic order `(business_date, created_at, id)`, recomputing the running average and each subsequent sale's cost snapshot. |
-| Original is in a **closed** day | **No rewrite.** A **cost adjustment** dated today, with the difference reported as `فروق تصحيح مشتريات سابقة` in the current period. |
+| Original is in an **open** day | This first slice rejects a cost adjustment with `open_day_replay_required`. The separately designed reverse → re-enter → deterministic material replay workflow is not implemented yet. |
+| Original is in a **closed** day | **No rewrite.** The implemented owner-only route posts one current-Cairo-day immutable **cost adjustment** whose difference is reported as `فروق تصحيح مشتريات سابقة` in the current period. |
 
-Replay is bounded to one material from one point forward. If it would drive the balance negative at any step, the
-reversal is blocked and the cost-adjustment route is offered.
+The future replay remains bounded to one material from one point forward; if it would drive the balance negative at any
+step, that future reversal workflow must stop. It is not a fallback that this first cost-adjustment route can silently execute.
 
 ## Alternatives rejected
 - **Always replay from the beginning** — silently changes signed-off history; destroys trust faster than a known error.
@@ -24,7 +24,9 @@ reversal is blocked and the cost-adjustment route is offered.
 - **Allow editing in place** — forbidden by D15.
 
 ## Consequences
-Two mechanisms to build and explain. The app must always state in one sentence which route it is taking and why.
+The implemented closed-day path must state in one sentence that it creates a current-period value fact and does not
+change the original purchase, cash, quantity or historic sale costs. The future open-day replay path must remain visibly
+separate; no route may imply that it has run until its reversal and replay records exist.
 
 ## Reversibility
 **Low.** Once corrections have been posted under these rules, changing them creates ambiguity about what past

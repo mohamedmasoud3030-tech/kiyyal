@@ -25,7 +25,14 @@ export async function startServer(): Promise<void> {
 }
 
 export async function stopServer(): Promise<void> {
-  if (server) { await server.stop(); server = null; }
+  if (!server) return;
+  // pg.Pool.end() resolves after clients begin their TCP close, while the
+  // embedded server may otherwise terminate those sockets first. Let the FIN
+  // reach PostgreSQL so Vitest does not report a spurious 57P01 after a clean
+  // integration suite.
+  await new Promise<void>((resolve) => setTimeout(resolve, 250));
+  await server.stop();
+  server = null;
 }
 
 const MIGRATIONS = join(process.cwd(), 'db', 'migrations');

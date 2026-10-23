@@ -18,7 +18,7 @@
 9. **No direct database access from client code.** The browser never imports the database client.
 10. **Domain services are the only place calculations live.** If a formula appears twice, one of them is a bug.
 11. `src/domain/**` imports no framework — no React, no Next, no HTTP, no ORM types in signatures. This is what keeps the domain portable and testable.
-12. **No duplicated calculation logic** between server and client. The client displays what the server computed.
+12. **No duplicated calculation logic** between server and client. A pre-save UI preview may call the same framework-free pure domain implementation through a non-React adapter (ADR-0013), but it is display-only; the server recomputes the authoritative result inside the posting transaction.
 
 ## Security
 13. **No hard-coded role checks scattered through the code.** Capabilities are declared in one table and checked in one middleware.
