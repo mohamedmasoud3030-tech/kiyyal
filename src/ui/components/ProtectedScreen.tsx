@@ -5,6 +5,7 @@ import { cloneElement, type ReactElement } from 'react';
 import { ar, type AppRole } from '../copy/ar';
 import { useSession } from '../hooks/useSession';
 import { AppShell } from './AppShell';
+import { SessionGuardScreen } from './SessionGuardScreen';
 import { PageContainer } from './PageContainer';
 import { StatePanel } from './StatePanel';
 
@@ -25,15 +26,7 @@ export interface ProtectedScreenProps {
 export function ProtectedScreen({ activePath, children }: ProtectedScreenProps) {
   const session = useSession();
   if (session.status === 'loading') {
-    return (
-      <PageContainer>
-        <StatePanel
-          description={ar.state.sessionCheckingDescription}
-          headingLevel={1}
-          title={ar.state.sessionCheckingTitle}
-        />
-      </PageContainer>
-    );
+    return <SessionGuardScreen />;
   }
   if (session.status === 'unavailable') {
     return (
