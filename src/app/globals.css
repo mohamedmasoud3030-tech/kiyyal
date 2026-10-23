@@ -234,7 +234,7 @@
 @media (min-width:48rem){.kpi-grid,.action-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 
 /* ── نهاري ⇄ ليلي: ظلال v3 حسب الثيم ───────────────────────────────────── */
-:root[data-theme="dark"]{--shadow-1:0 1px 2px #00000059,0 8px 24px -8px #0000008c;--shadow-2:0 2px 4px #00000066,0 16px 40px -12px #000000a6;
+:root[data-theme="dark"]{--shadow-1:0 1px 2px #00000059,0 8px 24px -8px #0000008c;--shadow-2:0 2px 4px #00000066,0 16px 40px -12px #000000a6}
 :root[data-theme="dark"] .action-tile--primary{background:#247e5e;border-color:#247e5e}
 :root[data-theme="dark"] .ui-button--primary{box-shadow:0 1px 2px #00000059,0 10px 24px -10px #0000008c}
 
