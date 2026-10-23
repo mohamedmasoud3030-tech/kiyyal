@@ -188,3 +188,60 @@
 :root:not([data-theme="light"]) .inventory-list__item:hover,:root:not([data-theme="light"]) .operational-list__item:hover{background:#1b2622}
 }
 @media (prefers-reduced-motion:reduce){.ui-button:hover:not(:disabled){transform:none}}
+
+/* ═══ Theme v3 — Bento-soft premium (اختيار المالك: «شكل أرقى وناعم») ═══
+   المرجع: skill ui-ux-pro-max — bento-box-grid (radius 16–24 · gap 16 · ظلال خفيفة · هوفر 1.02)
+   + soft-depth بتباين AA كامل (بلا فقد تباين كما في نيومورفيزم). */
+
+:root{--radius-card:1.25rem;--radius-card-lg:1.5rem;--shadow-1:0 1px 2px #17211d0f,0 8px 24px -8px #17211d1f;--shadow-2:0 2px 4px #17211d12,0 16px 40px -12px #17211d26;--control-h:3.25rem;--color-page:#f3f5f4}
+
+/* بطاقات عامة */
+.ui-section{border-radius:var(--radius-card);box-shadow:var(--shadow-1)}
+.state-panel{border-radius:var(--radius-card-lg);box-shadow:var(--shadow-1)}
+.transaction-receipt{border-radius:var(--radius-card-lg)}
+.login-operator{border-radius:var(--radius-card);box-shadow:var(--shadow-1)}
+
+/* أزرار: أعلى وأنعم وقابلة للضغط */
+.ui-button{border-radius:.875rem;min-block-size:2.875rem;box-shadow:0 1px 2px #17211d14;will-change:transform}
+.ui-button--primary{box-shadow:0 1px 2px #17211d1c,0 10px 24px -10px #176b4d80}
+.ui-button:hover:not(:disabled){transform:translateY(-1px)}
+.ui-button:active:not(:disabled){transform:scale(.98)}
+/* حقول */
+.text-input,.numeric-input__control{border-radius:.75rem;min-block-size:var(--control-h)}
+/* تنقّل: كبسولات أنعم */
+.app-shell__nav-link,.app-shell__mobile-nav-link{border-radius:.875rem}
+.app-shell__mobile-nav{border-start-start-radius:1rem;border-start-end-radius:1rem}
+
+/* شريط مؤشرات اليوم (KPI bento) */
+.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:.875rem;margin-block-end:1.25rem;display:grid}
+.kpi-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-card);box-shadow:var(--shadow-1);align-content:center;gap:.25rem;min-block-size:5.5rem;padding:1rem 1.25rem;display:grid}
+.kpi-card__label{color:var(--color-muted);font-size:.875rem;font-weight:700;margin:0}
+.kpi-card__value{font-size:clamp(1.625rem,4vw,2rem);font-weight:850;font-variant-numeric:tabular-nums;line-height:1.15;margin:0}
+
+/* بلاطات الإجراءات الكبيرة */
+.action-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:.875rem;margin-block-end:1.5rem;display:grid}
+.action-tile{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-card);box-shadow:var(--shadow-1);align-content:start;gap:.625rem;min-block-size:8.5rem;padding:1.125rem 1.25rem;display:grid;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;color:var(--color-ink);cursor:pointer;text-decoration:none}
+.action-tile:hover{transform:scale(1.02);box-shadow:var(--shadow-2);border-color:var(--color-primary)}
+.action-tile:active{transform:scale(.98);transition-duration:.15s}
+.action-tile--primary{background:var(--color-primary);border-color:var(--color-primary);color:#fff}
+.action-tile--primary .action-tile__hint{color:#dff1e8}
+.action-tile__icon{block-size:2.75rem;inline-size:2.75rem;border-radius:.875rem;background:var(--color-primary-soft);color:var(--color-primary-strong);align-items:center;justify-content:center;display:flex}
+.action-tile--primary .action-tile__icon{background:#ffffff26;color:#fff}
+.action-tile__title{font-size:1.0625rem;font-weight:850;line-height:1.3;margin:0}
+.action-tile__hint{color:var(--color-muted);font-size:.8125rem;line-height:1.55;margin:0}
+.action-tile:focus-visible{outline:3px solid var(--color-focus);outline-offset:3px}
+
+@media (min-width:48rem){.kpi-grid,.action-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* ── نهاري ⇄ ليلي: ظلال v3 حسب الثيم ───────────────────────────────────── */
+:root[data-theme="dark"]{--shadow-1:0 1px 2px #00000059,0 8px 24px -8px #0000008c;--shadow-2:0 2px 4px #00000066,0 16px 40px -12px #000000a6;
+:root[data-theme="dark"] .action-tile--primary{background:#247e5e;border-color:#247e5e}
+:root[data-theme="dark"] .ui-button--primary{box-shadow:0 1px 2px #00000059,0 10px 24px -10px #0000008c}
+
+@media (prefers-color-scheme:dark){
+:root:not([data-theme="light"]){--shadow-1:0 1px 2px #00000059,0 8px 24px -8px #0000008c;--shadow-2:0 2px 4px #00000066,0 16px 40px -12px #000000a6}
+:root:not([data-theme="light"]) .action-tile--primary{background:#247e5e;border-color:#247e5e}
+:root:not([data-theme="light"]) .ui-button--primary{box-shadow:0 1px 2px #00000059,0 10px 24px -10px #0000008c}
+}
+
+@media (prefers-reduced-motion:reduce){.action-tile:hover,.ui-button:hover:not(:disabled){transform:none}}

@@ -91,14 +91,6 @@ export function TodayContent({ role: injectedRole }: { readonly role?: AppRole }
   return (
     <PageContainer>
       <PageHeader
-        action={(
-          <div className="page-header__actions">
-            <Link className="ui-button ui-button--secondary ui-button--md" href="/purchase">{ar.today.purchaseAction}</Link>
-            <Link className="ui-button ui-button--primary ui-button--md" href="/sale">{ar.today.saleAction}</Link>
-            <Link className="ui-button ui-button--secondary ui-button--md" href="/expense">{ar.expense.title}</Link>
-            <Link className="ui-button ui-button--secondary ui-button--md" href="/payment">{ar.today.paymentAction}</Link>
-          </div>
-        )}
         description={ar.today.description}
         title={ar.today.title}
       />
@@ -110,6 +102,46 @@ export function TodayContent({ role: injectedRole }: { readonly role?: AppRole }
       ) : null}
       {state.status === 'loaded' ? (
         <>
+          <div aria-label={ar.today.title} className="kpi-grid">
+            <div className="kpi-card">
+              <p className="kpi-card__label">{ar.today.kpiTransactionsLabel}</p>
+              <p className="kpi-card__value">{state.transactions.length}</p>
+            </div>
+            <div className="kpi-card">
+              <p className="kpi-card__label">{ar.today.kpiSalesLabel}</p>
+              <p className="kpi-card__value">{state.transactions.filter((t) => t.type === 'sale').length}</p>
+            </div>
+            <div className="kpi-card">
+              <p className="kpi-card__label">{ar.today.kpiPendingLabel}</p>
+              <p className="kpi-card__value">{state.transactions.filter((t) => t.status === 'pending_tare' || t.status === 'pending_stock_resolution').length}</p>
+            </div>
+            <div className="kpi-card">
+              <p className="kpi-card__label">{ar.today.kpiStockLabel}</p>
+              <p className="kpi-card__value">{state.stock.length}</p>
+            </div>
+          </div>
+          <div aria-label={ar.navigation.main} className="action-grid">
+            <Link className="action-tile action-tile--primary" href="/sale">
+              <span className="action-tile__icon"><SaleIcon /></span>
+              <span className="action-tile__title">{ar.today.saleAction}</span>
+              <span className="action-tile__hint">{ar.today.saleTileHint}</span>
+            </Link>
+            <Link className="action-tile" href="/purchase">
+              <span className="action-tile__icon"><PurchaseIcon /></span>
+              <span className="action-tile__title">{ar.today.purchaseAction}</span>
+              <span className="action-tile__hint">{ar.today.purchaseTileHint}</span>
+            </Link>
+            <Link className="action-tile" href="/payment">
+              <span className="action-tile__icon"><PaymentIcon /></span>
+              <span className="action-tile__title">{ar.today.paymentAction}</span>
+              <span className="action-tile__hint">{ar.today.paymentTileHint}</span>
+            </Link>
+            <Link className="action-tile" href="/expense">
+              <span className="action-tile__icon"><ExpenseIcon /></span>
+              <span className="action-tile__title">{ar.expense.title}</span>
+              <span className="action-tile__hint">{ar.today.expenseTileHint}</span>
+            </Link>
+          </div>
           <Section description={ar.today.recentTransactionsDescription} title={ar.today.recentTransactionsTitle}>
             {state.transactions.length === 0 ? (
               <StatePanel description={ar.today.noTransactionsDescription} title={ar.today.noTransactionsTitle} />
@@ -158,5 +190,37 @@ export function TodayContent({ role: injectedRole }: { readonly role?: AppRole }
         </>
       ) : null}
     </PageContainer>
+  );
+}
+
+function SaleIcon() {
+  return (
+    <svg aria-hidden="true" fill="none" height="22" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="22">
+      <path d="M5 12h14" /><path d="M13 6l6 6-6 6" /><path d="M4 5v14" strokeOpacity=".4" />
+    </svg>
+  );
+}
+
+function PurchaseIcon() {
+  return (
+    <svg aria-hidden="true" fill="none" height="22" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="22">
+      <path d="M19 12H5" /><path d="M11 6l-6 6 6 6" /><path d="M20 5v14" strokeOpacity=".4" />
+    </svg>
+  );
+}
+
+function PaymentIcon() {
+  return (
+    <svg aria-hidden="true" fill="none" height="22" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="22">
+      <rect height="13" rx="2.5" width="18" x="3" y="6" /><path d="M3 10.5h18" /><path d="M7 15h4" />
+    </svg>
+  );
+}
+
+function ExpenseIcon() {
+  return (
+    <svg aria-hidden="true" fill="none" height="22" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="22">
+      <path d="M7 3h10l1 4v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7Z" /><path d="M9 8h6" /><path d="M9 12h6M9 16h4" />
+    </svg>
   );
 }
