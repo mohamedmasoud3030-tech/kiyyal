@@ -1,5 +1,14 @@
 # Kayyal (كيّال) — Status
 
+## Current documentation checkpoint — 2026-10-24
+
+- Stage 1 UI exists in the reviewed tree `8e8c724a3b4c8709dd1dd530cdd1d9864535cf4f`: `src/app/` routes and Next.js/React dependencies in `package.json`. The old Stage 0/no-UI instructions below are historical.
+- Agent onboarding now reflects the implemented UI. Added the canonical local `release-readiness` skill from command-center- commit `07017ed028b7b9e9090c177a350fb0e8a499e871`, blob `71641b6fc7f517012e7f451ed3ce45d84da268f5`; copied unchanged.
+- Earlier deployment reports in the command center are reported evidence, not a new live verification in this documentation task. Real-data day-1 validation remains unverified here.
+- This change does not alter product code, contracts, database, CI, or deployment. Historical records below remain intact.
+
+---
+
 > Canonical state file (2026-10-22). Product: `PRD.md`. Contracts win over
 > code (see `README.md` hierarchy). Stage reports are in Git history.
 

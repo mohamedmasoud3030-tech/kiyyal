@@ -8,14 +8,17 @@
 
 **Kayyal — كيّال**: recycling-yard (MRF) warehouse management: buy by weight, sort/re-grade,
 sell, cash reconciliation — with **exact decimal** money & weight math and per-tenant RLS isolation.
-Stage 0 (foundations) is complete; **there is no UI yet** — backend/domain only. Contracts and ADRs
-were written BEFORE code and are the governing source.
+Stage 1 includes the Arabic RTL Next.js interface (merged PR #2, 2026-10-23).
+The current tree contains src/app routes; package.json declares Next.js and React.
+Contracts and ADRs were written BEFORE code and remain the governing source.
+See docs/STATUS.md for dated evidence; UI existence is not proof of live-user readiness.
 
 ## 2) Tech stack (exact)
 
 - TypeScript on Node >= 20 (ESM); PostgreSQL (`pg`) with RLS
 - `decimal.js` for all money/weight; `hash-wasm` (audit chain); tests: vitest + `@electric-sql/pglite`
-- Package manager: npm. **No frontend exists yet.**
+- Frontend: Next.js 16.3.4 + React 19.3.0 (declared in package.json); Arabic RTL.
+- Package manager: npm.
 
 ## 3) Commands (copy-paste)
 
@@ -29,6 +32,8 @@ npm run test:rls       # isolation + real-postgres security
 npm run test:auth
 npm run test:atomicity
 npm run gate:staging   # staging gate script
+npm run build          # Next.js production build
+npm run test:ui         # UI unit tests
 ```
 
 ## 4) Canonical documents (read in this order)
@@ -45,7 +50,9 @@ npm run gate:staging   # staging gate script
 - ✅ New behaviour starts from the relevant contract/ADR; if the contract is wrong, amend it FIRST (owner approval), then code.
 - ❌ Never weaken RLS policies or bypass them from services.
 - ❌ Never commit secrets or real `.env` files.
-- ❌ Don't build UI/screens before Stage 1 is formally opened by the owner.
+- ✅ Stage 1 opening and merge are recorded in docs/STATUS.md; keep further UI work within owner-approved scope.
+- ✅ Read .agents/skills/frontend-rtl-design/SKILL.md for UI work and .agents/skills/release-readiness/SKILL.md before merge/release claims.
+- ✅ Start at the command center's current session registry; use a task branch and reviewable PR. Do not delete documents.
 
 ## 6) Definition of done
 
