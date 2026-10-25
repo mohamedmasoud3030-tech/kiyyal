@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { ar } from '../ui/copy/ar';
 
 import './globals.css';
+import './workspace.css';
 
 export const metadata: Metadata = {
   title: ar.app.name,
