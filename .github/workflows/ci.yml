@@ -13,36 +13,76 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20', cache: 'npm' }
       - run: npm ci
+      - run: mkdir -p /tmp/kayyal-logs
+
+      # embedded-postgres native binaries link ICU 60; ubuntu-latest (24.04)
+      # ships ICU 74. Install the exact dependency instead of pinning an old
+      # runner image. Mirrors the local dev fix validated on 2026-10-25.
+      - name: Install libicu60 for embedded Postgres
+        run: |
+          curl -fsSL -o /tmp/libicu60.deb "https://security.ubuntu.com/ubuntu/pool/main/i/icu/libicu60_60.2-3ubuntu3.2_amd64.deb"
+          # Checksum pinned from Ubuntu's signed bionic-security Packages index
+          # (version 60.2-3ubuntu3.2 · size 8050316 · verified 2026-10-25):
+          echo "f01f61f57e63dc905e02e6441d10370fe0c79e43e70e6f5fe24b342fd2633209  /tmp/libicu60.deb" | sha256sum -c -
+          sudo dpkg -i /tmp/libicu60.deb
 
       - name: Typecheck
-        run: npm run typecheck
+        run: |
+          set -o pipefail
+          npm run typecheck 2>&1 | tee /tmp/kayyal-logs/typecheck.log
 
       - name: Lint + decimal/RTL guard (ADR-0004, CODING_RULES)
-        run: npm run guard:decimal
+        run: |
+          set -o pipefail
+          npm run guard:decimal 2>&1 | tee /tmp/kayyal-logs/guard:decimal.log
 
       - name: UI foundation rendering
-        run: npm run test:ui
+        run: |
+          set -o pipefail
+          npm run test:ui 2>&1 | tee /tmp/kayyal-logs/test:ui.log
 
       - name: Production build
-        run: npm run build
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee /tmp/kayyal-logs/build.log
 
       - name: Unit + golden calculations (FINANCIAL_RULES §11)
-        run: npm run test:unit
+        run: |
+          set -o pipefail
+          npm run test:unit 2>&1 | tee /tmp/kayyal-logs/test:unit.log
 
       - name: Migration rebuild from zero + schema invariants (M-06, DB-1..12)
-        run: npm run test:db
+        run: |
+          set -o pipefail
+          npm run test:db 2>&1 | tee /tmp/kayyal-logs/test:db.log
 
       - name: RLS / security isolation (SEC-1..SEC-12)
-        run: npm run test:rls
+        run: |
+          set -o pipefail
+          npm run test:rls 2>&1 | tee /tmp/kayyal-logs/test:rls.log
 
       - name: Auth and session (AUTH-1..AUTH-8)
-        run: npm run test:auth
+        run: |
+          set -o pipefail
+          npm run test:auth 2>&1 | tee /tmp/kayyal-logs/test:auth.log
 
       - name: Transaction atomicity + failure injection (ADR-0005, R-04)
-        run: npm run test:atomicity
+        run: |
+          set -o pipefail
+          npm run test:atomicity 2>&1 | tee /tmp/kayyal-logs/test:atomicity.log
 
       - name: Full suite
-        run: npm test
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee /tmp/kayyal-logs/npm_test.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-diagnostics-${{ github.run_attempt }}
+          path: /tmp/kayyal-logs
+          retention-days: 14
 
   # Runs only where the owner has provided staging credentials as repository secrets.
   staging-gate:

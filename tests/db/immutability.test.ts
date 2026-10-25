@@ -2,7 +2,7 @@
  * Immutability and non-negative stock, enforced by the database itself.
  * Contract: docs/adr/0008, docs/adr/0012 · DB-1, DB-6, DB-7, AUD-2, DB-10
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { PGlite } from '@electric-sql/pglite';
 import { freshDatabase } from './harness.js';
 
@@ -291,4 +291,10 @@ describe('schema shape guards', () => {
     await expect(db.exec(`INSERT INTO app.central_buyers (name, entity_type, governorates, status)
       VALUES ('x','factory',ARRAY['البحيرة'],'active')`)).rejects.toThrow(/central_active_verified/);
   });
+});
+
+afterEach(async () => {
+  await db?.close();
+  // Reset without relying on TS narrowing: allow GC between PGlite instances.
+  db = undefined as unknown as PGlite;
 });
