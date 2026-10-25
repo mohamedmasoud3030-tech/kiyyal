@@ -17,6 +17,7 @@ const steps = [
   { name: 'test-auth',            cmd: 'npm run test:auth' },
   { name: 'test-atomicity',       cmd: 'npm run test:atomicity' },
   { name: 'test-ui-foundation',   cmd: 'npm run test:ui -- --exclude=tests/ui/operator-live-flow.test.tsx' },
+  { name: 'test-e2e-day',         cmd: 'npx vitest run tests/e2e-day' },
   { name: 'test-ui-liveflow',     cmd: 'vitest run tests/ui/operator-live-flow.test.tsx', heavy: true, envNote: 'يشغّل خادم Next كاملًا بجانب قاعدة Postgres المدمجة — ذاكرة صندوق التطوير (≤4GB) لا تكفي؛ القرار الرسمي يكون على CI عند استعادة حصة Actions.' },
   { name: 'full-vitest',          cmd: 'npm test', heavy: true, envNote: 'السويت الكامل فيه 3 حزم تشغّل خادم Next حقيقيًا (operator-live-flow + routes/next-http + routes/app-routes) — تسقط بـ fetch failed في صندوق 2GB حتى منفردة (مُثبت 2026-10-25)؛ باقي 245 اختبارًا تشمل يوم-التشغيل 15/15 تمر. نتيجته الكاملة على CI عند استعادة حصة Actions.' },
   { name: 'production-build',     cmd: 'npm run build', heavy: true, envNote: 'بناء Next/Turbopack لكامل التطبيق يقتله صندوق التطوير بالذاكرة (~10 ثوانٍ ثم Killed). دليل نجاح البناء: آخر نشر إنتاجي ناجح على Vercel (مرجع RUNBOOK).' },
