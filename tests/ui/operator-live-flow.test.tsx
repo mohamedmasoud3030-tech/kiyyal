@@ -60,6 +60,15 @@ let baseUrl: string;
 let ownerSubject: string;
 let providerBaseUrl: string;
 let providerServer: HttpServer | undefined;
+let serverExitEvidence: string | null = null;
+const serverTrace: string[] = [];
+function pushServerTrace(line: string): void {
+  serverTrace.push(line);
+  if (serverTrace.length > 300) serverTrace.splice(0, serverTrace.length - 300);
+  if (line.includes('Error') || line.includes('Killed') || line.includes('heap')) {
+    console.error(`[next-server] ${line.trimEnd()}`);
+  }
+}
 let ownerAccessTokenRevoked = false;
 let ownerPasswordGrantRequests = 0;
 let operatorSessionToken: string;
@@ -383,8 +392,14 @@ beforeAll(async () => {
   nextServer = spawn(process.execPath, [
     './node_modules/next/dist/bin/next', 'dev', '--hostname', '127.0.0.1', '--port', String(port),
   ], { cwd: process.cwd(), env: environment, stdio: 'pipe' });
-  nextServer.stderr.on('data', () => undefined);
-  nextServer.stdout.on('data', () => undefined);
+  // مرصد الخروج (ملاحظة المالك 6): عند موت الخادم أثناء التشغيل نلتقط كود الخروج
+  // والإشارة وآخر stderr — فيُثبت OOM بإشارة SIGKILL مثلًا بدل اتهام الذاكرة تعسّفًا.
+  nextServer.stderr.on('data', (chunk: Buffer) => pushServerTrace('[stderr] ' + chunk.toString('utf8')));
+  nextServer.stdout.on('data', (chunk: Buffer) => pushServerTrace('[stdout] ' + chunk.toString('utf8')));
+  nextServer.on('exit', (code, signal) => {
+    serverExitEvidence = `next dev exited — code=${String(code)} signal=${String(signal)}`;
+    console.error(`\n[next-server exit] ${serverExitEvidence}\n${serverTrace.join('')}`);
+  });
   await waitForNext(baseUrl);
   await createStableOperatorSession();
   installLiveBrowserFetch();
