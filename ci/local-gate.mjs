@@ -38,6 +38,10 @@ const steps = [
     envNote: 'السويت الكامل (~3 دقائق) ويشمل خادم Next وحزم routes — تنجح جميعها منفردة بعد إصلاحات 2026-10-26؛ يُتخطّى فقط في حلقات التطوير السريعة المصرّح بها، ولا يُتخطّى في وضع الإصدار.',
   },
   {
+    name: 'browser-journey', cmd: 'npx playwright test', heavy: true,
+    envNote: 'رحلة المتصفح الفعلية (دخول/تسجيل/حفظ/إعادة تحميل/إيصال/خروج/دخول) بخادم Next وChromium حقيقيين — مُثبتة محليًا 2026-10-26 (1 passed، 6 لقطات ci/browser-evidence/)؛ تتطلب `npx playwright install chromium` + install-deps في البيئات العارية. تبقى heavy للحلقات السريعة فقط، ولا تُتخطّى في وضع الإصدار.',
+  },
+  {
     name: 'production-build', cmd: 'npm run build', heavy: true,
     envNote: 'أُثبت نجاحه محليًا في هذا الصندوق 2026-10-26 (exit 0، ~24s — ci/diagnostics/build-success-2026-10-26.log) بعد إصلاحات الحزم؛ الادعاء القديم بالاستحالة كان نسبة متعجلة وصُحّح بالقياس. يبقى heavy لتسريع حلقات التطوير فقط، ولا يُتخطّى في وضع الإصدار.',
   },
