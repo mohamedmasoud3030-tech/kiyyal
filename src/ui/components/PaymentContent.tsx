@@ -103,7 +103,7 @@ export function PaymentContent({ initialPartyId, role: injectedRole, scope = nul
   useEffect(() => {
     if (!scope || !draftRestored || result) return;
     const timer = window.setTimeout(() => {
-      if (partyId.trim() !== '' && Number(amount) > 0) void persistDraft({ partyId, direction, amount, note });
+      if (partyId.trim() !== '' && /[1-9]/.test(amount)) void persistDraft({ partyId, direction, amount, note });
       else void offlineStore().removeDraft(scope, 'payment');
     }, 500);
     return () => window.clearTimeout(timer);

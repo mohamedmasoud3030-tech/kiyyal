@@ -510,7 +510,7 @@ export const ar = {
     offlinePending: 'غير متصل — {n} محفوظة على الجهاز لم تُرسل',
     onlinePending: 'متصل — {n} لم تؤكَّد بعد',
     conflictsWaiting: 'متصل — {n} عملية تحتاج قرارك',
-    completedNotice: 'متصل — اكتملت {n} عملية كانت معلّقة',
+    completedNotice: 'متصل — اكتملت {n}',
     volatileStorage: 'حماية عدم الفقد غير متاحة على هذا المتصفح — لن تبقى المسودات بعد الإغلاق',
     openOutboxAria: 'عرض العمليات غير المحسومة',
   },

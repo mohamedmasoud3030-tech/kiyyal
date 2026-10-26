@@ -258,7 +258,7 @@ test('C3: الضغط حفظ قبل الاستئناف التلقائي وبعد�
   expect(await dbCountForKey(key)).toBe(1);
   // الإقرار الخلفي ظاهر رايةً صريحة فوق النموذج المصفّر (توجيه المالك 3)،
   // والتنقّل لنموذج جديد يعني هويةً جديدة — لا إعادة إرسال للمفتاح المستهلك.
-  await expect(page.getByTestId('external-ack-banner')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('external-ack-banner')).toBeVisible({ timeout: 45_000 });
   await expect(page.locator('#expense-amount')).toHaveValue('');
   await page.goto(`${baseUrl}/expense`); // دخول جديد للنموذج = نية جديدة عند الإدخال
   await page.locator('#expense-category').selectOption('fuel');

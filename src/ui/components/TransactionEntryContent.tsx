@@ -193,7 +193,7 @@ export function TransactionEntryContent({ type, scope = null }: { readonly type:
   useEffect(() => {
     if (!scope || !draftRestored || result) return;
     const timer = window.setTimeout(() => {
-      const hasWork = Number(amountCash) > 0 || lines.length > 0 || note.trim() !== '';
+      const hasWork = /[1-9]/.test(amountCash) || lines.some((line) => line.material_id.trim() !== '') || note.trim() !== '';
       if (hasWork) void persistDraft({ businessDate, partyId, amountCash, note, lines });
       else void offlineStore().removeDraft(scope, formKeyOf(type));
     }, 500);

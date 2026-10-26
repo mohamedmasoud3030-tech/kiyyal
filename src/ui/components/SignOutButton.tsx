@@ -22,7 +22,7 @@ export function SignOutButton({ scope = null }: { readonly scope?: string | null
     // قرار المغادرة قرار محلي أولًا: المسح (إن اختير) لا يعتمد على الشبكة —
     // قاعدة الجهاز المشترك تُنفَّذ فورًا ولو انقطع الاتصال الآن (ADR-0016 §7).
     if (wipe) {
-      try { await offlineStore().clearAll(); } catch { /* أي باقٍ يبقى غير مرئي بالوسم وسمه » أعمال غير مخسومة */ }
+      try { await offlineStore().clearAll(); } catch { /* remainder stays scope-tagged and invisible */ }
     }
     const csrf = await ensureCsrfToken().catch(() => null);
     if (csrf) {
@@ -33,7 +33,7 @@ export function SignOutButton({ scope = null }: { readonly scope?: string | null
           credentials: 'same-origin',
           headers: { 'x-kayyal-csrf': csrf },
         });
-      } catch { /* استحقاق الطبيعة ينتهي بانتهاء صلاحية الرمز خادميًا */ }
+      } catch { /* the opaque token still expires server-side */ }
     }
     window.location.assign('/login');
   }

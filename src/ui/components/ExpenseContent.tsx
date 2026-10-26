@@ -81,7 +81,7 @@ export function ExpenseContent({ scope = null }: { readonly scope?: string | nul
     if (!scope || !draftRestored || result) return;
     const timer = window.setTimeout(() => {
       // مسودة فارغة لا تُسكّ نيةً: صفر مبلغ = لا عمل.
-      if (Number(amount) > 0) void persistDraft({ category, amount, note });
+      if (/[1-9]/.test(amount)) void persistDraft({ category, amount, note });
       else void offlineStore().removeDraft(scope, 'expense');
     }, 500);
     return () => window.clearTimeout(timer);
