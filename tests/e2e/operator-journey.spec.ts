@@ -9,7 +9,7 @@
  * Supabase tenant credentials.
  */
 import { createServer, type Server } from 'node:net';
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdir } from 'node:fs/promises';
 
@@ -67,7 +67,7 @@ async function stopNextServer(): Promise<void> {
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
-  test.setTimeout(180_000);
+  test.setTimeout(360_000);
   t = await freshRealDatabase();
   operator = await seedYard(t.admin, 'متصفح', await hashPin('4271'));
   loginCode = (await t.admin.query<{ operator_login_code: string }>(
@@ -88,14 +88,31 @@ test.beforeAll(async () => {
   environment.DATABASE_URL = `postgres://${t.runtimeUser}:rtpw@localhost:${process.env.TEST_PG_PORT ?? '55433'}/${t.dbName}`;
   environment.NEXT_TELEMETRY_DISABLED = '1';
 
+  // نفس تحقيق مجموعة التدفق الحي (dmesg 2026-10-26): قاتل OOM في الصندوق ذي
+  // الـ2GB يستهدف ابن Turbopack «next-server» ويُسقِط الطلبات بصمت، والخروج
+  // الظاهر code=0 لأن CLI الأب يلفّف الانهيار. الرحلة تعمل على بناءٍ أحادي
+  // (يتذكّره .next إن وُجد) ثم «next start» — بصمة تشغيل أصغر بأضعاف ولا
+  // تجميع كسول أثناء التنقل.
+  const build = spawnSync(process.execPath, [
+    './node_modules/next/dist/bin/next', 'build',
+  ], { cwd: process.cwd(), env: environment, stdio: 'pipe', timeout: 240_000 });
+  if ((build.status ?? 1) !== 0) {
+    throw new Error(`next build failed inside the browser journey:\n${String(build.stderr)}\n${String(build.stdout)}`);
+  }
   nextServer = spawn(process.execPath, [
-    './node_modules/next/dist/bin/next', 'dev', '--hostname', '127.0.0.1', '--port', String(port),
+    './node_modules/next/dist/bin/next', 'start', '--hostname', '127.0.0.1', '--port', String(port),
   ], {
     cwd: process.cwd(), env: environment, stdio: 'pipe',
+  });
+  let serverExited: string | null = null;
+  nextServer.on('exit', (code, signal) => {
+    serverExited = `next server exited — code=${String(code)} signal=${String(signal)}`;
+    console.error(`\n[e2e-server exit] ${serverExited}\n`);
   });
   nextServer.stderr.on('data', () => undefined);
   nextServer.stdout.on('data', () => undefined);
   await waitForApplication(baseUrl);
+  if (serverExited !== null) throw new Error(serverExited);
 });
 
 test.afterAll(async () => {
