@@ -8,13 +8,13 @@
  * alternative interaction proof while a Chromium binary is unavailable; it is
  * not presented as a substitute for visual/browser compatibility testing.
  */
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { once } from 'node:events';
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 import { createServer, type Server } from 'node:net';
 import { randomUUID } from 'node:crypto';
 
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, configure } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -363,6 +363,13 @@ async function resetWorkflowFacts(): Promise<void> {
   `);
 }
 
+// نوافذ findBy/waitFor الضمنية في testing-library أصلها ثانية واحدة — وهو سقف
+// ينكسر تحت أي عاصفة كمون على صندوق 2GB (شوهد إخفاق «تم تسجيل إقفال اليوم»
+// بعد 2.8s بينما تدفق الإقفال نفسه صحيح). نوسّع النافذة الضمنية للمجموعة كلها
+// إلى 15s؛ النوافذ الصريحة الأطول في الاختبارات الحرجة تبقى كما هي. لا إعادة
+// محاولة مقنّعة: الاختبارات تنجح بأدلة أو تفشل موثقة.
+configure({ asyncUtilTimeout: 15_000 });
+
 beforeAll(async () => {
   nativeFetch = globalThis.fetch;
   t = await freshRealDatabase();
@@ -393,15 +400,29 @@ beforeAll(async () => {
   delete environment.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   environment.DATABASE_URL = `postgres://${t.runtimeUser}:rtpw@localhost:${process.env.TEST_PG_PORT ?? '55433'}/${t.dbName}`;
   environment.NEXT_TELEMETRY_DISABLED = '1';
+  // تحقيق جذري (2026-10-26، سجلّ النواة dmesg): قاتل OOM العالمي يقتل ابن
+  // «next-server (v1)» (anon-rss 1.16GB — ذاكرة Turbopack الأصلية لا يحكمها سقف
+  // V8)، فيخرج CLI الأب exit(0) نظيفًا وتسقط الطلبات المتبقية بـ «fetch failed».
+  // الحل البنيوي: بناء الإنتاج مرة واحدة ثم تشغيل «next start» — بصمة التشغيل
+  // 250–400MB فقط، وكل المسارات جاهزة مسبقًا فيختفي صنفا التذبذب معًا (ذروة
+  // التجميع وتجميد التجميع الكسول). الاختبارات تستورد المكوّنات من المصدر ولا
+  // تعتمد أي سلوك dev-exclusive للخادم؛ دلالات واجهات API متطابقة في الوضعين.
+  // مرصد الخروج أدناه يبقى الحكم: أي موت خادم يُطبع بكود/إشارة وأثر صريح.
+  const build = spawnSync(process.execPath, [
+    './node_modules/next/dist/bin/next', 'build',
+  ], { cwd: process.cwd(), env: environment, stdio: 'pipe', timeout: 240_000 });
+  if ((build.status ?? 1) !== 0) {
+    throw new Error(`next build failed inside the live-flow suite:\n${String(build.stderr)}\n${String(build.stdout)}`);
+  }
   nextServer = spawn(process.execPath, [
-    './node_modules/next/dist/bin/next', 'dev', '--hostname', '127.0.0.1', '--port', String(port),
+    './node_modules/next/dist/bin/next', 'start', '--hostname', '127.0.0.1', '--port', String(port),
   ], { cwd: process.cwd(), env: environment, stdio: 'pipe' });
   // مرصد الخروج (ملاحظة المالك 6): عند موت الخادم أثناء التشغيل نلتقط كود الخروج
   // والإشارة وآخر stderr — فيُثبت OOM بإشارة SIGKILL مثلًا بدل اتهام الذاكرة تعسّفًا.
   nextServer.stderr.on('data', (chunk: Buffer) => pushServerTrace('[stderr] ' + chunk.toString('utf8')));
   nextServer.stdout.on('data', (chunk: Buffer) => pushServerTrace('[stdout] ' + chunk.toString('utf8')));
   nextServer.on('exit', (code, signal) => {
-    serverExitEvidence = `next dev exited — code=${String(code)} signal=${String(signal)}`;
+    serverExitEvidence = `next server exited — code=${String(code)} signal=${String(signal)}`;
     console.error(`\n[next-server exit] ${serverExitEvidence}\n${serverTrace.join('')}`);
   });
   await waitForNext(baseUrl);
@@ -416,7 +437,7 @@ beforeAll(async () => {
     // أفضل جهد ممكن: انقطاع الشبكة هنا يكشفه إقلاع الخادم نفسه لاحقًا.
   }
   installLiveBrowserFetch();
-}, 180_000);
+}, 480_000);
 
 beforeEach(async () => {
   await resetWorkflowFacts();
@@ -935,7 +956,17 @@ describe('operator client workflows against the live application boundary', () =
     render(<SignOutButton />);
     await user.click(screen.getByRole('button', { name: ar.auth.signOutAction }));
 
-    await waitFor(() => expect(ownerAccessTokenRevoked).toBe(true), { timeout: 30_000 });
+    try {
+      await waitFor(() => expect(ownerAccessTokenRevoked).toBe(true), { timeout: 30_000 });
+    } catch (failure) {
+      const errorText = document.querySelector('.session-actions__error')?.textContent ?? '(لا عرض خطأ)';
+      const buttonText = screen.getByRole('button').textContent ?? '(لا زر)';
+      console.error(
+        `[sign-out diagnostics] error="${errorText}" button="${buttonText}"\n`
+        + `آخر أثر الخادم:\n${serverTrace.slice(-14).join('')}`,
+      );
+      throw failure;
+    }
     const sessionResponse = await nativeFetch(`${baseUrl}/api/session`, { headers: { cookie: document.cookie } });
     expect(sessionResponse.status).toBe(401);
     expect(document.querySelector('.session-actions__error')).toBeNull();
