@@ -36,7 +36,7 @@ Unchanged posture, plus: no PIN/token/totals persisted; queue cleared on logout 
 The owner ordered ten hardening directives for PR #19; this amendment records
 the resulting system laws and the interpreted contract policy.
 
-1. **Durable unified identity.** `queueId = \${scope}:\${idempotencyKey}`; the intent
+1. **Durable unified identity.** `queueId` = `${scope}:${idempotencyKey}`; the intent
    (key + `deviceCreatedAt`) is minted at first autosave and stored on the draft
    (`DraftRecord.intent`). Re-pressing an intent can never create a second queue
    row (`getOp` reuse + stableJson body compare → `conflict: intent_mismatch`),
