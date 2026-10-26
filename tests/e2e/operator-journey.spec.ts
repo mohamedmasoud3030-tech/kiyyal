@@ -11,6 +11,7 @@
 import { createServer, type Server } from 'node:net';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { once } from 'node:events';
+import { mkdir } from 'node:fs/promises';
 
 import { expect, test } from '@playwright/test';
 
@@ -23,6 +24,8 @@ let operator: Seed;
 let loginCode: string;
 let baseUrl: string;
 let nextServer: ChildProcessWithoutNullStreams | undefined;
+/** أدلة الرحلة المتصفحية تُفصل عن أدلة اختبارات الخدمات (ملاحظة المالك 8). */
+const evidenceDir = process.env.BROWSER_EVIDENCE_DIR ?? 'ci/browser-evidence/latest';
 
 async function freePort(): Promise<number> {
   const probe: Server = createServer();
@@ -101,10 +104,14 @@ test.afterAll(async () => {
   await stopServer();
 });
 
-test('operator login, protected deep-link, purchase persistence, reload, responsive shell, and sign-out', async ({ page }) => {
+test('operator login, protected deep-link, purchase persistence, reload, responsive shell, receipt, and sign-out/sign-in', async ({ page }) => {
+  await mkdir(evidenceDir, { recursive: true });
   await page.goto(`${baseUrl}/login`);
+  // دخول الموظف داخل <details> قابلة للطي (المالك أولوية في الشاشة) — يُفتح أولًا.
+  await page.locator('details.login-operator > summary').click();
   const operatorForm = page.locator('form').filter({ has: page.locator('input[name="operator_login_code"]') });
   await expect(operatorForm).toBeVisible();
+  await page.screenshot({ path: `${evidenceDir}/01-login.png` });
   await expect(operatorForm.locator('button[type="submit"]')).toBeEnabled();
   await operatorForm.locator('input[name="operator_login_code"]').fill(loginCode);
   await operatorForm.locator('input[name="display_name"]').fill('عامل متصفح');
@@ -114,6 +121,7 @@ test('operator login, protected deep-link, purchase persistence, reload, respons
   await page.waitForURL(`${baseUrl}/today`);
   await expect(page.getByRole('heading', { name: ar.today.title })).toBeVisible();
   await expect(page.locator('main')).toContainText(ar.today.noTransactionsTitle);
+  await page.screenshot({ path: `${evidenceDir}/02-today-empty.png` });
 
   await page.goto(`${baseUrl}/purchase`);
   const transactionForm = page.locator('form.transaction-entry');
@@ -127,9 +135,16 @@ test('operator login, protected deep-link, purchase persistence, reload, respons
 
   await expect(page.getByRole('heading', { name: ar.transactionEntry.savedTitle })).toBeVisible();
   await expect(page.locator('.transaction-result__amount')).toContainText('200.00');
+  await page.screenshot({ path: `${evidenceDir}/03-purchase-saved.png` });
   const transactionHref = await page.locator('a').filter({ hasText: ar.transactionEntry.viewTransactionAction }).getAttribute('href');
   expect(transactionHref).toMatch(/^\/transactions\/[0-9a-f-]{36}$/);
   const transactionId = transactionHref!.split('/').at(-1)!;
+
+  // إيصال الحركة من المتصفح نفسه (ملاحظة المالك 8): مسار الإيصال المرقم بالمبلغ.
+  await page.goto(`${baseUrl}${transactionHref}/receipt`);
+  await expect(page.locator('.transaction-receipt')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.transaction-receipt')).toContainText('200.00');
+  await page.screenshot({ path: `${evidenceDir}/04-receipt.png` });
 
   const persisted = await t.admin.query<{ total_amount: string; status: string; n: string }>(
     `SELECT total_amount::text, status,
@@ -141,16 +156,37 @@ test('operator login, protected deep-link, purchase persistence, reload, respons
 
   await page.goto(`${baseUrl}/today`);
   await expect(page.getByRole('heading', { name: ar.today.title })).toBeVisible();
-  await expect(page.locator('main')).toContainText('شراء مثبت في المتصفح');
+  // واجهة «اليوم» الحالية تعرض نوع الحركة وتاريخها ومبلغها وحالتها ورابط تفاصيلها،
+  // ولا تعرض خانة الملاحظة — التوقع على ما تعقده الواجهة فعلًا، لا على ملاحظة قديمة.
+  await expect(page.locator('main')).toContainText('شراء');
+  await expect(page.locator('main')).toContainText('200.00');
+  await expect(page.locator(`main a[href="/transactions/${transactionId}"]`)).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await expect(page.locator('.app-shell__mobile-header')).toBeVisible();
-  await expect(page.locator('main')).toContainText('شراء مثبت في المتصفح');
+  // العرض المحمول يكثّف صف الحركة (النوع/المبلغ/الحالة/رابط التفاصيل) ويُسقط خانة
+  // الملاحظة؛ الثبات المطلوب بعد إعادة التحميل يُثبَّت على ما تعقده واجهة الموبايل.
+  await expect(page.locator('main')).toContainText('200.00');
+  await expect(page.locator(`main a[href="/transactions/${transactionId}"]`)).toBeVisible();
   expect(await page.locator('body').evaluate((body) => body.scrollWidth <= body.clientWidth)).toBe(true);
 
+  await page.screenshot({ path: `${evidenceDir}/05-after-reload-mobile.png` });
   await page.getByRole('button', { name: ar.auth.signOutAction }).click();
   await page.waitForURL(`${baseUrl}/login`);
   await page.goto(`${baseUrl}/today`);
   await page.waitForURL(`${baseUrl}/login`);
+
+  // دخول ثانٍ بعد الخروج (ملاحظة المالك 8): الجلسة الجديدة تعمل، والبيانات
+  // المدخلة في الجلسة السابقة باقية — دليل «خروج ودخول» لا مجرد إخفاء واجهة.
+  await page.locator('details.login-operator > summary').click();
+  await expect(operatorForm).toBeVisible();
+  await operatorForm.locator('input[name="operator_login_code"]').fill(loginCode);
+  await operatorForm.locator('input[name="display_name"]').fill('عامل متصفح');
+  await operatorForm.locator('input[name="pin"]').fill('4271');
+  await operatorForm.locator('button[type="submit"]').click();
+  await page.waitForURL(`${baseUrl}/today`);
+  await expect(page.locator('main')).toContainText('200.00');
+  await expect(page.locator(`main a[href="/transactions/${transactionId}"]`)).toBeVisible();
+  await page.screenshot({ path: `${evidenceDir}/06-relogin-persistence.png` });
 });
