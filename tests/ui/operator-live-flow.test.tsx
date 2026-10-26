@@ -406,6 +406,15 @@ beforeAll(async () => {
   });
   await waitForNext(baseUrl);
   await createStableOperatorSession();
+  // تدفئة تجميع dev لمسار DELETE /api/auth/session: أول نداء فعلي لهذا المسار
+  // (اختبار إبطال جلسة المالك) كان يدفع كلفة التجميع الكسول — حتى دقيقة تحت
+  // ضغط RAM البالغ 2GB داخل بوابة الإصدار — فينفجر صبر نافذة التحقق. ننقل الكلفة
+  // هنا إلى الإقلاع بطلبٍ غير موثّق (401 لا يهمنا، التجميع هو المطلوب).
+  try {
+    await nativeFetch(`${baseUrl}/api/auth/session`, { method: 'DELETE' });
+  } catch {
+    // أفضل جهد ممكن: انقطاع الشبكة هنا يكشفه إقلاع الخادم نفسه لاحقًا.
+  }
   installLiveBrowserFetch();
 }, 180_000);
 
