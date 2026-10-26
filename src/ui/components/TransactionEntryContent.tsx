@@ -122,7 +122,7 @@ export function TransactionEntryContent({ type, scope = null }: { readonly type:
   const [extAckShown, setExtAckShown] = useState(false);
   useEffect(() => { if (externallyAcked) setExtAckShown(true); }, [externallyAcked]);
   useEffect(() => {
-    if (externallyAcked) { setAmountCash(''); setNote(''); setLines([]); consumeExternalAck(); }
+    if (externallyAcked) { setAmountCash('0.00'); setNote(''); setLines([blankLine('line-0')]); consumeExternalAck(); }
   }, [externallyAcked, consumeExternalAck]);
   const [draftRestored, setDraftRestored] = useState(false);
 

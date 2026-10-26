@@ -28,3 +28,67 @@ Full offline-first engine, multi-device reconciliation, offline accounting/numbe
 
 ## Security implications
 Unchanged posture, plus: no PIN/token/totals persisted; queue cleared on logout and scope switch; conflict/parked states preserve the user's data on-device without pretending it posted.
+
+---
+
+## Amendment 2026-10-26 — owner directives (PR #19 continuation)
+
+The owner ordered ten hardening directives for PR #19; this amendment records
+the resulting system laws and the interpreted contract policy.
+
+1. **Durable unified identity.** `queueId = \${scope}:\${idempotencyKey}`; the intent
+   (key + `deviceCreatedAt`) is minted at first autosave and stored on the draft
+   (`DraftRecord.intent`). Re-pressing an intent can never create a second queue
+   row (`getOp` reuse + stableJson body compare → `conflict: intent_mismatch`),
+   and the hook distinguishes resuming/new in Arabic banner copy.
+2. **Single-flight + orphan recovery.** `claimOp(queueId)` is an atomic
+   queued→syncing CAS inside one IndexedDB readwrite transaction; a second
+   caller (button/timer/online/second tab) always loses. At sweep start, any
+   `syncing` row not currently claimed is reset to `queued` with the SAME key —
+   we never assume a killed request never reached the server.
+3. **Persistent acknowledgment ledger.** `acknowledged` rows persist with an
+   `OpAck` summary until the user dismisses them (`dismissAck`) — no silent
+   local cleanup races a server ack (background ack while the form is open
+   surfaces an explicit banner, the form resets, and a tombstone draft closes
+   the reload race deterministically). Acks carry no server totals (PWA_RULES 14).
+4. **Rejection grading.** `401 unauthenticated` → `parked` (resume only after
+   `/api/session` verifies the same scope; cross-scope sweeps never touch it).
+   `403 unauthorized_capability`/`forged_tenant_context` → terminal `conflict`.
+   **`csrf_failed` (not in the contract's retry matrix) is an interpretation:**
+   client deletes the stale `kayyal_csrf` cookie, forces one CSRF refresh, and
+   requeues with the same key once (ADR §6 policy; contract amendment proposed
+   to the owner before any wider change).
+5. **Honest unresolved list.** `statusCounts` never returns a misleading zero:
+   conflicts and parked rows count toward "unresolved"; the OutboxPanel lists
+   every unresolved op with its reason and only legitimate actions (resume,
+   discard explicitly, dismiss ack). The chip never claims zero while a
+   conflict exists.
+6. **Sign-out gate.** With unresolved ops/drafts, sign-out pauses the sweep,
+   shows exact counts, and requires an explicit informed choice (send now /
+   destructive local wipe per PWA_RULES 15 / cancel). Local wipe executes
+   even without network (logout is a local device decision); the server DELETE
+   is best-effort.
+7. **Storage honesty.** If IndexedDB is unavailable or quota-exhausted, the
+   chip says so; the memory store is for tests only in production claims.
+8. **Real-browser proof.** `tests/e2e/offline-journey.spec.ts` (Chromium, real
+   IndexedDB, real server, real PostgreSQL) covers seven owner cases (C1–C7):
+   close-during-sync pre/post-commit, save-press around auto-resume, background
+   ack while the form is open, two-tab simultaneous reconnect, expired session
+   holds, conflict visible after reload, sign-out with pending work.
+9. **PR #17 compatibility.** PR #17 (Arabic workspace/navigation refinement)
+   is NOT merged into main at branch time and touches only `AppShell.tsx` and
+   `src/ui/copy/ar.ts` of this branch's files. Either merge order is safe;
+   merging #17 first requires only re-adding `OutboxPanel` wiring, the chip
+   handler, and the new copy blocks on rebase.
+10. **Proof boundaries.** The green suites prove only what they execute:
+    jsdom-store engine cases (10), live-server acceptance cases (7), and the
+    C1–C7 browser cases. Service-Worker-less offline page reload is technically
+    impossible (no SW shipped) — the durable identity guarantee covers
+    crash/close between open sessions; it does NOT provide offline navigation.
+    Rate-limit boundaries of the auth endpoint shape test pacing, not product.
+
+## Harness note (test-only fix in this PR)
+
+`tests/db/pg-harness.ts` sets `ALTER DATABASE ... SET timezone='Africa/Cairo'`
+per fresh test database, removing latent UTC/Cairo dayline flakiness around
+Cairo midnight (previously suites passing at 17:5x Cairo failed at 00:3x Cairo).

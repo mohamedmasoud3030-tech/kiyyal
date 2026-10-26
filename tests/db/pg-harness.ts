@@ -56,6 +56,9 @@ export async function freshRealDatabase(): Promise<TestDb> {
   const root = new pg.Client({ host: 'localhost', port: PORT, user: SUPER, password: PW, database: 'postgres' });
   await root.connect();
   await root.query(`CREATE DATABASE ${dbName}`);
+  // اليوم التشغيلي توقيته القاهرة: نُلزم كل جلسة لهذه القاعدة أن ترى التوقيت نفسه
+  // (CURRENT_DATE وfriends) — بلا ذلك تهتز الجنوح القريبة من منتصف الليل القاهري.
+  await root.query(`ALTER DATABASE ${dbName} SET timezone = 'Africa/Cairo'`);
   await root.end();
 
   const adminPool = createPool(`postgres://${SUPER}:${PW}@localhost:${PORT}/${dbName}`);
