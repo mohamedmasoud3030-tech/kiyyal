@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 export type WebRole = 'owner' | 'operator';
 export type SessionState =
   | { readonly status: 'loading' }
-  | { readonly status: 'authenticated'; readonly role: WebRole }
+  | { readonly status: 'authenticated'; readonly role: WebRole; readonly scope: string }
   | { readonly status: 'unavailable' };
 
 /**
@@ -27,10 +27,11 @@ export function useSession(): SessionState {
           setState({ status: 'unavailable' });
           return;
         }
-        const payload = await response.json() as { data?: { role?: unknown } };
+        const payload = await response.json() as { data?: { role?: unknown; scope?: unknown } };
         const role = payload.data?.role;
-        if (role === 'owner' || role === 'operator') {
-          setState({ status: 'authenticated', role });
+        const scope = payload.data?.scope;
+        if ((role === 'owner' || role === 'operator') && typeof scope === 'string' && /^[0-9a-f]{24}$/.test(scope)) {
+          setState({ status: 'authenticated', role, scope });
           return;
         }
         setState({ status: 'unavailable' });

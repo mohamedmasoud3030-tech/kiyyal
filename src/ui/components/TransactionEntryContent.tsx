@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { ar } from '../copy/ar';
-import { apiErrorMessage, ensureCsrfToken } from '../clientSecurity';
+import { apiErrorMessage } from '../clientSecurity';
+import { useResilientSubmit, loadDraft, saveDraft, formKeyOf } from '../offline/useResilientSubmit';
 import { Amount } from './Amount';
 import { Button } from './Button';
 import { FormActions } from './FormActions';
@@ -103,7 +104,7 @@ export function materialSelectionPatch(
  * displays a client-calculated weight/price/total. The server remains the single
  * financial calculator and posting authority.
  */
-export function TransactionEntryContent({ type }: { readonly type: EntryType }) {
+export function TransactionEntryContent({ type, scope = null }: { readonly type: EntryType; readonly scope?: string | null }) {
   const [loadState, setLoadState] = useState<LoadState>({ status: 'loading' });
   const [businessDate, setBusinessDate] = useState(cairoBusinessDate);
   const [partyId, setPartyId] = useState('');
@@ -111,13 +112,13 @@ export function TransactionEntryContent({ type }: { readonly type: EntryType }) 
   const [note, setNote] = useState('');
   const [lines, setLines] = useState<readonly DraftLine[]>([blankLine('line-0')]);
   const [nextLineNumber, setNextLineNumber] = useState(1);
-  const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
-  // Kept alongside the retry key: an interrupted save must retain the original
-  // device timestamp rather than minting a later timestamp on every retry.
-  const [deviceCreatedAt, setDeviceCreatedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<PostedResult | null>(null);
+  const [replayNote, setReplayNote] = useState(false);
+  // مفتاح العزم وطابع الجهاز محفوظان داخل الخطّاف عبر ref — محاولة أخرى (أو
+  // إعادة فتح بعد موت) تبعث بنفسهما حرفيًا (ADR-0016: مرة واحدة بالضبط).
+  const { submit: resilientSubmit, submitting, outcome } = useResilientSubmit(type, scope);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -162,54 +163,58 @@ export function TransactionEntryContent({ type }: { readonly type: EntryType }) 
     setLines((current) => current.length > 1 ? current.filter((line) => line.id !== id) : current);
   }
 
+  // المسودة المحلية (PWA_RULES 4): تُستعاد مرة واحدة بعد معرفة النطاق، وتُحفظ
+  // بترقّق 500ms عند كل تغيير — إغلاق/موت جهاز لا يضيّع فرزًا ناقصًا أبدًا.
+  useEffect(() => {
+    if (!scope || draftRestored) return;
+    setDraftRestored(true);
+    void loadDraft(scope, formKeyOf(type)).then((fields) => {
+      if (!fields) return;
+      if (typeof fields.businessDate === 'string') setBusinessDate(fields.businessDate);
+      if (typeof fields.partyId === 'string') setPartyId(fields.partyId);
+      if (typeof fields.amountCash === 'string') setAmountCash(fields.amountCash);
+      if (typeof fields.note === 'string') setNote(fields.note);
+      if (Array.isArray(fields.lines) && fields.lines.length > 0) {
+        const restored = fields.lines as unknown as DraftLine[];
+        if (restored.every((line) => typeof line === 'object' && line && typeof (line as DraftLine).id === 'string')) {
+          setLines(restored);
+          setNextLineNumber(restored.length);
+        }
+      }
+    });
+  }, [scope, draftRestored, type]);
+
+  useEffect(() => {
+    if (!scope || !draftRestored || result) return;
+    const timer = window.setTimeout(() => {
+      void saveDraft(scope, formKeyOf(type), { businessDate, partyId, amountCash, note, lines });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [scope, draftRestored, type, businessDate, partyId, amountCash, note, lines, result]);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (loadState.status !== 'ready' || submitting || result) return;
-    const key = idempotencyKey ?? globalThis.crypto?.randomUUID();
-    if (!key) {
-      setError(ar.auth.csrfUnavailable);
-      return;
-    }
-
-    const originalDeviceTimestamp = deviceCreatedAt ?? new Date().toISOString();
     setError(null);
-    setSubmitting(true);
-    setIdempotencyKey(key);
-    setDeviceCreatedAt(originalDeviceTimestamp);
-    const csrf = await ensureCsrfToken();
-    if (!csrf) {
-      setError(ar.auth.csrfUnavailable);
-      setSubmitting(false);
+    // النية تُسجَّل محليًا بمفتاحها قبل أول إرسال؛ عند الانقطاع تبقى مرئية
+    // بصدق («لم تُرسل») وتُستأنف بنفس المفتاح — لا إيصال ولا رصيد قبل الإقرار.
+    const outcomeResult = await resilientSubmit({
+      business_date: businessDate,
+      lines: lines.map(({ id: _id, ...line }) => line),
+      amount_cash: amountCash,
+      ...(partyId ? { party_id: partyId } : {}),
+      ...(note.trim() ? { note: note.trim() } : {}),
+    });
+    if (!outcomeResult) {
+      setError(ar.transactionEntry.materialsUnavailableDescription);
       return;
     }
-    try {
-      const response = await fetch(`/api/transactions/${type}`, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          'content-type': 'application/json',
-          'idempotency-key': key,
-          'x-kayyal-csrf': csrf,
-        },
-        body: JSON.stringify({
-          business_date: businessDate,
-          lines: lines.map(({ id: _id, ...line }) => line),
-          amount_cash: amountCash,
-          device_created_at: originalDeviceTimestamp,
-          ...(partyId ? { party_id: partyId } : {}),
-          ...(note.trim() ? { note: note.trim() } : {}),
-        }),
-      });
-      const payload: unknown = await response.json().catch(() => null);
-      if (!response.ok) {
-        setError(apiErrorMessage(payload) ?? ar.transactionEntry.materialsUnavailableDescription);
-        setSubmitting(false);
-        return;
-      }
-      const posted = payload as Partial<PostedResult>;
+    if (outcomeResult.kind === 'acknowledged') {
+      const posted = outcomeResult.payload as Partial<PostedResult>;
       if (typeof posted.id !== 'string' || typeof posted.total_amount !== 'string'
         || (posted.status !== 'posted' && posted.status !== 'pending_stock_resolution')) {
-        throw new Error('post_shape');
+        setError(apiErrorMessage(null) ?? ar.transactionEntry.materialsUnavailableDescription);
+        return;
       }
       setResult({
         id: posted.id,
@@ -217,11 +222,19 @@ export function TransactionEntryContent({ type }: { readonly type: EntryType }) 
         status: posted.status,
         total_amount: posted.total_amount,
       });
-    } catch {
-      setError(ar.transactionEntry.materialsUnavailableDescription);
-    } finally {
-      setSubmitting(false);
+      setReplayNote(outcomeResult.idempotentReplay);
+      return;
     }
+    if (outcomeResult.kind === 'conflict') {
+      // تعارض صريح (يوم مقفول/رصيد متغيّر/مرجع بالٍ): لا توليد ولا رصيد —
+      // نصّ الخادم العربي يُعرض كما هو والمسودة محفوظة للمعالجة.
+      setError(`${ar.offline.conflictPrefix} ${outcomeResult.message}`);
+      return;
+    }
+    if (outcomeResult.kind === 'parked') {
+      setError(outcomeResult.message);
+    }
+    // queued: لا رسالة خطأ — شريط الحالة والراية الصادقة أسفل النموذج يكفيان.
   }
 
   if (loadState.status === 'loading') {
@@ -246,6 +259,7 @@ export function TransactionEntryContent({ type }: { readonly type: EntryType }) 
     const pending = result.status === 'pending_stock_resolution';
     return (
       <PageContainer width="form">
+        {replayNote ? <p className="offline-outcome" role="status">{ar.offline.replayedNote}</p> : null}
         <StatePanel
           action={(
             <div className="transaction-result__actions">
@@ -345,6 +359,9 @@ export function TransactionEntryContent({ type }: { readonly type: EntryType }) 
             <TextInput maxLength={1000} name="note" onChange={(event) => setNote(event.target.value)} value={note} />
           </FormField>
         </Section>
+        {outcome && outcome.kind === 'queued' ? (
+          <p aria-live="polite" className="offline-outcome" role="status">{ar.offline.queuedPrefix} {outcome.message}</p>
+        ) : null}
         <FormActions {...(error ? { status: error } : {})} stickyOnMobile>
           <Button loading={submitting} size="lg" type="submit">{submitting ? ar.transactionEntry.savingAction : saveLabelFor(type)}</Button>
         </FormActions>

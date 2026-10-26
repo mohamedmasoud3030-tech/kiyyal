@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { ar } from '../copy/ar';
 import { ensureCsrfToken } from '../clientSecurity';
+import { offlineStore } from '../offline/outbox';
 import { Button } from './Button';
 
 /** Revokes the active server/provider session before returning to the public login page. */
@@ -28,6 +29,8 @@ export function SignOutButton() {
         setState('error');
         return;
       }
+      // PWA_RULES 15: an explicit sign-out leaves no draft or queued op on this device.
+      try { await offlineStore().clearAll(); } catch { /* the scope tag keeps any remainder invisible across users */ }
       window.location.assign('/login');
     } catch {
       setState('error');

@@ -1,3 +1,5 @@
+'use client';
+
 import type { ReactNode } from 'react';
 
 import Link from 'next/link';
@@ -6,8 +8,10 @@ import { ar, type AppRole } from '../copy/ar';
 import { navigationFor } from '../navigation';
 import { classNames } from './classNames';
 import { StatusBadge, type StatusTone } from './StatusBadge';
+import { ConnectionChip } from './ConnectionChip';
 import { SignOutButton } from './SignOutButton';
 import { ThemeToggle } from './ThemeToggle';
+import { useOutboxAutoSweep } from '../offline/useResilientSubmit';
 
 export interface ConnectionState {
   readonly label: string;
@@ -19,14 +23,18 @@ export interface AppShellProps {
   readonly activePath: string;
   readonly children: ReactNode;
   readonly connection?: ConnectionState;
+  /** Non-secret session digest (AUTH §7.1); activates the connection chip and outbox resume. */
+  readonly scope?: string | null;
 }
 
 function isCurrentPath(activePath: string, href: string): boolean {
   return activePath === href || (href !== '/today' && activePath.startsWith(`${href}/`));
 }
 
-export function AppShell({ activePath, children, connection, role }: AppShellProps) {
+export function AppShell({ activePath, children, connection, role, scope = null }: AppShellProps) {
   const navigation = navigationFor(role);
+  // Resume this scope's queued ops — always with their original idempotency keys (ADR-0016).
+  useOutboxAutoSweep(scope);
 
   return (
     <div className="app-shell">
@@ -55,6 +63,7 @@ export function AppShell({ activePath, children, connection, role }: AppShellPro
           </ul>
         </nav>
         {connection ? <StatusBadge label={connection.label} tone={connection.tone} /> : null}
+        <ConnectionChip scope={scope} />
         <ThemeToggle />
         <SignOutButton />
       </aside>
@@ -62,6 +71,7 @@ export function AppShell({ activePath, children, connection, role }: AppShellPro
         <Link aria-label={ar.app.name} className="brand" href="/today">{ar.app.name}</Link>
         <div className="app-shell__mobile-session">
           {connection ? <StatusBadge label={connection.label} tone={connection.tone} /> : null}
+          <ConnectionChip scope={scope} />
           <ThemeToggle />
           <SignOutButton />
         </div>

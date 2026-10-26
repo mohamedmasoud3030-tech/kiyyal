@@ -504,6 +504,17 @@ export const ar = {
     failed: 'تعذر تأكيد المصروف. لم نعرضه كسجل محفوظ قبل تأكيد الخادم.',
     backToToday: 'العودة إلى متابعة اليوم',
   },
+  connection: {
+    online: 'متصل',
+    offline: 'غير متصل',
+    offlinePending: 'غير متصل — {n} محفوظة على الجهاز لم تُرسل',
+    onlinePending: 'متصل — {n} لم تؤكَّد بعد',
+  },
+  offline: {
+    queuedPrefix: 'لم تُرسل بعد —',
+    conflictPrefix: 'تعارض يحتاج قرارك —',
+    replayedNote: 'استُلمت سابقًا لدى الخادم — هذا تأكيد الاستلام وليس تسجيلًا جديدًا.',
+  },
   transactionEntry: {
     purchaseTitle: 'تسجيل شراء',
     saleTitle: 'تسجيل بيع',

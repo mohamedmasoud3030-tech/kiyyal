@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 
 import { ar } from '../copy/ar';
-import { apiErrorMessage, ensureCsrfToken } from '../clientSecurity';
+import { useResilientSubmit, loadDraft, saveDraft } from '../offline/useResilientSubmit';
 import { Amount } from './Amount';
 import { Button } from './Button';
 import { FormActions } from './FormActions';
@@ -44,26 +44,50 @@ function isExpenseResponse(value: unknown): value is ExpenseResponse {
  * permitted roles can record a categorised cash-out; only the owner can later
  * reconcile its effect on the Cash workspace.
  */
-export function ExpenseContent() {
+export function ExpenseContent({ scope = null }: { readonly scope?: string | null }) {
   const [category, setCategory] = useState<ExpenseCategory | ''>('');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
-  const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [noteError, setNoteError] = useState<string | null>(null);
   const [result, setResult] = useState<ExpenseResponse | null>(null);
+  const [replayNote, setReplayNote] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const { submit: resilientSubmit, submitting, outcome } = useResilientSubmit('expense', scope);
+
+  // المسودة المحلية (PWA_RULES 4): إغلاق/موت جهاز لا يفقد إدخالًا ناقصًا،
+  // والاستعادة تقتصر على النطاق نفسه (لا تسريب بين مستخدمين/ساحات).
+  useEffect(() => {
+    if (!scope || draftRestored) return;
+    setDraftRestored(true);
+    void loadDraft(scope, 'expense').then((fields) => {
+      if (!fields) return;
+      if (typeof fields.category === 'string' && (categories as readonly string[]).includes(fields.category)) {
+        setCategory(fields.category as ExpenseCategory);
+      }
+      if (typeof fields.amount === 'string') setAmount(fields.amount);
+      if (typeof fields.note === 'string') setNote(fields.note);
+    });
+  }, [scope, draftRestored]);
+
+  useEffect(() => {
+    if (!scope || !draftRestored || result) return;
+    const timer = window.setTimeout(() => {
+      void saveDraft(scope, 'expense', { category, amount, note });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [scope, draftRestored, category, amount, note, result]);
 
   function resetForNextExpense() {
     setCategory('');
     setAmount('');
     setNote('');
-    setIdempotencyKey(null);
-    setError(null);
+    setSubmitError(null);
     setCategoryError(null);
     setNoteError(null);
     setResult(null);
+    setReplayNote(false);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -77,45 +101,27 @@ export function ExpenseContent() {
       setNoteError(ar.expense.otherNoteRequired);
       return;
     }
-    const key = idempotencyKey ?? globalThis.crypto?.randomUUID();
-    if (!key) {
-      setError(ar.expense.failed);
-      return;
-    }
-    setError(null);
+    setSubmitError(null);
     setCategoryError(null);
     setNoteError(null);
-    setSubmitting(true);
-    setIdempotencyKey(key);
-    const csrf = await ensureCsrfToken();
-    if (!csrf) {
-      setError(ar.auth.csrfUnavailable);
-      setSubmitting(false);
+    const outcomeResult = await resilientSubmit({
+      category,
+      amount: amount.trim(),
+      ...(note.trim() ? { note: note.trim() } : {}),
+    });
+    if (!outcomeResult) {
+      setSubmitError(ar.expense.failed);
       return;
     }
-    try {
-      const response = await fetch('/api/transactions/expense', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'content-type': 'application/json', 'idempotency-key': key, 'x-kayyal-csrf': csrf },
-        body: JSON.stringify({
-          category,
-          amount: amount.trim(),
-          ...(note.trim() ? { note: note.trim() } : {}),
-        }),
-      });
-      const payload: unknown = await response.json().catch(() => null);
-      if (!response.ok || !isExpenseResponse(payload)) {
-        setError(apiErrorMessage(payload) ?? ar.expense.failed);
-        return;
+    if (outcomeResult.kind === 'acknowledged') {
+      if (isExpenseResponse(outcomeResult.payload)) {
+        setResult(outcomeResult.payload);
+        setReplayNote(outcomeResult.idempotentReplay);
+      } else {
+        setSubmitError(ar.expense.failed);
       }
-      setResult(payload);
-      setIdempotencyKey(null);
-    } catch {
-      setError(ar.expense.failed);
-    } finally {
-      setSubmitting(false);
     }
+    // queued / parked / conflict تُعرض من جسم النتيجة أدناه — بلا زعم حفظ.
   }
 
   if (result) {
@@ -142,6 +148,7 @@ export function ExpenseContent() {
             </div>
           </dl>
         </Section>
+        {replayNote ? <p className="offline-outcome" role="status">{ar.offline.replayedNote}</p> : null}
         <FormActions>
           <Button onClick={resetForNextExpense} type="button" variant="secondary">{ar.expense.newExpenseAction}</Button>
           <Link className="ui-button ui-button--primary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}/receipt`}>
@@ -195,7 +202,18 @@ export function ExpenseContent() {
             value={note}
           />
         </FormField>
-        <FormActions stickyOnMobile {...(error ? { status: <span role="alert">{error}</span> } : {})}>
+        {outcome && outcome.kind !== 'acknowledged' ? (
+          <p aria-live="polite" className="offline-outcome" role="status">
+            {outcome.kind === 'conflict'
+              ? `${ar.offline.conflictPrefix} ${outcome.message}`
+              : outcome.kind === 'parked'
+                ? outcome.message
+                : outcome.kind === 'queued'
+                  ? `${ar.offline.queuedPrefix} ${outcome.message}`
+                  : null}
+          </p>
+        ) : null}
+        <FormActions stickyOnMobile {...(submitError ? { status: <span role="alert">{submitError}</span> } : {})}>
           <Button loading={submitting} size="lg" type="submit">{submitting ? ar.expense.savingAction : ar.expense.saveAction}</Button>
         </FormActions>
       </form>

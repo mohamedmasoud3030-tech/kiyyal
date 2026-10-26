@@ -16,7 +16,7 @@ export interface ProtectedScreenProps {
    * validated the session; a render callback cannot cross the Server → Client
    * boundary in Next's React Server Component payload.
    */
-  readonly children: ReactElement<{ readonly role?: AppRole }>;
+  readonly children: ReactElement<{ readonly role?: AppRole; readonly scope?: string | null }>;
 }
 
 /**
@@ -45,8 +45,9 @@ export function ProtectedScreen({ activePath, children }: ProtectedScreenProps) 
       activePath={activePath}
       connection={{ label: ar.status.connected, tone: 'success' }}
       role={session.role}
+      scope={session.scope}
     >
-      {cloneElement(children, { role: session.role })}
+      {cloneElement(children, { role: session.role, scope: session.scope })}
     </AppShell>
   );
 }

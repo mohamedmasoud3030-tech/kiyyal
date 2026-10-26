@@ -38,7 +38,7 @@ describe('ProtectedScreen server/client composition', () => {
   });
 
   it('injects the verified role into a serializable child element only after authentication', () => {
-    session = { status: 'authenticated', role: 'owner' };
+    session = { status: 'authenticated', role: 'owner', scope: 'a'.repeat(24) };
     render(<ProtectedScreen activePath="/cash"><RoleProbe /></ProtectedScreen>);
     expect(screen.getByTestId('role-probe').textContent).toBe('owner');
     expect(screen.getAllByRole('link', { name: ar.navigation.cash }).map((link) => link.getAttribute('aria-current')))

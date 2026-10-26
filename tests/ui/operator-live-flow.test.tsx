@@ -18,6 +18,11 @@ import { cleanup, render, screen, waitFor, configure } from '@testing-library/re
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+// عقد الجلسة المعدّل (ADR-0016 §7.1): المسبار يعيد دورًا + مُلخّص scope غير سرّي بطول 24.
+function sessionShape(role: 'owner' | 'operator') {
+  return { data: { role, scope: expect.stringMatching(/^[0-9a-f]{24}$/) } };
+}
+
 
 // Route navigation itself is verified through the real Next server in
 // tests/routes/next-http.test.ts. This avoids JSDOM-only Next Link scheduler
@@ -244,8 +249,9 @@ async function establishOwnerBrowserCookie(): Promise<void> {
   document.cookie = `${OWNER_SESSION_COOKIE}=${encodeURIComponent(encodedSession)}; Path=/`;
   const accepted = await waitFor(async () => {
     const response = await nativeFetch(`${baseUrl}/api/session`, { headers: { cookie: document.cookie } });
-    return response.ok
-      && JSON.stringify(await response.json()) === JSON.stringify({ data: { role: 'owner' } });
+    if (!response.ok) return false;
+    const payload = await response.json() as { data?: { role?: unknown; scope?: unknown } };
+    return payload.data?.role === 'owner' && typeof payload.data?.scope === 'string' && /^[0-9a-f]{24}$/.test(payload.data.scope);
   }, { timeout: 30_000, interval: 500 });
   if (!accepted) {
     throw new Error('owner session cookie was not accepted by the live application');
@@ -477,7 +483,7 @@ describe('operator client workflows against the live application boundary', () =
     await waitFor(() => expect(document.cookie).toContain('kayyal_operator_session='), { timeout: 10_000 });
     const session = await nativeFetch(`${baseUrl}/api/session`, { headers: { cookie: document.cookie } });
     expect(session.status).toBe(200);
-    expect(await session.json()).toEqual({ data: { role: 'operator' } });
+    expect(await session.json()).toEqual(sessionShape('operator'));
     expect(document.cookie).not.toContain('4271');
   });
 
@@ -715,7 +721,7 @@ describe('operator client workflows against the live application boundary', () =
     }, { timeout: 10_000 });
     const mappedSession = await nativeFetch(`${baseUrl}/api/session`, { headers: { cookie: document.cookie } });
     expect(mappedSession.status).toBe(200);
-    expect(await mappedSession.json()).toEqual({ data: { role: 'owner' } });
+    expect(await mappedSession.json()).toEqual(sessionShape('owner'));
     await waitFor(() => expect((form.querySelector('input[name="password"]') as HTMLInputElement).value).toBe(''), { timeout: 10_000 });
   });
 

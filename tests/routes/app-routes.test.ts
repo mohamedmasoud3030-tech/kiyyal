@@ -12,6 +12,11 @@
 import { randomUUID } from 'node:crypto';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+// عقد الجلسة المعدّل (ADR-0016 §7.1): المسبار يعيد دورًا + مُلخّص scope غير سرّي بطول 24.
+function sessionShape(role: 'owner' | 'operator') {
+  return { data: { role, scope: expect.stringMatching(/^[0-9a-f]{24}$/) } };
+}
+
 
 import { hashPin } from '../../src/auth/hash.js';
 import { resetRuntimeDatabaseForTests } from '../../src/server/runtimeDb.js';
@@ -183,7 +188,7 @@ describe('all implemented API route modules', () => {
 
     const operatorSession = await sessionGet(operatorRead('/api/session'));
     expect(operatorSession.status).toBe(200);
-    expect(await operatorSession.json()).toEqual({ data: { role: 'operator' } });
+    expect(await operatorSession.json()).toEqual(sessionShape('operator'));
 
     // A malformed/stale owner SSR cookie is an explicit owner attempt. It must
     // fail closed rather than inheriting the shared-device operator token.
