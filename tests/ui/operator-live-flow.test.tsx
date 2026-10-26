@@ -27,6 +27,7 @@ vi.mock('next/link', () => ({
 }));
 
 import { hashPin } from '../../src/auth/hash.js';
+import { normalizeOwnerPhone } from '../../src/ui/phone.js';
 import type { AuthContext } from '../../src/auth/context.js';
 import { createParty } from '../../src/services/party.js';
 import { postCostAdjustment } from '../../src/services/postCostAdjustment.js';
@@ -118,6 +119,13 @@ async function requestJson(request: import('node:http').IncomingMessage): Promis
 
 async function startOwnerProvider(): Promise<void> {
   providerServer = createHttpServer(async (request, response) => {
+    // Supabase الحقيقي يرسل ترويسات CORS على كل رد ويرد على preflight؛ المتصفح
+    // (وhence jsdom fetch بأصل http://localhost) يرفض العبور بدونها، فكان الطلب
+    // يسقط قبل الوصول ويظهر وكأنه «لم يُرسَل». نحاكي السلوك الحقيقي بأمانة.
+    response.setHeader('access-control-allow-origin', '*');
+    response.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS');
+    response.setHeader('access-control-allow-headers', 'authorization, content-type, apikey, x-client-info, x-supabase-api-version');
+    if (request.method === 'OPTIONS') { response.writeHead(204); response.end(); return; }
     if (request.url === '/auth/v1/user' && !ownerAccessTokenRevoked && request.headers.authorization === `Bearer ${OWNER_ACCESS_TOKEN}`) {
       response.writeHead(200, { 'content-type': 'application/json' });
       response.end(JSON.stringify(ownerProviderUser()));
@@ -125,7 +133,10 @@ async function startOwnerProvider(): Promise<void> {
     }
     if (request.method === 'POST' && request.url?.startsWith('/auth/v1/token?grant_type=password')) {
       const credentials = await requestJson(request) as { phone?: unknown; password?: unknown } | null;
-      if (credentials?.phone === OWNER_PHONE && credentials.password === OWNER_PASSWORD) {
+      // مزوّد الهوية الحقيقي يخزّن الهاتف بصيغة E.164 المحسوبة عبر normalizeOwnerPhone —
+      // النموذج يرسلها كذلك؛ مقارنة mock يجب أن تحاكي ذلك بدل النص الخام (وإلا
+      // سقطت كل الجلسات بصمت: يسجَّل الفشل `ownerPasswordGrantRequests = 0`).
+      if (credentials?.phone === normalizeOwnerPhone(OWNER_PHONE) && credentials.password === OWNER_PASSWORD) {
         ownerPasswordGrantRequests += 1;
         ownerAccessTokenRevoked = false;
         response.writeHead(200, { 'content-type': 'application/json' });

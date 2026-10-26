@@ -71,10 +71,18 @@ export async function verifiedOwnerSubjectFromCookie(request: Request): Promise<
   const cookies = requestCookies(request);
   if (!hasSupabaseAuthCookie(cookies)) return null;
   const configuration = supabasePublicConfiguration();
-  const client = createServerClient(configuration.url.toString(), configuration.publishableKey, {
-    cookies: { getAll: () => cookies },
-  });
-  const { data, error } = await client.auth.getUser();
-  if (error || !isUuid(data.user?.id)) return null;
-  return data.user.id;
+  // A malformed/stale provider cookie can make the ssr client throw while parsing
+  // the storage payload (createServerClient and getUser both), instead of
+  // resolving to an auth error. Authentication must fail CLOSED: any throw along
+  // this verification path is «no verified owner», never an unhandled 500.
+  try {
+    const client = createServerClient(configuration.url.toString(), configuration.publishableKey, {
+      cookies: { getAll: () => cookies },
+    });
+    const { data, error } = await client.auth.getUser();
+    if (error || !isUuid(data.user?.id)) return null;
+    return data.user.id;
+  } catch {
+    return null;
+  }
 }
