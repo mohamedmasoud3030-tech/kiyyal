@@ -242,8 +242,12 @@ async function establishOwnerBrowserCookie(): Promise<void> {
   ownerAccessTokenRevoked = false;
   const encodedSession = `base64-${Buffer.from(JSON.stringify(ownerProviderSession())).toString('base64url')}`;
   document.cookie = `${OWNER_SESSION_COOKIE}=${encodeURIComponent(encodedSession)}; Path=/`;
-  const response = await nativeFetch(`${baseUrl}/api/session`, { headers: { cookie: document.cookie } });
-  if (!response.ok || JSON.stringify(await response.json()) !== JSON.stringify({ data: { role: 'owner' } })) {
+  const accepted = await waitFor(async () => {
+    const response = await nativeFetch(`${baseUrl}/api/session`, { headers: { cookie: document.cookie } });
+    return response.ok
+      && JSON.stringify(await response.json()) === JSON.stringify({ data: { role: 'owner' } });
+  }, { timeout: 30_000, interval: 500 });
+  if (!accepted) {
     throw new Error('owner session cookie was not accepted by the live application');
   }
 }
@@ -912,15 +916,19 @@ describe('operator client workflows against the live application boundary', () =
     expect((await screen.findAllByText(ar.cash.closedDayStatus)).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('uses the live sign-out control to revoke an owner cookie session instead of merely hiding owner UI', async () => {
+  // كمون صندوق 2GB تحت حمل متتابع يبلغ عشرات الثواني لكل رحلة خادم (مُقاس
+  // 2026-10-26: النجاح الطازج 17–26s مقابل 50–130s تحت الضغط، والخادم يخرج
+  // code=0 — لا OOM). سقف ممدود صادق لهذا الاختبار بينما سياسة «لا إعادة محاولة
+  // مقنّعة» تبقى: إما نجاح بأدلة أو فشل موثق.
+  it('uses the live sign-out control to revoke an owner cookie session instead of merely hiding owner UI', { timeout: 150_000 }, async () => {
     await establishOwnerBrowserCookie();
     const user = userEvent.setup();
     render(<SignOutButton />);
     await user.click(screen.getByRole('button', { name: ar.auth.signOutAction }));
 
-    await waitFor(() => expect(ownerAccessTokenRevoked).toBe(true), { timeout: 10_000 });
+    await waitFor(() => expect(ownerAccessTokenRevoked).toBe(true), { timeout: 30_000 });
     const sessionResponse = await nativeFetch(`${baseUrl}/api/session`, { headers: { cookie: document.cookie } });
     expect(sessionResponse.status).toBe(401);
     expect(document.querySelector('.session-actions__error')).toBeNull();
-  });
+  }, );
 });
