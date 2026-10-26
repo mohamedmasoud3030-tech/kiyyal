@@ -77,6 +77,13 @@ role of every request.
 **Never logged:** PIN, PIN hash, session token, session token hash, Supabase access token, password, or any full
 `Cookie` / `Authorization` header.
 
+## 7.1 Session probe additive field (2026-10-26 — ADR-0016)
+`/api/session` may additionally return a **non-secret** `data.scope`: a SHA-256 hex digest (24 chars) of
+`yard_id:actor_id`. Purpose: client-local isolation of drafts/outbox rows on shared devices (PWA_RULES 14–16).
+It is an opaque tag only — never an authorization input, never a real identifier, and it reveals nothing about
+the underlying yard or user. Responses must still contain `data.role` exactly as before; consumers must treat
+`scope` as optional metadata.
+
 ## 8. Invariants
 | # | Invariant |
 |---|---|
@@ -88,3 +95,4 @@ role of every request.
 | AUTH-6 | 5 failed PINs lock the account for 15 minutes |
 | AUTH-7 | Deactivating an operator preserves every historical record they created |
 | AUTH-8 | No custom JWT is issued anywhere in the system |
+| AUTH-9 | No client-persisted op queue or draft contains a PIN, a session token, or server-derived financial totals; such stores are keyed by the §7.1 scope digest and wiped on sign-out and on scope change |

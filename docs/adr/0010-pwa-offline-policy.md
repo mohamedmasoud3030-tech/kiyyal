@@ -1,6 +1,6 @@
 # ADR-0010 — PWA and offline policy
 
-**Status:** Accepted target; implementation `NOT STARTED` · **Date:** 2026-08-20 · **Sources:** PRD D23, FR-14, V8, S-09
+**Status:** Accepted target; implementation `IN PROGRESS (ADR-0016, branch feat/offline-drafts-queue)` · **Date:** 2026-08-20 · **Sources:** PRD D23, FR-14, V8, S-09
 
 ## Context
 An offline-first architecture is expensive: queueing, batch sync, conflict resolution, number reconciliation, and
