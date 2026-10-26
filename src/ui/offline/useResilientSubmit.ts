@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { enqueueAndAttempt, formKeyOf, offlineStore, sweepScope, type OpOutcome } from './outbox';
+import { enqueueAndAttempt, formKeyOf, offlineStore, subscribeOutbox, sweepScope, type OpOutcome } from './outbox';
 import type { DraftIntent, MoneyOpType } from './types';
 
 /**
@@ -22,6 +22,8 @@ export function useResilientSubmit(type: MoneyOpType, scopeProp: string | null) 
   const [probedScope, setProbedScope] = useState<string | null>(null);
   const [intent, setIntent] = useState<DraftIntent | null>(null);
   const [intentState, setIntentState] = useState<'new' | 'resuming' | 'hasQueued' | 'acknowledged'>('new');
+  /** أقرّها الكنس الخلفي/تبويب آخر بنفس مفتاحها — النموذج يفرّغ حقوله فورًا. */
+  const [externallyAcked, setExternallyAcked] = useState(false);
   const intentRef = useRef<DraftIntent | null>(null);
   intentRef.current = intent;
 
@@ -49,17 +51,55 @@ export function useResilientSubmit(type: MoneyOpType, scopeProp: string | null) 
     let cancelled = false;
     void offlineStore().getDraft(scope, formKey).then(async (draft) => {
       if (cancelled) return;
+      if (draft && draft.intent == null) {
+        // شاهدة إقرار: نية أنجزها الكنس قبل إعادة الفتح — لا شيء يُستعاد قطعًا.
+        await offlineStore().removeDraft(scope, formKey);
+        if (cancelled) return;
+        setIntent(null);
+        setIntentState('acknowledged');
+        setExternallyAcked(true);
+        return;
+      }
       if (draft?.intent) {
+        const op = await offlineStore().getOp(`${scope}:${draft.intent.idempotencyKey}`);
+        if (cancelled) return;
+        if (op?.status === 'acknowledged') {
+          // أُقرت النية خلفيًا قبل أن يسمع المكوّن الإشعار (سباق ترطيب/كنس):
+          // لا إحياء لها في النموذج أبدًا — نظّف المسودة وعرّف النموذج يصفّر حقوله.
+          await offlineStore().removeDraft(scope, formKey);
+          setIntent(null);
+          setIntentState('acknowledged');
+          setExternallyAcked(true);
+          return;
+        }
         setIntent(draft.intent);
         // هل توجد عملية بمفتاحها ما تزال معلّقة؟ ⇒ استكمال صريح؛ وإلا استئناف مسودة فقط.
-        const op = await offlineStore().getOp(`${scope}:${draft.intent.idempotencyKey}`);
-        if (!cancelled) setIntentState(op && op.status !== 'acknowledged' ? 'hasQueued' : 'resuming');
+        setIntentState(op ? 'hasQueued' : 'resuming');
       } else {
         setIntentState('new');
       }
     }).catch(() => undefined);
     return () => { cancelled = true; };
   }, [scope, formKey]);
+
+  // سماع الإقرارات الخارجية للنية الجارية (كنس/تبويب آخر):
+  const [externalAckNumber, setExternalAckNumber] = useState<string | null>(null);
+  useEffect(() => subscribeOutbox((notice) => {
+    const current = intentRef.current;
+    if (current && notice?.ackedKeys.includes(current.idempotencyKey) && scope) {
+      // إقرار خلفي (كنس/تبويب آخر): راية نجاح ظاهرة + تصفير الحقول — dispatch للنموذج.
+      void offlineStore().getOp(`${scope}:${current.idempotencyKey}`).then((op) => {
+        if (op?.status === 'acknowledged') setExternalAckNumber(op.ack?.number ?? null);
+      }).catch(() => undefined);
+      setIntent(null);
+      setIntentState('acknowledged');
+      setExternallyAcked(true);
+    }
+  }), [scope]);
+
+  /** يستهلك النموذج الإشارة: يصفّر حقوله ثم يعيدها (الرقم المرئي يبقى لعرض الراية). */
+  const consumeExternalAck = useCallback(() => { setExternallyAcked(false); }, []);
+  const dismissExternalAckBanner = useCallback(() => { setExternalAckNumber(null); }, []);
 
   /** يصكّ نيةً جديدة فقط عند غيابها — أو يعيد الموجودة كما هي (هوية دائمة). */
   const ensureIntent = useCallback(async (): Promise<DraftIntent | null> => {
@@ -109,7 +149,15 @@ export function useResilientSubmit(type: MoneyOpType, scopeProp: string | null) 
     }
   }, [scope, formKey, type, ensureIntent]);
 
-  return { submit, submitting, outcome, intentState };
+  /** الحفظ الوحيد للمسودة: هوية النية تُدار هنا حصرًا — لا سكّ موازٍ في النماذج. */
+  const persistDraft = useCallback(async (fields: Record<string, unknown>): Promise<void> => {
+    if (!scope) return;
+    const current = await ensureIntent();
+    if (!current) return;
+    await offlineStore().putDraft({ scope, formKey, savedAt: new Date().toISOString(), fields, intent: current });
+  }, [scope, formKey, ensureIntent]);
+
+  return { submit, submitting, outcome, intentState, externallyAcked, externalAckNumber, consumeExternalAck, dismissExternalAckBanner, persistDraft };
 }
 
 export { formKeyOf };
@@ -127,10 +175,10 @@ export async function saveDraftWithIntent(
   return intent;
 }
 
-/** قراءة مسودة خام للاستعادة المبدئية في النماذج. */
+/** قراءة مسودة للاستعادة — شواهد الإقرار (intent=null) لا تعيد حقولًا أبدًا. */
 export async function loadDraft(scope: string, formKey: string): Promise<Record<string, unknown> | null> {
   const draft = await offlineStore().getDraft(scope, formKey);
-  return draft?.fields ?? null;
+  return draft?.intent ? draft.fields : null;
 }
 
 export async function clearDraft(scope: string, formKey: string): Promise<void> {

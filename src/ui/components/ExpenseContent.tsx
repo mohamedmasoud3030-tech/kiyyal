@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { ar } from '../copy/ar';
-import { useResilientSubmit, loadDraft, saveDraftWithIntent } from '../offline/useResilientSubmit';
+import { offlineStore } from '../offline/outbox';
+import { useResilientSubmit, loadDraft } from '../offline/useResilientSubmit';
 import { Amount } from './Amount';
 import { Button } from './Button';
 import { FormActions } from './FormActions';
@@ -54,7 +55,12 @@ export function ExpenseContent({ scope = null }: { readonly scope?: string | nul
   const [result, setResult] = useState<ExpenseResponse | null>(null);
   const [replayNote, setReplayNote] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
-  const { submit: resilientSubmit, submitting, outcome, intentState } = useResilientSubmit('expense', scope);
+  const { submit: resilientSubmit, submitting, outcome, intentState, externallyAcked, externalAckNumber, consumeExternalAck, dismissExternalAckBanner, persistDraft } = useResilientSubmit('expense', scope);
+  const [extAckShown, setExtAckShown] = useState(false);
+  useEffect(() => { if (externallyAcked) setExtAckShown(true); }, [externallyAcked]);
+  useEffect(() => {
+    if (externallyAcked) { setCategory('fuel'); setAmount(''); setNote(''); consumeExternalAck(); }
+  }, [externallyAcked, consumeExternalAck]);
 
   // المسودة المحلية (PWA_RULES 4): إغلاق/موت جهاز لا يفقد إدخالًا ناقصًا،
   // والاستعادة تقتصر على النطاق نفسه (لا تسريب بين مستخدمين/ساحات).
@@ -74,10 +80,12 @@ export function ExpenseContent({ scope = null }: { readonly scope?: string | nul
   useEffect(() => {
     if (!scope || !draftRestored || result) return;
     const timer = window.setTimeout(() => {
-      void saveDraftWithIntent(scope, 'expense', { category, amount, note });
+      // مسودة فارغة لا تُسكّ نيةً: صفر مبلغ = لا عمل.
+      if (Number(amount) > 0) void persistDraft({ category, amount, note });
+      else void offlineStore().removeDraft(scope, 'expense');
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [scope, draftRestored, category, amount, note, result]);
+  }, [scope, draftRestored, category, amount, note, result, persistDraft]);
 
   function resetForNextExpense() {
     setCategory('');
@@ -170,6 +178,14 @@ export function ExpenseContent({ scope = null }: { readonly scope?: string | nul
         description={ar.expense.description}
         title={ar.expense.title}
       />
+        {extAckShown ? (
+          <section aria-live="polite" className="offline-outcome ui-alert ui-alert--success" data-testid="external-ack-banner" role="status">
+            <p>
+              {ar.offlineAck.bannerPrefix}{externalAckNumber ? ` ${ar.offlineAck.bannerNumbered.replace('{n}', externalAckNumber)}` : ''}.
+            </p>
+            <button className="ui-link" onClick={() => { setExtAckShown(false); dismissExternalAckBanner(); }} type="button">{ar.offlineAck.dismiss}</button>
+          </section>
+        ) : null}
         {intentState === 'resuming' ? <p className="offline-outcome" role="status">{ar.intentBanners.resuming}</p> : null}
         {intentState === 'hasQueued' ? <p className="offline-outcome" role="status">{ar.intentBanners.hasQueued}</p> : null}
       <form className="expense-form" onSubmit={submit}>

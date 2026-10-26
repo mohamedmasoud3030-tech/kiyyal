@@ -19,29 +19,23 @@ export function SignOutButton({ scope = null }: { readonly scope?: string | null
 
   async function actuallySignOut(wipe: boolean) {
     setState('submitting');
-    const csrf = await ensureCsrfToken();
-    if (!csrf) {
-      setState('error');
-      return;
+    // قرار المغادرة قرار محلي أولًا: المسح (إن اختير) لا يعتمد على الشبكة —
+    // قاعدة الجهاز المشترك تُنفَّذ فورًا ولو انقطع الاتصال الآن (ADR-0016 §7).
+    if (wipe) {
+      try { await offlineStore().clearAll(); } catch { /* أي باقٍ يبقى غير مرئي بالوسم وسمه » أعمال غير مخسومة */ }
     }
-    try {
-      const response = await fetch('/api/auth/session', {
-        method: 'DELETE',
-        credentials: 'same-origin',
-        headers: { 'x-kayyal-csrf': csrf },
-      });
-      if (!response.ok) {
-        setState('error');
-        return;
-      }
-      if (wipe) {
-        // PWA_RULES 15 بعد قرار المستخدم الصريح المرئي فقط.
-        try { await offlineStore().clearAll(); } catch { /* tagging keeps any remainder invisible */ }
-      }
-      window.location.assign('/login');
-    } catch {
-      setState('error');
+    const csrf = await ensureCsrfToken().catch(() => null);
+    if (csrf) {
+      try {
+        // إنهاء الجلسة خادميًا بأفضل جهد — تعذّره الآن لا يُبقي المستخدم «مسجّلًا» محليًا.
+        await fetch('/api/auth/session', {
+          method: 'DELETE',
+          credentials: 'same-origin',
+          headers: { 'x-kayyal-csrf': csrf },
+        });
+      } catch { /* استحقاق الطبيعة ينتهي بانتهاء صلاحية الرمز خادميًا */ }
     }
+    window.location.assign('/login');
   }
 
   async function signOut() {

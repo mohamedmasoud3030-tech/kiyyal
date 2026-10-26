@@ -27,7 +27,8 @@ export interface OpOutcomeConflict { readonly kind: 'conflict'; readonly code: s
 export interface OpOutcomeIntactPending { readonly kind: 'already_in_flight' }
 export type OpOutcome = OpOutcomeAcknowledged | OpOutcomeQueued | OpOutcomeParked | OpOutcomeConflict | OpOutcomeIntactPending;
 
-type Listener = () => void;
+export interface OutboxNotice { readonly ackedKeys: readonly string[] }
+type Listener = (notice?: OutboxNotice) => void;
 const listeners = new Set<Listener>();
 const inFlight = new Set<string>();
 let currentStore: OfflineStore | null = null;
@@ -80,14 +81,25 @@ export function setSweepPaused(paused: boolean): void {
 function ensureBroadcast(): void {
   if (broadcast || typeof BroadcastChannel === 'undefined') return;
   broadcast = new BroadcastChannel('kayyal-outbox');
-  broadcast.onmessage = () => notify();
+  broadcast.onmessage = (event) => {
+    // من تبويب آخر: نبّه محليًا فقط — لا إعادة بثّ (منع حلقات).
+    const raw = typeof event.data === 'string' ? event.data : null;
+    if (raw && raw.startsWith('{')) {
+      try { notifyLocal(JSON.parse(raw) as OutboxNotice); return; } catch { /* سقوط للافتراضي */ }
+    }
+    notifyLocal();
+  };
 }
 
-function notify(): void {
-  for (const listener of [...listeners]) listener();
+function notifyLocal(notice?: OutboxNotice): void {
+  for (const listener of [...listeners]) listener(notice);
+}
+
+function notify(notice?: OutboxNotice): void {
+  notifyLocal(notice);
   try {
     ensureBroadcast();
-    broadcast?.postMessage('changed');
+    broadcast?.postMessage(notice ? JSON.stringify(notice) : 'changed');
   } catch { /* قناة التبويبات اختيارية؛ الاشتراك المحلي كافٍ */ }
 }
 
@@ -126,7 +138,7 @@ export async function statusCounts(scope: string): Promise<StatusCounts> {
     parked: ops.filter((op) => op.status === 'parked').length,
     conflict: ops.filter((op) => op.status === 'conflict').length,
     ackPending: ops.filter((op) => op.status === 'acknowledged' && !op.ack?.seenByUser).length,
-    drafts: drafts.length,
+    drafts: drafts.filter((draft) => draft?.intent != null).length,
   };
 }
 
@@ -246,11 +258,15 @@ async function attemptOp(queueId: string): Promise<OpOutcome> {
         seenByUser: false,
       };
       await persistPatch(queueId, { status: 'acknowledged', ack, nextAttemptAt: Number.POSITIVE_INFINITY });
-      // تنظيف المسودة فقط إن كانت تحمل نية هذه العملية بالذات (ربط صريح).
+      // استهلاك المسودة النغمي: نصفّر نيّتها بدل الحذف الصامت — علامة دائمة على
+      // أن النموذج الذي يفتح هذه المفاتيح هزم الأمر خادميًا، تحذف عند الاستهلاك.
       const draft = await store.getDraft(claimed.scope, formKeyOf(claimed.type));
       if (draft?.intent && draft.intent.idempotencyKey === claimed.idempotencyKey) {
-        await store.removeDraft(claimed.scope, formKeyOf(claimed.type));
+        await store.putDraft({ ...draft, intent: null });
       }
+      // مفتاح مُقرّ معلن لكل المستمعين/التبويبات: نموذج مفتوح על هذه النية يصفّر
+      // حقوله فورًا — لا إعادة استسكّاع مسودة «كجديدة» (توجيه المالك 3).
+      notify({ ackedKeys: [claimed.idempotencyKey] });
       return { kind: 'acknowledged', payload: record, idempotentReplay: replay, queueId };
     }
 
@@ -287,13 +303,12 @@ async function attemptOp(queueId: string): Promise<OpOutcome> {
   }
 }
 
-async function requeue(op: QueuedOp, _reason: 'offline' | 'retryable'): Promise<void> {
-  const attempts = op.attempts + 1;
-  await persistPatch(op.queueId, {
-    status: 'queued',
-    attempts,
-    nextAttemptAt: Date.now() + backoffMs(attempts),
-  });
+async function requeue(op: QueuedOp, reason: 'offline' | 'retryable'): Promise<void> {
+  // انقطاع الشبكة لم يعُد محاولة بذراع: يعود مستحقًا فورًا (لا تباطؤ تراجعي لضائع
+  // لم يغادر الجهاز أصلًا). الفشل الخادمي المجدّد وحده هو من يُرجّئ بتراجع.
+  const attempts = reason === 'retryable' ? op.attempts + 1 : op.attempts;
+  const due = reason === 'offline' ? Date.now() : Date.now() + backoffMs(attempts);
+  await persistPatch(op.queueId, { status: 'queued', attempts, nextAttemptAt: due });
 }
 
 export function formKeyOf(type: MoneyOpType): string {

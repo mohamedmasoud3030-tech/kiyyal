@@ -5,7 +5,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 import { ar, type AppRole } from '../copy/ar';
 import { requireInjectedRole } from '../requiredRole';
-import { useResilientSubmit, loadDraft, saveDraftWithIntent } from '../offline/useResilientSubmit';
+import { offlineStore } from '../offline/outbox';
+import { useResilientSubmit, loadDraft } from '../offline/useResilientSubmit';
 import { Amount } from './Amount';
 import { Button } from './Button';
 import { FormActions } from './FormActions';
@@ -78,7 +79,12 @@ export function PaymentContent({ initialPartyId, role: injectedRole, scope = nul
   const [result, setResult] = useState<PaymentResponse | null>(null);
   const [replayNote, setReplayNote] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
-  const { submit: resilientSubmit, submitting, outcome, intentState } = useResilientSubmit('payment', scope);
+  const { submit: resilientSubmit, submitting, outcome, intentState, externallyAcked, externalAckNumber, consumeExternalAck, dismissExternalAckBanner, persistDraft } = useResilientSubmit('payment', scope);
+  const [extAckShown, setExtAckShown] = useState(false);
+  useEffect(() => { if (externallyAcked) setExtAckShown(true); }, [externallyAcked]);
+  useEffect(() => {
+    if (externallyAcked) { setAmount(''); setNote(''); setDirection('in'); clearDuplicateConfirmation(); consumeExternalAck(); }
+  }, [externallyAcked, consumeExternalAck]);
 
   // مسودة محلية مقفولة على النطاق (PWA_RULES 4, 14-16): نجاة من الإغلاق/الموت،
   // بلا تسريب بين مستخدمين أو ساحات، وبلا أي رصيد أو مجاميع.
@@ -97,7 +103,8 @@ export function PaymentContent({ initialPartyId, role: injectedRole, scope = nul
   useEffect(() => {
     if (!scope || !draftRestored || result) return;
     const timer = window.setTimeout(() => {
-      void saveDraftWithIntent(scope, 'payment', { partyId, direction, amount, note });
+      if (partyId.trim() !== '' && Number(amount) > 0) void persistDraft({ partyId, direction, amount, note });
+      else void offlineStore().removeDraft(scope, 'payment');
     }, 500);
     return () => window.clearTimeout(timer);
   }, [scope, draftRestored, partyId, direction, amount, note, result]);
@@ -242,7 +249,15 @@ export function PaymentContent({ initialPartyId, role: injectedRole, scope = nul
       ) : null}
       {parties.status === 'loaded' && parties.data.length > 0 ? (
         <form className="payment-form" onSubmit={submit}>
-          {intentState === 'resuming' ? <p className="offline-outcome" role="status">{ar.intentBanners.resuming}</p> : null}
+          {extAckShown ? (
+          <section aria-live="polite" className="offline-outcome ui-alert ui-alert--success" data-testid="external-ack-banner" role="status">
+            <p>
+              {ar.offlineAck.bannerPrefix}{externalAckNumber ? ` ${ar.offlineAck.bannerNumbered.replace('{n}', externalAckNumber)}` : ''}.
+            </p>
+            <button className="ui-link" onClick={() => { setExtAckShown(false); dismissExternalAckBanner(); }} type="button">{ar.offlineAck.dismiss}</button>
+          </section>
+        ) : null}
+        {intentState === 'resuming' ? <p className="offline-outcome" role="status">{ar.intentBanners.resuming}</p> : null}
           {intentState === 'hasQueued' ? <p className="offline-outcome" role="status">{ar.intentBanners.hasQueued}</p> : null}
           <FormField {...(partyError ? { error: partyError } : {})} id="payment-party" label={ar.payment.partyLabel} required>
             <select

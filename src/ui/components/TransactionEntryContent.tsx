@@ -5,7 +5,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 import { ar } from '../copy/ar';
 import { apiErrorMessage } from '../clientSecurity';
-import { useResilientSubmit, loadDraft, saveDraftWithIntent, formKeyOf } from '../offline/useResilientSubmit';
+import { offlineStore } from '../offline/outbox';
+import { useResilientSubmit, loadDraft, formKeyOf } from '../offline/useResilientSubmit';
 import { Amount } from './Amount';
 import { Button } from './Button';
 import { FormActions } from './FormActions';
@@ -117,7 +118,12 @@ export function TransactionEntryContent({ type, scope = null }: { readonly type:
   const [replayNote, setReplayNote] = useState(false);
   // مفتاح العزم وطابع الجهاز محفوظان داخل الخطّاف عبر ref — محاولة أخرى (أو
   // إعادة فتح بعد موت) تبعث بنفسهما حرفيًا (ADR-0016: مرة واحدة بالضبط).
-  const { submit: resilientSubmit, submitting, outcome, intentState } = useResilientSubmit(type, scope);
+  const { submit: resilientSubmit, submitting, outcome, intentState, externallyAcked, externalAckNumber, consumeExternalAck, dismissExternalAckBanner, persistDraft } = useResilientSubmit(type, scope);
+  const [extAckShown, setExtAckShown] = useState(false);
+  useEffect(() => { if (externallyAcked) setExtAckShown(true); }, [externallyAcked]);
+  useEffect(() => {
+    if (externallyAcked) { setAmountCash(''); setNote(''); setLines([]); consumeExternalAck(); }
+  }, [externallyAcked, consumeExternalAck]);
   const [draftRestored, setDraftRestored] = useState(false);
 
   useEffect(() => {
@@ -187,7 +193,9 @@ export function TransactionEntryContent({ type, scope = null }: { readonly type:
   useEffect(() => {
     if (!scope || !draftRestored || result) return;
     const timer = window.setTimeout(() => {
-      void saveDraftWithIntent(scope, formKeyOf(type), { businessDate, partyId, amountCash, note, lines });
+      const hasWork = Number(amountCash) > 0 || lines.length > 0 || note.trim() !== '';
+      if (hasWork) void persistDraft({ businessDate, partyId, amountCash, note, lines });
+      else void offlineStore().removeDraft(scope, formKeyOf(type));
     }, 500);
     return () => window.clearTimeout(timer);
   }, [scope, draftRestored, type, businessDate, partyId, amountCash, note, lines, result]);
@@ -290,6 +298,14 @@ export function TransactionEntryContent({ type, scope = null }: { readonly type:
   return (
     <PageContainer width="wide">
       <PageHeader backHref="/today" backLabel={ar.transactionEntry.backToToday} description={descriptionFor(type)} title={titleFor(type)} />
+        {extAckShown ? (
+          <section aria-live="polite" className="offline-outcome ui-alert ui-alert--success" data-testid="external-ack-banner" role="status">
+            <p>
+              {ar.offlineAck.bannerPrefix}{externalAckNumber ? ` ${ar.offlineAck.bannerNumbered.replace('{n}', externalAckNumber)}` : ''}.
+            </p>
+            <button className="ui-link" onClick={() => { setExtAckShown(false); dismissExternalAckBanner(); }} type="button">{ar.offlineAck.dismiss}</button>
+          </section>
+        ) : null}
         {intentState === 'resuming' ? <p className="offline-outcome" role="status">{ar.intentBanners.resuming}</p> : null}
         {intentState === 'hasQueued' ? <p className="offline-outcome" role="status">{ar.intentBanners.hasQueued}</p> : null}
       <form className="transaction-entry" onSubmit={submit}>
