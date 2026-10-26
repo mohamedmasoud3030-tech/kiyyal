@@ -8,7 +8,10 @@ import { ar, type AppRole } from '../copy/ar';
 import { navigationFor } from '../navigation';
 import { classNames } from './classNames';
 import { StatusBadge, type StatusTone } from './StatusBadge';
+import { useState } from 'react';
+
 import { ConnectionChip } from './ConnectionChip';
+import { OutboxPanel } from './OutboxPanel';
 import { SignOutButton } from './SignOutButton';
 import { ThemeToggle } from './ThemeToggle';
 import { useOutboxAutoSweep } from '../offline/useResilientSubmit';
@@ -33,6 +36,7 @@ function isCurrentPath(activePath: string, href: string): boolean {
 
 export function AppShell({ activePath, children, connection, role, scope = null }: AppShellProps) {
   const navigation = navigationFor(role);
+  const [outboxOpen, setOutboxOpen] = useState(false);
   // Resume this scope's queued ops — always with their original idempotency keys (ADR-0016).
   useOutboxAutoSweep(scope);
 
@@ -63,22 +67,23 @@ export function AppShell({ activePath, children, connection, role, scope = null 
           </ul>
         </nav>
         {connection ? <StatusBadge label={connection.label} tone={connection.tone} /> : null}
-        <ConnectionChip scope={scope} />
+        <ConnectionChip onOpenOutbox={() => setOutboxOpen(true)} scope={scope} />
         <ThemeToggle />
-        <SignOutButton />
+        <SignOutButton scope={scope} />
       </aside>
       <header className="app-shell__mobile-header">
         <Link aria-label={ar.app.name} className="brand" href="/today">{ar.app.name}</Link>
         <div className="app-shell__mobile-session">
           {connection ? <StatusBadge label={connection.label} tone={connection.tone} /> : null}
-          <ConnectionChip scope={scope} />
+          <ConnectionChip onOpenOutbox={() => setOutboxOpen(true)} scope={scope} />
           <ThemeToggle />
-          <SignOutButton />
+          <SignOutButton scope={scope} />
         </div>
       </header>
       <main className="app-shell__content" id="main-content" tabIndex={-1}>
         {children}
       </main>
+      {outboxOpen && scope ? <OutboxPanel onClose={() => setOutboxOpen(false)} scope={scope} /> : null}
       <nav aria-label={ar.navigation.mobile} className="app-shell__mobile-nav">
         <ul className="app-shell__mobile-nav-list">
           {navigation.map((item) => {

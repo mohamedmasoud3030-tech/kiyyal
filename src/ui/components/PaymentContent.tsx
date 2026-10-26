@@ -5,7 +5,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 import { ar, type AppRole } from '../copy/ar';
 import { requireInjectedRole } from '../requiredRole';
-import { useResilientSubmit, loadDraft, saveDraft } from '../offline/useResilientSubmit';
+import { useResilientSubmit, loadDraft, saveDraftWithIntent } from '../offline/useResilientSubmit';
 import { Amount } from './Amount';
 import { Button } from './Button';
 import { FormActions } from './FormActions';
@@ -78,7 +78,7 @@ export function PaymentContent({ initialPartyId, role: injectedRole, scope = nul
   const [result, setResult] = useState<PaymentResponse | null>(null);
   const [replayNote, setReplayNote] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
-  const { submit: resilientSubmit, submitting, outcome } = useResilientSubmit('payment', scope);
+  const { submit: resilientSubmit, submitting, outcome, intentState } = useResilientSubmit('payment', scope);
 
   // مسودة محلية مقفولة على النطاق (PWA_RULES 4, 14-16): نجاة من الإغلاق/الموت،
   // بلا تسريب بين مستخدمين أو ساحات، وبلا أي رصيد أو مجاميع.
@@ -97,7 +97,7 @@ export function PaymentContent({ initialPartyId, role: injectedRole, scope = nul
   useEffect(() => {
     if (!scope || !draftRestored || result) return;
     const timer = window.setTimeout(() => {
-      void saveDraft(scope, 'payment', { partyId, direction, amount, note });
+      void saveDraftWithIntent(scope, 'payment', { partyId, direction, amount, note });
     }, 500);
     return () => window.clearTimeout(timer);
   }, [scope, draftRestored, partyId, direction, amount, note, result]);
@@ -242,6 +242,8 @@ export function PaymentContent({ initialPartyId, role: injectedRole, scope = nul
       ) : null}
       {parties.status === 'loaded' && parties.data.length > 0 ? (
         <form className="payment-form" onSubmit={submit}>
+          {intentState === 'resuming' ? <p className="offline-outcome" role="status">{ar.intentBanners.resuming}</p> : null}
+          {intentState === 'hasQueued' ? <p className="offline-outcome" role="status">{ar.intentBanners.hasQueued}</p> : null}
           <FormField {...(partyError ? { error: partyError } : {})} id="payment-party" label={ar.payment.partyLabel} required>
             <select
               className="text-input"

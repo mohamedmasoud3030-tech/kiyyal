@@ -1,58 +1,84 @@
 /**
- * ADR-0016 — أنواع طبقة المسودات/الصندوق الصادر. ثوابت العزل:
- * - لا PIN ولا رمز جلسة ولا مبالغ/أرصدة مشتقة من الخادم تُحفظ هنا أبدًا
- *   (المتن = مدخلات المستخدم الخام فقط؛ مجموع الخادم يُعرض فقط بعد الإقرار).
- * - كل سجل موسوم بملخّص scope (AUTH §7.1) ولا يُقرأ خارجه أبدًا.
+ * ADR-0016 (مراجعة توجيهات المالك 2026-10-26): هوية دائمة للنية المالية.
+ * - هوية النية = (scope, idempotencyKey): لا يتغيّر أبدًا بعد أول إنشاء، ويُحفظ
+ *   ضمن سجلّ النية والمسودة وسطر الطابور معًا — إعادة فتح التطبيق تستعيده كما هو.
+ * - queueId المركّب `${scope}:${idempotencyKey}` يجعل لكل نية سطرًا واحدًا فقط.
+ * - لا يتغيّر محتوى طلبٍ مع إعادة مفتاحه: المحرك يقارن المتن قبل أي إرسال.
+ * - الإقرار يبقى مسجّلًا (acknowledged) حتى تعرضه الواجهة للمستخدم؛ لا يُحذف قبل ذلك.
  */
-
 export type MoneyOpType = 'purchase' | 'sale' | 'payment' | 'expense';
 
-export type OpStatus = 'queued' | 'syncing' | 'parked' | 'conflict';
+export type OpStatus = 'queued' | 'syncing' | 'parked' | 'conflict' | 'acknowledged';
 
 export interface OpConflict {
   readonly code: string;
   readonly message: string;
 }
 
+/** خلاصة إقرار مقروءة للمستخدم — بلا مجاميع/أرصدة خادمية (PWA_RULES 14). */
+export interface OpAck {
+  readonly at: string;
+  readonly transactionId: string | null;
+  readonly number: string | null;
+  readonly serverStatus: string | null;
+  readonly idempotentReplay: boolean;
+  readonly seenByUser: boolean;
+}
+
 export interface QueuedOp {
-  /** المعرّف المحلي لسطر الطابور (وليس مفتاح العزم). */
+  /** `${scope}:${idempotencyKey}` — التركيب يفرض سطرًا واحدًا لكل نية. */
   readonly queueId: string;
-  /** مُلخّص (yard:actor) غير السرّي — حدّ العزل على الأجهزة المشتركة. */
   readonly scope: string;
   readonly type: MoneyOpType;
-  /** مفتاح عزم الخادم نفسه عبر كل المحاولات — «مرة واحدة بالضبط» ملكية دفترية لا حظّية. */
   readonly idempotencyKey: string;
-  /** الطابع الأصلي للجهاز؛ المحاولة المكررة لا تُعيد سكّه. */
   readonly deviceCreatedAt: string;
-  /** مدخلات المستخدم الخام كما كُتبت — لا مجاميع ولا أرصدة. */
+  /** مدخلات المستخدم الخام كما سُجّلت أول مرة؛ لا تُعدَّل على نفس المفتاح أبدًا. */
   readonly body: Record<string, unknown>;
   readonly enqueuedAt: string;
   readonly attempts: number;
   readonly status: OpStatus;
   readonly conflict: OpConflict | null;
-  /** epoch ms — أقرب وقت مسموح لمحاولة تالية (تراجع أسّي). */
+  readonly ack: OpAck | null;
   readonly nextAttemptAt: number;
+}
+
+/** هوية النية المقترنة بالمسودة — تُسكّ عند أول حفظ وتُدار مع المسودة. */
+export interface DraftIntent {
+  readonly idempotencyKey: string;
+  readonly deviceCreatedAt: string;
 }
 
 export interface DraftRecord {
   readonly scope: string;
-  /** مفتاح النموذج: 'transaction:purchase' | 'payment' | ... */
   readonly formKey: string;
   readonly savedAt: string;
   readonly fields: Record<string, unknown>;
+  readonly intent: DraftIntent | null;
 }
 
-/** وجهة التخزين: الإنتاج IndexedDB، الاختبارات ذاكرة؛ العقد واحد. */
+export function queueIdOf(scope: string, idempotencyKey: string): string {
+  return `${scope}:${idempotencyKey}`;
+}
+
 export interface OfflineStore {
   putOp(op: QueuedOp): Promise<void>;
-  patchOp(queueId: string, patch: Partial<Omit<QueuedOp, 'queueId' | 'scope' | 'idempotencyKey'>>): Promise<void>;
+  patchOp(queueId: string, patch: Partial<Omit<QueuedOp, 'queueId' | 'scope' | 'idempotencyKey' | 'deviceCreatedAt' | 'body'>>): Promise<void>;
+  /**
+   * ادعاء ذرّي للإرسال: ينقل queued→syncing فقط إن كان السطر فعلًا في
+   * queued/.. المسموح. مانع السباق الوحيد بين الزر والموقّت وحدث online
+   * والتبويبات الأخرى (معاملة IndexedDB ذرية بحكم البيئة).
+   */
+  claimOp(queueId: string): Promise<QueuedOp | null>;
+  getOp(queueId: string): Promise<QueuedOp | null>;
   removeOp(queueId: string): Promise<void>;
   listOps(scope: string): Promise<readonly QueuedOp[]>;
   putDraft(draft: DraftRecord): Promise<void>;
   getDraft(scope: string, formKey: string): Promise<DraftRecord | null>;
   removeDraft(scope: string, formKey: string): Promise<void>;
-  /** مسح كل مسودات/طوابير نطاقٍ ما — عند تبديل الساحة (PWA_RULES 16). */
+  listDrafts(scope: string): Promise<readonly DraftRecord[]>;
   clearScope(scope: string): Promise<void>;
-  /** مسح الجهاز كله — عند تسجيل الخروج الصريح (PWA_RULES 15): لا أثر يبقى لأي نطاق. */
   clearAll(): Promise<void>;
 }
+
+/** حقيقة المتانة: تُعرض للمستخدم؛ لا وعود كاذبة ببقاء ما لن يبقى. */
+export type StoreDurability = 'persistent' | 'volatile';

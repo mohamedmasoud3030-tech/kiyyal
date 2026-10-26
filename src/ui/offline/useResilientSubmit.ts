@@ -2,25 +2,30 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { enqueueAndAttempt, offlineStore, sweepScope, type OpOutcome } from './outbox';
-import type { MoneyOpType } from './types';
+import { enqueueAndAttempt, formKeyOf, offlineStore, sweepScope, type OpOutcome } from './outbox';
+import type { DraftIntent, MoneyOpType } from './types';
 
 /**
- * خطّاف الإرسال المرن للنماذج المالية الأربعة (ADR-0016):
- * - يولّد مفتاح العزم وطابع الجهاز مرة واحدة لكل نية (ref) — المحاولة المكررة
- *   (زر مرة ثانية، انقطاع، إغلاق وإعادة فتح) تبعث بنفسهما حرفيًا.
- * - يسجّل النية في الصندوق الصادر قبل أول إرسال، ويحذفها فقط عند إقرار الخادم.
- * - يعيد draft النموذج بعد أي فشل (لا تضيع بيانات المستخدم أبدًا) — باستثناء
- *   acknowledgment ينظّف المسودة.
+ * خطّاف الإرسال المرن (ADR-0016 مراجعة 2026-10-26):
+ * - هوية النية (key+stamp) تصاغ في أول حفظ مسودة وتُدار معها — إعادة فتح
+ *   التطبيق تستعيد نفس المفتاح حرفيًا، لا مفتاحًا جديدًا لنفس العمل.
+ * - الإرسال يسجّل/يجد سطر الطابور بنفس المفتاح؛ الضغط المتكرر لا يُنشئ سطرًا
+ *   ثانيًا (queueId مركّب + طيرانٍ واحد).
+ * - `intentState` تميّز صراحة: 'new' | 'resuming' (مسودة بنية سابقة) |
+ *   'hasQueued' — لعرض «استكمال عملية سابقة» مقابل «عملية جديدة».
+ * - بعد acknowledged: تنظيف المسودة يتم شرط تطابق هوية النية — ولاحقًا أي
+ *   إدخال يصكّ نيةً جديدة بمفتاح جديد (لا يعاد إرسال القديمة «كجديدة»).
  */
 export function useResilientSubmit(type: MoneyOpType, scopeProp: string | null) {
-  const keyRef = useRef<string | null>(null);
-  const stampRef = useRef<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [outcome, setOutcome] = useState<OpOutcome | null>(null);
-  // When the prop is absent (direct component embedding), probe the real
-  // session endpoint once — production always supplies it via ProtectedScreen.
   const [probedScope, setProbedScope] = useState<string | null>(null);
+  const [intent, setIntent] = useState<DraftIntent | null>(null);
+  const [intentState, setIntentState] = useState<'new' | 'resuming' | 'hasQueued' | 'acknowledged'>('new');
+  const intentRef = useRef<DraftIntent | null>(null);
+  intentRef.current = intent;
+
+  // عند غياب الخاصية (تضمين مباشر في الاختبارات): مسبار /api/session الحقيقي.
   useEffect(() => {
     if (scopeProp) return;
     const controller = new AbortController();
@@ -36,44 +41,93 @@ export function useResilientSubmit(type: MoneyOpType, scopeProp: string | null) 
     return () => controller.abort();
   }, [scopeProp]);
   const scope = scopeProp ?? probedScope;
+  const formKey = formKeyOf(type);
+
+  // عند أول معرفة بالنطاق: استرجاع هوية النية من المسودة إن وُجدت — استكمال لا إنشاء.
+  useEffect(() => {
+    if (!scope) return;
+    let cancelled = false;
+    void offlineStore().getDraft(scope, formKey).then(async (draft) => {
+      if (cancelled) return;
+      if (draft?.intent) {
+        setIntent(draft.intent);
+        // هل توجد عملية بمفتاحها ما تزال معلّقة؟ ⇒ استكمال صريح؛ وإلا استئناف مسودة فقط.
+        const op = await offlineStore().getOp(`${scope}:${draft.intent.idempotencyKey}`);
+        if (!cancelled) setIntentState(op && op.status !== 'acknowledged' ? 'hasQueued' : 'resuming');
+      } else {
+        setIntentState('new');
+      }
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [scope, formKey]);
+
+  /** يصكّ نيةً جديدة فقط عند غيابها — أو يعيد الموجودة كما هي (هوية دائمة). */
+  const ensureIntent = useCallback(async (): Promise<DraftIntent | null> => {
+    if (intentRef.current) return intentRef.current;
+    if (!scope) return null;
+    const fresh: DraftIntent = {
+      idempotencyKey: globalThis.crypto.randomUUID(),
+      deviceCreatedAt: new Date().toISOString(),
+    };
+    setIntent(fresh);
+    setIntentState('new');
+    return fresh;
+  }, [scope]);
 
   const submit = useCallback(async (rawBody: Record<string, unknown>): Promise<OpOutcome | null> => {
     if (!scope) return null;
-    if (!keyRef.current) keyRef.current = globalThis.crypto.randomUUID();
-    if (!stampRef.current) stampRef.current = new Date().toISOString();
+    const current = await ensureIntent();
+    if (!current) return null;
+    // المسودة تحمل نية العملية ذاتها حين الإرسال — الإغلاق بينهما لا يفقد شيئًا.
+    await offlineStore().putDraft({
+      scope, formKey, savedAt: new Date().toISOString(), fields: rawBody, intent: current,
+    });
     setSubmitting(true);
     try {
       const result = await enqueueAndAttempt({
         scope,
         type,
         body: rawBody,
-        idempotencyKey: keyRef.current,
-        deviceCreatedAt: stampRef.current,
+        idempotencyKey: current.idempotencyKey,
+        deviceCreatedAt: current.deviceCreatedAt,
       });
       setOutcome(result);
       if (result.kind === 'acknowledged') {
-        await offlineStore().removeDraft(scope, formKeyOf(type));
-        keyRef.current = null;
-        stampRef.current = null;
+        // نظّرها المحرك من المسودة المطابقة؛ للهوية: لا مسح لمسودة نية أخرى أبدًا.
+        const draft = await offlineStore().getDraft(scope, formKey);
+        if (draft?.intent?.idempotencyKey === current.idempotencyKey) {
+          await offlineStore().removeDraft(scope, formKey);
+        }
+        setIntent(null);
+        setIntentState('acknowledged');
+      } else if (result.kind === 'queued' || result.kind === 'parked' || result.kind === 'conflict') {
+        setIntentState('hasQueued');
       }
       return result;
     } finally {
       setSubmitting(false);
     }
-  }, [scope, type]);
+  }, [scope, formKey, type, ensureIntent]);
 
-  return { submit, submitting, outcome };
+  return { submit, submitting, outcome, intentState };
 }
 
-export function formKeyOf(type: MoneyOpType): string {
-  return type === 'purchase' || type === 'sale' ? `transaction:${type}` : type;
+export { formKeyOf };
+
+/** حفظ مسودة فورية مع هوية نية دائمة (تُصكّ هنا إن غابت). */
+export async function saveDraftWithIntent(
+  scope: string, formKey: string, fields: Record<string, unknown>,
+): Promise<DraftIntent> {
+  const existing = await offlineStore().getDraft(scope, formKey);
+  const intent = existing?.intent ?? {
+    idempotencyKey: globalThis.crypto.randomUUID(),
+    deviceCreatedAt: new Date().toISOString(),
+  };
+  await offlineStore().putDraft({ scope, formKey, savedAt: new Date().toISOString(), fields, intent });
+  return intent;
 }
 
-/** حفظ مسودة فورية (raw model) — تُستدعى عند كل تغيير حقل بترقّق خارجي. */
-export async function saveDraft(scope: string, formKey: string, fields: Record<string, unknown>): Promise<void> {
-  await offlineStore().putDraft({ scope, formKey, savedAt: new Date().toISOString(), fields });
-}
-
+/** قراءة مسودة خام للاستعادة المبدئية في النماذج. */
 export async function loadDraft(scope: string, formKey: string): Promise<Record<string, unknown> | null> {
   const draft = await offlineStore().getDraft(scope, formKey);
   return draft?.fields ?? null;
@@ -83,12 +137,17 @@ export async function clearDraft(scope: string, formKey: string): Promise<void> 
   await offlineStore().removeDraft(scope, formKey);
 }
 
-/** مسح نطاق كامل عند خروج/تبديل — واجب PWA_RULES 15–16. */
+/** مسح النطاق عند تبديل حساب/ساحة (العزل مضمون بالوسم: لا ينتقل طلب بين نطاقين). */
 export async function clearOfflineScope(scope: string): Promise<void> {
   await offlineStore().clearScope(scope);
 }
 
-/** يُستدعى عند اكتمال جلسة (scope معروف): يستأنف المعلَّق — بنفس المفاتيح دائمًا. */
+/** مسح الجهاز كاملًا عند الخروج الصريح المؤكد. */
+export async function clearOfflineEverything(): Promise<void> {
+  await offlineStore().clearAll();
+}
+
+/** يُستدعى فقط بعد جلسة موثقة للنطاق: استئناف المعلَّق بنفس المفاتيح حرفيًا. */
 export function useOutboxAutoSweep(scope: string | null): void {
   const fired = useRef(false);
   useEffect(() => {
@@ -98,8 +157,11 @@ export function useOutboxAutoSweep(scope: string | null): void {
     const online = () => { void sweepScope(scope); };
     window.addEventListener('online', online);
     const timer = window.setInterval(() => { void sweepScope(scope); }, 20_000);
+    const refresh = () => { void sweepScope(scope); };
+    window.addEventListener('focus', refresh);
     return () => {
       window.removeEventListener('online', online);
+      window.removeEventListener('focus', refresh);
       window.clearInterval(timer);
       fired.current = false;
     };

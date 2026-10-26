@@ -5,7 +5,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 import { ar } from '../copy/ar';
 import { apiErrorMessage } from '../clientSecurity';
-import { useResilientSubmit, loadDraft, saveDraft, formKeyOf } from '../offline/useResilientSubmit';
+import { useResilientSubmit, loadDraft, saveDraftWithIntent, formKeyOf } from '../offline/useResilientSubmit';
 import { Amount } from './Amount';
 import { Button } from './Button';
 import { FormActions } from './FormActions';
@@ -117,7 +117,7 @@ export function TransactionEntryContent({ type, scope = null }: { readonly type:
   const [replayNote, setReplayNote] = useState(false);
   // مفتاح العزم وطابع الجهاز محفوظان داخل الخطّاف عبر ref — محاولة أخرى (أو
   // إعادة فتح بعد موت) تبعث بنفسهما حرفيًا (ADR-0016: مرة واحدة بالضبط).
-  const { submit: resilientSubmit, submitting, outcome } = useResilientSubmit(type, scope);
+  const { submit: resilientSubmit, submitting, outcome, intentState } = useResilientSubmit(type, scope);
   const [draftRestored, setDraftRestored] = useState(false);
 
   useEffect(() => {
@@ -187,7 +187,7 @@ export function TransactionEntryContent({ type, scope = null }: { readonly type:
   useEffect(() => {
     if (!scope || !draftRestored || result) return;
     const timer = window.setTimeout(() => {
-      void saveDraft(scope, formKeyOf(type), { businessDate, partyId, amountCash, note, lines });
+      void saveDraftWithIntent(scope, formKeyOf(type), { businessDate, partyId, amountCash, note, lines });
     }, 500);
     return () => window.clearTimeout(timer);
   }, [scope, draftRestored, type, businessDate, partyId, amountCash, note, lines, result]);
@@ -290,6 +290,8 @@ export function TransactionEntryContent({ type, scope = null }: { readonly type:
   return (
     <PageContainer width="wide">
       <PageHeader backHref="/today" backLabel={ar.transactionEntry.backToToday} description={descriptionFor(type)} title={titleFor(type)} />
+        {intentState === 'resuming' ? <p className="offline-outcome" role="status">{ar.intentBanners.resuming}</p> : null}
+        {intentState === 'hasQueued' ? <p className="offline-outcome" role="status">{ar.intentBanners.hasQueued}</p> : null}
       <form className="transaction-entry" onSubmit={submit}>
         <Section title={titleFor(type)}>
           <div className="transaction-entry__top-fields">

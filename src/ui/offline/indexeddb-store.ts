@@ -62,6 +62,21 @@ export function createIndexedDbOfflineStore(): OfflineStore {
         await requestToPromise(ops.put({ ...current, ...patch }));
       });
     },
+    // ادعاء ذرّي داخل معاملة readwrite واحدة — تبويب ثانٍ يخسر claim تلقائيًا.
+    async claimOp(queueId) {
+      return withStores('readwrite', async (ops) => {
+        const current = await requestToPromise(ops.get(queueId)) as QueuedOp | undefined;
+        if (!current || current.status !== 'queued') return null;
+        const claimed: QueuedOp = { ...current, status: 'syncing' };
+        await requestToPromise(ops.put(claimed));
+        return claimed;
+      });
+    },
+    async getOp(queueId) {
+      return withStores('readonly', async (ops) => {
+        return (await requestToPromise(ops.get(queueId))) as QueuedOp | null ?? null;
+      });
+    },
     async removeOp(queueId) {
       await withStores('readwrite', async (ops) => { await requestToPromise(ops.delete(queueId)); });
     },
@@ -84,6 +99,12 @@ export function createIndexedDbOfflineStore(): OfflineStore {
     async removeDraft(scope, formKey) {
       await withStores('readwrite', async (_ops, drafts) => {
         await requestToPromise(drafts.delete(draftKey(scope, formKey)));
+      });
+    },
+    async listDrafts(scope) {
+      return withStores('readonly', async (_ops, drafts) => {
+        const all = await requestToPromise(drafts.getAll()) as DraftRecord[];
+        return all.filter((draft) => draft.scope === scope);
       });
     },
     async clearScope(scope) {

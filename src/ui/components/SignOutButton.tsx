@@ -1,18 +1,23 @@
+
 'use client';
 
 import { useState } from 'react';
 
 import { ar } from '../copy/ar';
 import { ensureCsrfToken } from '../clientSecurity';
-import { offlineStore } from '../offline/outbox';
 import { Button } from './Button';
+import { offlineStore, setSweepPaused, statusCounts, sweepScope } from '../offline/outbox';
 
-/** Revokes the active server/provider session before returning to the public login page. */
-export function SignOutButton() {
-  const [state, setState] = useState<'idle' | 'submitting' | 'error'>('idle');
+/**
+ * Revokes the server session, but never silently discards device state
+ * (owner directive 2026-10-26 #6): with unconfirmed work the user sees the
+ * exact counts and chooses — send-now, destructive logout, or cancel.
+ */
+export function SignOutButton({ scope = null }: { readonly scope?: string | null }) {
+  const [state, setState] = useState<'idle' | 'submitting' | 'error' | 'gating'>('idle');
+  const [gateCounts, setGateCounts] = useState<{ unresolved: number; drafts: number } | null>(null);
 
-  async function signOut() {
-    if (state === 'submitting') return;
+  async function actuallySignOut(wipe: boolean) {
     setState('submitting');
     const csrf = await ensureCsrfToken();
     if (!csrf) {
@@ -29,12 +34,73 @@ export function SignOutButton() {
         setState('error');
         return;
       }
-      // PWA_RULES 15: an explicit sign-out leaves no draft or queued op on this device.
-      try { await offlineStore().clearAll(); } catch { /* the scope tag keeps any remainder invisible across users */ }
+      if (wipe) {
+        // PWA_RULES 15 بعد قرار المستخدم الصريح المرئي فقط.
+        try { await offlineStore().clearAll(); } catch { /* tagging keeps any remainder invisible */ }
+      }
       window.location.assign('/login');
     } catch {
       setState('error');
     }
+  }
+
+  async function signOut() {
+    if (state === 'submitting') return;
+    if (!scope) {
+      await actuallySignOut(true);
+      return;
+    }
+    const counts = await statusCounts(scope);
+    const unresolved = counts.queued + counts.syncing + counts.parked + counts.conflict;
+    if (unresolved + counts.drafts === 0) {
+      await actuallySignOut(true);
+      return;
+    }
+    // إيقاف الكنس المؤقت مؤقتًا: قرار المستخدم يسبق أي إرسال خلفي آخر.
+    setSweepPaused(true);
+    setGateCounts({ unresolved, drafts: counts.drafts });
+    setState('gating');
+  }
+
+  async function resumeThenLeave() {
+    if (!scope) return;
+    await sweepScope(scope, Date.now() + 300_000);
+    const counts = await statusCounts(scope);
+    const unresolved = counts.queued + counts.syncing + counts.parked + counts.conflict;
+    setGateCounts({ unresolved, drafts: counts.drafts });
+  }
+
+  function cancelGate() {
+    setSweepPaused(false);
+    setGateCounts(null);
+    setState('idle');
+  }
+
+  if (state === 'gating' && gateCounts) {
+    return (
+      <div aria-modal="true" className="outbox-panel__backdrop" role="presentation">
+        <section aria-label={ar.signOutGate.pendingTitle} className="outbox-panel" role="alertdialog">
+          <h2 className="outbox-panel__title">{ar.signOutGate.pendingTitle}</h2>
+          <p className="outbox-panel__summary">
+            {ar.signOutGate.pendingBody.replace('{u}', String(gateCounts.unresolved)).replace('{d}', String(gateCounts.drafts))}
+          </p>
+          <p className="outbox-panel__summary">{ar.signOutGate.wipeNote}</p>
+          <div className="outbox-panel__actions" role="group">
+            <button className="ui-button ui-button--secondary ui-button--sm" onClick={() => void resumeThenLeave()} type="button">
+              {ar.signOutGate.resumeFirst}
+            </button>
+            <button
+              className="ui-button ui-button--danger ui-button--sm"
+              onClick={() => void (async () => { setSweepPaused(false); await actuallySignOut(true); })()}
+              type="button"
+            >
+              {ar.signOutGate.destructiveConfirm.replace('{u}', String(gateCounts.unresolved)).replace('{d}', String(gateCounts.drafts))}
+            </button>
+            <button className="ui-link" onClick={cancelGate} type="button">{ar.signOutGate.cancel}</button>
+          </div>
+        </section>
+      </div>
+    );
   }
 
   return (

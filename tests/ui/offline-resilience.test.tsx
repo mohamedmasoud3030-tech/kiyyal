@@ -29,7 +29,7 @@ import { ar } from '../../src/ui/copy/ar.js';
 import { ExpenseContent } from '../../src/ui/components/ExpenseContent.js';
 import { createMemoryOfflineStore } from '../../src/ui/offline/memory-store.js';
 import { __setOfflineStoreForTests, enqueueAndAttempt, offlineStore, sweepScope } from '../../src/ui/offline/outbox.js';
-import { clearDraft, loadDraft, saveDraft } from '../../src/ui/offline/useResilientSubmit.js';
+import { clearDraft, loadDraft, saveDraftWithIntent } from '../../src/ui/offline/useResilientSubmit.js';
 import { freshRealDatabase, seedYard, stopServer, type Seed, type TestDb } from '../db/pg-harness.js';
 
 configure({ asyncUtilTimeout: 15_000 });
@@ -229,12 +229,18 @@ describe('حماية المسودات وعدم الاتصال — مسارات �
         // احترام التراجع الأسّي: نمرّر «الآن+120s» كما لو أن نافذة backoff انقضت فعلًا.
     const sweep = await sweepScope(scopeDigest, Date.now() + 120_000);
     expect(sweep.acknowledged).toBe(1);
-    expect(await offlineStore().listOps(scopeDigest)).toHaveLength(0);
+    // الإقرار يبقى محليًا كشارة مرئية حتى يراها المستخدم — لكنه يحمل علم الخادم:
+    const ops = await offlineStore().listOps(scopeDigest);
+    expect(ops).toHaveLength(1);
+    expect(ops[0]!.status).toBe('acknowledged');
+    expect(ops[0]!.ack?.idempotentReplay).toBe(true);
+    expect(ops[0]!.ack?.seenByUser).toBe(false);
+    expect(typeof ops[0]!.ack?.number === 'string' && ops[0]!.ack!.number!.length > 0).toBe(true);
     expect(await dbCountForKey(key)).toBe(1);
   });
 
   it('إعادة تحميل التطبيق لا تفقد المسودة؛ وتبديل النطاق يجعلها غير مرئية مطلقًا', async () => {
-    await saveDraft(scopeDigest, 'expense', { category: 'fuel', amount: '30.00', note: 'سولار' });
+    await saveDraftWithIntent(scopeDigest, 'expense', { category: 'fuel', amount: '30.00', note: 'سولار' });
     // «إعادة تحميل»: المخزن يُعاد حقنه كأنه الجهاز أُقلع من جديد — لكن بياناته غائبة في الذاكرية…
     // لذا نتحقق عبر العقد نفسه: قراءة المركّب الحديث تجدها، وخادمها لا يعرف عنها شيئًا.
     expect(await loadDraft(scopeDigest, 'expense')).toEqual({ category: 'fuel', amount: '30.00', note: 'سولار' });
@@ -293,15 +299,19 @@ describe('حماية المسودات وعدم الاتصال — مسارات �
     if (a.kind !== 'acknowledged' && b.kind !== 'acknowledged') {
       throw new Error(`at least one attempt must acknowledge, got ${a.kind}/${b.kind}`);
     }
-    const replays = [a, b].filter((outcome) => outcome.kind === 'acknowledged' && outcome.idempotentReplay);
-    expect(replays.length).toBeGreaterThanOrEqual(0); // replay علمٌ صدق وليس شرط نجاح
-    // بعض حالات السباق قد تنجح كلتاهما خادميًا — لكن الدفتر يحفظ مرة واحدة حتمًا.
+    expect([a, b].some((outcome) => outcome.kind === 'acknowledged')).toBe(true);
+    // سطر طابور واحد مهما تكرّر الضغط — والدفتر يحفظ مرة واحدة حتمًا.
+    const ops = await offlineStore().listOps(scopeDigest);
+    expect(ops).toHaveLength(1);
+    expect(ops[0]!.status).toBe('acknowledged');
     expect(await dbCountForKey(key)).toBe(1);
-    expect(await offlineStore().listOps(scopeDigest)).toHaveLength(0);
   });
 
   it('تعارض خادمي (يوم مغلق): عملية متعذرة تبقى مرئية كتعارض بلا توليد ولا رصيد', async () => {
-    const businessDate = (await t.admin.query<{ d: string }>("SELECT CURRENT_DATE::text AS d")).rows[0]!.d;
+    // يوم العمل يُحسب بتوقيت القاهرة — نُقفل بالضبط اليوم الذي سيبتّ فيه الخادم.
+    const businessDate = (await t.admin.query<{ d: string }>(
+      "SELECT (now() AT TIME ZONE 'Africa/Cairo')::date::text AS d",
+    )).rows[0]!.d;
     await t.admin.transaction(async (tx) => {
       await tx.query("SELECT set_config('app.posting', 'on', true)");
       await tx.query(
@@ -328,7 +338,7 @@ describe('حماية المسودات وعدم الاتصال — مسارات �
 
   it('لا يحتوي المخزن المحلي على أي توكن/رمز جلسة/مجاميع خادمية — مهما تراكم فيه', async () => {
     const key = randomUUID();
-    await saveDraft(scopeDigest, 'payment', { partyId: randomUUID(), amount: '100.00', note: 'ذمة' });
+    await saveDraftWithIntent(scopeDigest, 'payment', { partyId: randomUUID(), amount: '100.00', note: 'ذمة' });
     dropPostMode = 'before-send';
     await enqueueAndAttempt({
       scope: scopeDigest, type: 'expense', body: { category: 'other', amount: '5.00', note: 'حبر' },

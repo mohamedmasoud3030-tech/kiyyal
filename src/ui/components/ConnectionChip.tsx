@@ -3,15 +3,20 @@
 import { useEffect, useState } from 'react';
 
 import { ar } from '../copy/ar';
-import { pendingCount, subscribeOutbox } from '../offline/outbox';
+import { statusCounts, storeDurability, storeProblemMessage, subscribeOutbox, type StatusCounts } from '../offline/outbox';
+
+const EMPTY: StatusCounts = { queued: 0, syncing: 0, parked: 0, conflict: 0, ackPending: 0, drafts: 0 };
 
 /**
- * رقاقة الاتصال الدائمة (PWA_RULES 6, 12–13): حالة الشبكة + عدد المعلَّق بلا
- * زخرفة مضللة — «محفوظة على الجهاز» صراحةً لا «تم الحفظ».
+ * رقاقة الاتصال (PWA_RULES 6, 12–13 بمراجعة المالك 5): الصدق الكامل —
+ * لا «صفر معلّق» بينما توجد تعارضات مخفية؛ عدم متانة التخزين ظاهرة لا خافية.
+ * النقر يفتح لوحة العمليات غير المحسومة (OutboxPanel يزرعها AppShell).
  */
-export function ConnectionChip({ scope }: { readonly scope: string | null }) {
+export function ConnectionChip({ scope, onOpenOutbox }: { readonly scope: string | null; readonly onOpenOutbox?: () => void }) {
   const [online, setOnline] = useState<boolean>(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
-  const [pending, setPending] = useState(0);
+  const [counts, setCounts] = useState<StatusCounts>(EMPTY);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [durable, setDurable] = useState<boolean>(true);
 
   useEffect(() => {
     const on = () => setOnline(true);
@@ -22,11 +27,15 @@ export function ConnectionChip({ scope }: { readonly scope: string | null }) {
   }, []);
 
   useEffect(() => {
-    if (!scope) { setPending(0); return; }
+    if (!scope) { setCounts(EMPTY); return; }
     let cancelled = false;
     const refresh = async () => {
-      const count = await pendingCount(scope);
-      if (!cancelled) setPending(count);
+      const next = await statusCounts(scope);
+      if (!cancelled) {
+        setCounts(next);
+        setProblem(storeProblemMessage());
+        setDurable(storeDurability() === 'persistent');
+      }
     };
     void refresh();
     const unsubscribe = subscribeOutbox(() => { void refresh(); });
@@ -34,22 +43,48 @@ export function ConnectionChip({ scope }: { readonly scope: string | null }) {
     return () => { cancelled = true; unsubscribe(); window.clearInterval(timer); };
   }, [scope]);
 
-  const tone = !online ? 'offline' : pending > 0 ? 'pending' : 'online';
-  const label = !online
-    ? (pending > 0 ? ar.connection.offlinePending.replace('{n}', String(pending)) : ar.connection.offline)
-    : pending > 0
-      ? ar.connection.onlinePending.replace('{n}', String(pending))
-      : ar.connection.online;
+  const unresolved = counts.queued + counts.syncing + counts.parked + counts.conflict;
+  const headline = problem
+    ? problem
+    : !durable
+      ? ar.connection.volatileStorage
+      : !online
+        ? (unresolved > 0 ? ar.connection.offlinePending.replace('{n}', String(unresolved)) : ar.connection.offline)
+        : counts.conflict > 0
+          ? ar.connection.conflictsWaiting.replace('{n}', String(counts.conflict))
+          : counts.ackPending > 0
+            ? ar.connection.completedNotice.replace('{n}', String(counts.ackPending))
+            : unresolved > 0
+              ? ar.connection.onlinePending.replace('{n}', String(unresolved))
+              : ar.connection.online;
 
-  return (
-    <span
-      aria-live="polite"
-      className={`connection-chip connection-chip--${tone}`}
-      data-testid="connection-chip"
-      role="status"
-    >
+  const tone = problem || !durable || !online || counts.conflict > 0
+    ? (online && counts.conflict > 0 && !problem ? 'pending' : 'offline')
+    : unresolved > 0 || counts.ackPending > 0 ? 'pending' : 'online';
+
+  const content = (
+    <>
       <span aria-hidden="true" className="connection-chip__dot" />
-      {label}
+      <span className="connection-chip__label">{headline}</span>
+    </>
+  );
+
+  if (onOpenOutbox && (unresolved > 0 || counts.ackPending > 0 || problem !== null)) {
+    return (
+      <button
+        aria-label={ar.connection.openOutboxAria}
+        className={`connection-chip connection-chip--${tone} connection-chip--button`}
+        data-testid="connection-chip"
+        onClick={onOpenOutbox}
+        type="button"
+      >
+        {content}
+      </button>
+    );
+  }
+  return (
+    <span aria-live="polite" className={`connection-chip connection-chip--${tone}`} data-testid="connection-chip" role="status">
+      {content}
     </span>
   );
 }
