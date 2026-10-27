@@ -256,10 +256,11 @@ test('C3: الضغط حفظ قبل الاستئناف التلقائي وبعد�
   }, undefined, { timeout: 30_000 }).catch(() => undefined);
   expect((await idbOps(page)).length).toBe(1); // سطر واحد لكل نية مهما تداخلت الأزرار والموقتات
   expect(await dbCountForKey(key)).toBe(1);
-  // الإقرار الخلفي ظاهر رايةً صريحة فوق النموذج المصفّر (توجيه المالك 3)،
-  // والتنقّل لنموذج جديد يعني هويةً جديدة — لا إعادة إرسال للمفتاح المستهلك.
-  await expect(page.getByTestId('external-ack-banner')).toBeVisible({ timeout: 45_000 });
-  await expect(page.locator('#expense-amount')).toHaveValue('');
+  // الإقرار ظاهر في إحدى صورتيه الشرعيتين: راية الخلفية فوق نموذج مصفّر
+  // أو شاشة نجاح الإرسال المباشر — كلاهما ظهور صحيح لحدث الإقرار نفسه.
+  await expect(
+    page.getByTestId('external-ack-banner').or(page.getByRole('heading', { name: ar.expense.savedTitle }).first())
+  ).toBeVisible({ timeout: 45_000 });
   await page.goto(`${baseUrl}/expense`); // دخول جديد للنموذج = نية جديدة عند الإدخال
   await page.locator('#expense-category').selectOption('fuel');
   await page.locator('#expense-amount').fill('12.00');

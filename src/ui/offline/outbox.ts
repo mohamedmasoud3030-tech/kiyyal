@@ -128,6 +128,16 @@ export interface StatusCounts {
   readonly drafts: number;
 }
 
+/** الرقاقة عرضت الإقرار: وسم مقروء — السجل نفسه يبقى حتى يطرده المستخدم بيده. */
+export async function markAcksSeen(scope: string): Promise<void> {
+  const ops = await offlineStore().listOps(scope);
+  for (const op of ops) {
+    if (op.status === 'acknowledged' && op.ack && !op.ack.seenByUser) {
+      await persistPatch(op.queueId, { ack: { ...op.ack, seenByUser: true } });
+    }
+  }
+}
+
 /** عدّاد اللوحة الصادقة: صفر «غير محسومة» لا يُظهر إلا بعد تصفية النزاعات أيضًا. */
 export async function statusCounts(scope: string): Promise<StatusCounts> {
   const ops = await offlineStore().listOps(scope);

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { ar } from '../copy/ar';
-import { statusCounts, storeDurability, storeProblemMessage, subscribeOutbox, type StatusCounts } from '../offline/outbox';
+import { markAcksSeen, statusCounts, storeDurability, storeProblemMessage, subscribeOutbox, type StatusCounts } from '../offline/outbox';
 
 const EMPTY: StatusCounts = { queued: 0, syncing: 0, parked: 0, conflict: 0, ackPending: 0, drafts: 0 };
 
@@ -42,6 +42,13 @@ export function ConnectionChip({ scope, onOpenOutbox }: { readonly scope: string
     const timer = window.setInterval(() => { void refresh(); }, 5_000);
     return () => { cancelled = true; unsubscribe(); window.clearInterval(timer); };
   }, [scope]);
+
+  // الإقرار يبقى مرئيًا بضع ثوانِ (قراءة إنسانية حقيقية) قبل أن يانكمش إلى «متصل»:
+  useEffect(() => {
+    if (!scope || counts.ackPending === 0) return;
+    const timer = window.setTimeout(() => { void markAcksSeen(scope); }, 4_000);
+    return () => window.clearTimeout(timer);
+  }, [scope, counts.ackPending]);
 
   const unresolved = counts.queued + counts.syncing + counts.parked + counts.conflict;
   const headline = problem

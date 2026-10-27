@@ -339,3 +339,12 @@
 .outbox-panel__item-meta { color: var(--color-text-muted, #64748b); font-size: 0.75rem; }
 .outbox-panel__empty { color: var(--color-text-muted, #475569); }
 .connection-chip--button { border: 0; cursor: pointer; font: inherit; }
+
+/* ADR-0016: الرقاقة الصادقة تطول — الترويسة المحمولة تلتف بدل تجاوز العرض */
+.app-shell__mobile-header{flex-wrap:wrap;gap:.5rem;justify-content:flex-start}
+
+/* ADR-0016: سقف عرض الرقاقة — الالتفاف العام يبقى، لكن الرقاقة نفسها لا تعادل الصفحة */
+.connection-chip{max-inline-size:100%}
+.connection-chip__label{max-inline-size:9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ADR-0016: عنق الرقاقة الصادقة في صف الجلسة المحمول — يلتف بدل تجاوز العرض */
+.app-shell__mobile-session{flex-wrap:wrap;justify-content:center}
