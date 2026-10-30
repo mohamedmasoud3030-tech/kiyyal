@@ -48,7 +48,15 @@ export function SignOutButton({ scope = null }: { readonly scope?: string | null
     // Local rule: chosen wipe never waits on the network (shared-device policy,
     // ADR-0016 §7). This erases device data only — it revokes nothing remotely.
     if (wipe) {
-      try { await offlineStore().clearAll(); } catch { /* remainder stays scope-tagged and invisible */ }
+      try {
+        await offlineStore().clearAll();
+        const remainingOps = await offlineStore().listOps(scope ?? '');
+        const remainingDrafts = await offlineStore().listDrafts(scope ?? '');
+        if (remainingOps.length || remainingDrafts.length) throw new Error('local_wipe_incomplete');
+      } catch {
+        setState('error');
+        return; // Never claim a completed local wipe when persistent data may remain.
+      }
     }
     let revoked = false;
     const csrf = await ensureCsrfToken().catch(() => null);
