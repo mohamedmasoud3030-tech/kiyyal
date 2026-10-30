@@ -336,7 +336,14 @@ async function performAttempt(claimed: QueuedOp): Promise<OpOutcome> {
     };
     // الذرية (توجيه المالك 6): فشل التثبيت المحلي لا يعرض نجاحًا — العملية تعود
     // للطابور بمفتاحها؛ الاستئناف يسترد رد الالتزام الأصلي عبر idempotent_replay.
-    const committed = await store.commitAck(queueIdOf(claimed.scope, claimed.idempotencyKey), TAB_OWNER, ack, claimed.scope, formKeyOf(claimed.type));
+    let committed = false;
+    try {
+      committed = await store.commitAck(queueIdOf(claimed.scope, claimed.idempotencyKey), TAB_OWNER, ack, claimed.scope, formKeyOf(claimed.type));
+    } catch (error) {
+      storeProblem = error instanceof Error ? error.message : 'ack_commit_failed';
+      notify();
+      // The server may have committed already. Keep the same idempotency key for replay.
+    }
     if (!committed) {
       storeProblem = 'الخادم أكّد، لكن تعذّر تثبيت الإقرار محليًا — سنُحاول الاسترداد بنفس المفتاح دون ازدواج';
       notify();
