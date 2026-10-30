@@ -151,6 +151,40 @@ describe('ملكية الـlease العابرة للتبويبات (توجيه �
   });
 });
 
+describe('رفض معاملة commitAck من IndexedDB', () => {
+  it('لا يعلن نجاحًا عند rejection ويسترد نفس العملية عبر replay', async () => {
+    const inner = createMemoryOfflineStore();
+    let rejectNext = true;
+    const wrappingStore: OfflineStore = {
+      ...inner,
+      commitAck: vi.fn(async (queueId, owner, ack: OpAck, scope, formKey) => {
+        if (rejectNext) {
+          rejectNext = false;
+          throw new DOMException('transaction aborted', 'AbortError');
+        }
+        return inner.commitAck(queueId, owner, ack, scope, formKey);
+      }),
+    };
+    __setOfflineStoreForTests(wrappingStore);
+    const key = 'cccccccc-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+    script = [{ kind: 'response', status: 200, payload: { id: 'tx-reject', status: 'recorded' } }];
+    const first = await enqueueAndAttempt({ ...ARGS, idempotencyKey: key });
+    expect(first.kind).toBe('queued');
+    const op = await offlineStore().getOp(`${SCOPE}:${key}`);
+    expect(op?.status).toBe('queued');
+    expect(op?.ack).toBeNull();
+    expect(storeProblemMessage()).toContain('تعذّر تثبيت الإقرار');
+
+    script = [{ kind: 'response', status: 200, payload: { id: 'tx-reject', status: 'recorded', idempotent_replay: true } }];
+    const replay = await sweepScope(SCOPE);
+    expect(replay.acknowledged).toBe(1);
+    const finalOp = await offlineStore().getOp(`${SCOPE}:${key}`);
+    expect(finalOp?.status).toBe('acknowledged');
+    expect(finalOp?.ack?.idempotentReplay).toBe(true);
+    expect(txCalls).toBe(2);
+  });
+});
+
 describe('ذرية تثبيت الإقرار (توجيه ٦)', () => {
   it('فشل تثبيت الإقرار محليًا بعد نجاح الخادم ⇒ لا نجاح معلن واسترداد بنفس المفتاح', async () => {
     const inner = createMemoryOfflineStore();
