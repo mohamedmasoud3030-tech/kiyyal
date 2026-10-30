@@ -1,9 +1,10 @@
 'use client';
 
-import { cloneElement, type ReactElement } from 'react';
+import { cloneElement, useEffect, type ReactElement } from 'react';
 
 import { ar, type AppRole } from '../copy/ar';
 import { useSession } from '../hooks/useSession';
+import { resumeParkedIfSessionValid } from '../offline/outbox';
 import { AppShell } from './AppShell';
 import { SessionGuardScreen } from './SessionGuardScreen';
 import { PageContainer } from './PageContainer';
@@ -25,6 +26,14 @@ export interface ProtectedScreenProps {
  */
 export function ProtectedScreen({ activePath, children }: ProtectedScreenProps) {
   const session = useSession();
+  // Parked ops resume only after a fresh, scope-matched /api/session success —
+  // never on timer/focus/online alone (owner directive #4). The helper itself
+  // re-fetches with cache: no-store, so the trigger is the login-arrival render.
+  useEffect(() => {
+    if (session.status === 'authenticated') {
+      void resumeParkedIfSessionValid(session.scope);
+    }
+  }, [session]);
   if (session.status === 'loading') {
     return <SessionGuardScreen />;
   }

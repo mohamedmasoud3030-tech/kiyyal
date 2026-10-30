@@ -40,6 +40,11 @@ export interface QueuedOp {
   readonly conflict: OpConflict | null;
   readonly ack: OpAck | null;
   readonly nextAttemptAt: number;
+  /** هوية التبويب المدّعي (Claim lease) + انقضاؤه — مانع السباق العابر للتبويبات. */
+  readonly claimedBy: string | null;
+  readonly claimExpiresAt: number | null;
+  /** دورة CSRF لهذه العملية: تجديد واحد مسموح ثم إيقاف تلقائي صريح (ADR-0016 §A5). */
+  readonly csrfRefreshed: boolean;
 }
 
 /** هوية النية المقترنة بالمسودة — تُسكّ عند أول حفظ وتُدار مع المسودة. */
@@ -68,7 +73,19 @@ export interface OfflineStore {
    * queued/.. المسموح. مانع السباق الوحيد بين الزر والموقّت وحدث online
    * والتبويبات الأخرى (معاملة IndexedDB ذرية بحكم البيئة).
    */
-  claimOp(queueId: string): Promise<QueuedOp | null>;
+  /**
+   * ادعاء ذرّي بالملكية: ينقل queued→syncing فقط إن لم يكن سطرٌ حيًا لمالك آخر
+   * (lease غير منقضٍ)، ويكتب claimedBy/claimExpiresAt. المعاملة أحادية tx.
+   */
+  claimOp(queueId: string, owner: string, now: number, leaseMs: number): Promise<QueuedOp | null>;
+  /** فحص الملكية عند تحديث النتيجة: الرقعة تُطبَّق فقط لو المالك ما يزال نفسه. */
+  patchOpIfOwner(queueId: string, owner: string, patch: Parameters<OfflineStore['patchOp']>[1]): Promise<boolean>;
+  /**
+   * تثبيت الإقرار واستهلاك المسودة المطابقة في معاملة واحدة (ADR-0016 §A6):
+   * لو فشلت المعاملة (امتلاء/إجهاض) يبقى سطر الطابور كما هو بمفتاحه — الاستعادة
+   * تعيد الإرسال بنفس المفتاح فيرد الخادم بالإحصار الأصلي (idempotent_replay).
+   */
+  commitAck(queueId: string, owner: string, ack: OpAck, scope: string, formKey: string): Promise<boolean>;
   getOp(queueId: string): Promise<QueuedOp | null>;
   removeOp(queueId: string): Promise<void>;
   listOps(scope: string): Promise<readonly QueuedOp[]>;

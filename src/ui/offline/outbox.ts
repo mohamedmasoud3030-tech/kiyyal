@@ -9,7 +9,8 @@ import { queueIdOf, type MoneyOpType, type OfflineStore, type QueuedOp, type Sto
  * ٢) مانع سباق ذرّي (claimOp) يوحّد الزر/الموقّت/online/التبويبات في طيرانٍ واحد.
  * ٣) يتيم syncing بعد إغلاق يعود queued بنفس المفتاح — بلا افتراض عن الخادم.
  * ٤) الإقرار يبقى معروضًا (acknowledged) حتى يراه المستخدم؛ ثم يُحذف بيده.
- * ٥) parked لا يستأنف إلا بعد جلسة موثقة للنطاق نفسه (مع sweepScope(scope)).
+ * ٥) parked لا يستأنف إلا عبر تحقق جديد ناجح من /api/session للنطاق نفسه.
+ * ٦) الادعاء بالملكية والزمن + قفل الويب يمنع تبويبًا حيًّا من سرقة محاولة حيّة.
  * ٦) 401 = انتهاء جلسة؛ 403 unauthorized_capability/forged_tenant_context =
  *    تعارض صلاحية نهائي؛ csrf_failed = تجديد CSRF مرة واحدة ثم طابور.
  * ٧) غياب IndexedDB/امتلاؤه يُعلَن صراحة — لا سقوط ذاكري صامت.
@@ -31,6 +32,33 @@ export interface OutboxNotice { readonly ackedKeys: readonly string[] }
 type Listener = (notice?: OutboxNotice) => void;
 const listeners = new Set<Listener>();
 const inFlight = new Set<string>();
+/** هوية هذا التبويب — مالك الادعاءات الصادرة منه (وليست هوية مستخدم). */
+const TAB_OWNER = (typeof crypto !== 'undefined' && globalThis.crypto.randomUUID)
+  ? globalThis.crypto.randomUUID()
+  : `tab-${Math.random().toString(36).slice(2)}`;
+/** مدة الادعاء (lease): تغطي أطول مهلة طلب عادية؛ تتجدد عند التقدم. */
+const CLAIM_LEASE_MS = 30_000;
+const lockNameOf = (queueId: string) => `kayyal-outbox:${queueId}`;
+
+/** تبويبات حقيقية تستعمل Web Locks حين توجد — وإلا الاكتفاء بالـ lease الذري. */
+async function withOpWebLock<T>(queueId: string, run: () => Promise<T | null>): Promise<T | null> {
+  const nav = typeof navigator === 'undefined' ? undefined : navigator;
+  if (!nav || !('locks' in nav) || !nav.locks?.request) return run();
+  return nav.locks.request(lockNameOf(queueId), { ifAvailable: true, steal: false }, async (lock): Promise<T | null> => {
+    if (lock == null) return null; // ممسوك بثبات تبويب آخر — لا استيلاء على إرسال حيّ.
+    return run();
+  });
+}
+
+interface HeldLocks { readonly held?: ReadonlyArray<{ readonly name?: string | null }> | null }
+async function heldLockNames(): Promise<ReadonlySet<string> | null> {
+  const nav = typeof navigator === 'undefined' ? undefined : navigator;
+  if (!nav || !('locks' in nav) || !nav.locks?.query) return null;
+  try {
+    const snapshot = await (nav.locks.query as () => Promise<HeldLocks>)();
+    return new Set((snapshot.held ?? []).map((entry) => entry.name ?? ''));
+  } catch { return null; }
+}
 let currentStore: OfflineStore | null = null;
 let durability: StoreDurability = 'volatile';
 let storeProblem: string | null = null;
@@ -213,6 +241,9 @@ export async function enqueueAndAttempt(args: {
     conflict: null,
     ack: null,
     nextAttemptAt: Date.now(),
+    claimedBy: null,
+    claimExpiresAt: null,
+    csrfRefreshed: false,
   };
   if (!existing && !(await persistOp(op))) {
     return { kind: 'queued', reason: 'retryable', message: storeProblem ?? 'تعذّر الحفظ المحلي الآمن' };
@@ -224,102 +255,134 @@ export async function enqueueAndAttempt(args: {
 async function attemptOp(queueId: string): Promise<OpOutcome> {
   const store = offlineStore();
   if (inFlight.has(queueId)) return { kind: 'already_in_flight' };
-  const claimed = await store.claimOp(queueId);
-  if (!claimed) return { kind: 'already_in_flight' };
-  inFlight.add(queueId);
-  notify();
-  try {
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      await requeue(claimed, 'offline');
-      return { kind: 'queued', reason: 'offline', message: 'غير متصل — العملية محفوظة على الجهاز وستُرسل بنفسها عند عودة الشبكة' };
-    }
-    const csrf = await ensureCsrfToken();
-    if (!csrf) {
-      await requeue(claimed, 'offline');
-      return { kind: 'queued', reason: 'offline', message: 'تعذّر تأمين الطلب الآن — العملية محفوظة وستُعاد تلقائيًا' };
-    }
-    let response: Response;
+  // القفل العابر للتبويبات أولًا — ثم الادعاء الذري بالملكية والزمن ثانيًا.
+  return await withOpWebLock(queueId, async () => {
+    const claimed = await store.claimOp(queueId, TAB_OWNER, Date.now(), CLAIM_LEASE_MS);
+    if (!claimed) return { kind: 'already_in_flight' } as OpOutcome;
+    inFlight.add(queueId);
+    notify();
     try {
-      response = await fetch(`/api/transactions/${claimed.type}`, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          'content-type': 'application/json',
-          'idempotency-key': claimed.idempotencyKey,
-          'x-kayyal-csrf': csrf,
-        },
-        body: JSON.stringify({ ...claimed.body, device_created_at: claimed.deviceCreatedAt }),
-      });
-    } catch {
-      await requeue(claimed, 'offline');
-      return { kind: 'queued', reason: 'offline', message: 'الشبكة انقطعت — العملية محفوظة على الجهاز وستُرسل بنفسها عند عودتها' };
+      const finished = await performAttempt(claimed);
+      return finished;
+    } finally {
+      inFlight.delete(queueId);
     }
-
-    const payload: unknown = await response.json().catch(() => null);
-    if (response.ok) {
-      const record = (payload ?? {}) as Record<string, unknown>;
-      const replay = record.idempotent_replay === true;
-      const ack = {
-        at: new Date().toISOString(),
-        transactionId: typeof record.id === 'string' ? record.id : null,
-        number: typeof record.number === 'string' ? record.number : null,
-        serverStatus: typeof record.status === 'string' ? record.status : null,
-        idempotentReplay: replay,
-        seenByUser: false,
-      };
-      await persistPatch(queueId, { status: 'acknowledged', ack, nextAttemptAt: Number.POSITIVE_INFINITY });
-      // استهلاك المسودة النغمي: نصفّر نيّتها بدل الحذف الصامت — علامة دائمة على
-      // أن النموذج الذي يفتح هذه المفاتيح هزم الأمر خادميًا، تحذف عند الاستهلاك.
-      const draft = await store.getDraft(claimed.scope, formKeyOf(claimed.type));
-      if (draft?.intent && draft.intent.idempotencyKey === claimed.idempotencyKey) {
-        await store.putDraft({ ...draft, intent: null });
-      }
-      // مفتاح مُقرّ معلن لكل المستمعين/التبويبات: نموذج مفتوح על هذه النية يصفّر
-      // حقوله فورًا — لا إعادة استسكّاع مسودة «كجديدة» (توجيه المالك 3).
-      notify({ ackedKeys: [claimed.idempotencyKey] });
-      return { kind: 'acknowledged', payload: record, idempotentReplay: replay, queueId };
-    }
-
-    const code = apiErrorCode(payload) ?? 'internal_error';
-    const message = apiErrorMessage(payload) ?? 'حدث خطأ غير متوقع';
-
-    if (response.status === 401 || code === 'unauthenticated') {
-      // انتهاء الجلسة حصرًا — تُصفّر parked ولا تُحاول إلا بعد جلسة موثقة لنفس النطاق.
-      await persistPatch(queueId, { status: 'parked', conflict: { code, message }, nextAttemptAt: Number.POSITIVE_INFINITY });
-      return { kind: 'parked', message: 'انتهت الجلسة — سجّل الدخول من جديد وستُكمَل العملية المحفوظة تلقائيًا بلا ازدواج' };
-    }
-    if (code === 'unauthorized_capability' || code === 'forged_tenant_context') {
-      // رفض صلاحية/سياق — ليس انتهاء جلسة أبدًا؛ تعارض نهائي مرئي.
-      await persistPatch(queueId, { status: 'conflict', conflict: { code, message }, nextAttemptAt: Number.POSITIVE_INFINITY });
-      return { kind: 'conflict', code, message };
-    }
-    if (code === 'csrf_failed') {
-      // CSRF بالٍ/منقضٍ: تُجدَّد الترويسة مرة واحدة ثم يعود للطابور بنفس المفتاح
-      // (العقد لا يدرج csrf_failed ضمن retryable؛ القرار الموثّق في ADR-0016 §6).
-      try { document.cookie = 'kayyal_csrf=; Max-Age=0; Path=/'; } catch { /* jsdom */ }
-      await requeue(claimed, 'retryable');
-      return { kind: 'queued', reason: 'retryable', message: 'جدّدنا أمان الطلب — ستُعاد العملية بنفس مفتاحها تلقائيًا' };
-    }
-    const retryable = response.status === 429 || response.status >= 500
-      || ((payload as { error?: { retryable?: unknown } } | null)?.error?.retryable === true);
-    if (retryable) {
-      await requeue(claimed, 'retryable');
-      return { kind: 'queued', reason: 'retryable', message: 'تعذّر التأكيد من الخادم — ستُعاد المحاولة بنفس المفتاح تلقائيًا' };
-    }
-    await persistPatch(queueId, { status: 'conflict', conflict: { code, message }, nextAttemptAt: Number.POSITIVE_INFINITY });
-    return { kind: 'conflict', code, message };
-  } finally {
-    inFlight.delete(queueId);
-  }
+  }) ?? { kind: 'already_in_flight' };
 }
 
-async function requeue(op: QueuedOp, reason: 'offline' | 'retryable'): Promise<void> {
-  // انقطاع الشبكة لم يعُد محاولة بذراع: يعود مستحقًا فورًا (لا تباطؤ تراجعي لضائع
-  // لم يغادر الجهاز أصلًا). الفشل الخادمي المجدّد وحده هو من يُرجّئ بتراجع.
+/** إعادة التمهيد بفحص الملكية: لو فقدنا الادعاء (dead man's switch مالك آخر) نكتم. */
+async function requeue(op: QueuedOp, reason: 'offline' | 'retryable', extraPatch: Partial<QueudPatchShape> = {}): Promise<boolean> {
   const attempts = reason === 'retryable' ? op.attempts + 1 : op.attempts;
   const due = reason === 'offline' ? Date.now() : Date.now() + backoffMs(attempts);
-  await persistPatch(op.queueId, { status: 'queued', attempts, nextAttemptAt: due });
+  return patchIfOwner(op, {
+    status: 'queued', attempts, nextAttemptAt: due, claimedBy: null, claimExpiresAt: null, ...extraPatch,
+  });
 }
+
+type QueudPatchShape = Omit<QueuedOp, 'queueId' | 'scope' | 'idempotencyKey' | 'deviceCreatedAt' | 'body'>;
+
+async function patchIfOwner(op: QueuedOp, patch: Partial<QueudPatchShape>): Promise<boolean> {
+  const applied = await offlineStore().patchOpIfOwner(op.queueId, op.claimedBy ?? '', patch);
+  if (!applied) {
+    // فقدنا الملكية وسط المعالجة: مالك آخر أكملها — نفسح ولا نكتب شيئًا خاطئًا.
+    return false;
+  }
+  notify();
+  return true;
+}
+
+/** جسم المحاولة — كل نتائجه تكتب بفحص الملكية؛ commitAck/إستهلاك المسودة في tx واحدة. */
+async function performAttempt(claimed: QueuedOp): Promise<OpOutcome> {
+  const store = offlineStore();
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    await requeue(claimed, 'offline');
+    return { kind: 'queued', reason: 'offline', message: 'غير متصل — العملية محفوظة على الجهاز وستُرسل بنفسها عند عودة الشبكة' };
+  }
+  const csrf = await ensureCsrfToken();
+  if (!csrf) {
+    await requeue(claimed, 'offline');
+    return { kind: 'queued', reason: 'offline', message: 'تعذّر تأمين الطلب الآن — العملية محفوظة وستُعاد تلقائيًا' };
+  }
+  // تجديد الادعاء قبل أطول خطوة — لا أحد يستولي على محاولة حية.
+  await patchIfOwner(claimed, { claimExpiresAt: Date.now() + CLAIM_LEASE_MS });
+  let response: Response;
+  try {
+    response = await fetch(`/api/transactions/${claimed.type}`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': claimed.idempotencyKey,
+        'x-kayyal-csrf': csrf,
+      },
+      body: JSON.stringify({ ...claimed.body, device_created_at: claimed.deviceCreatedAt }),
+    });
+  } catch {
+    await requeue(claimed, 'offline');
+    return { kind: 'queued', reason: 'offline', message: 'الشبكة انقطعت — العملية محفوظة على الجهاز وستُرسل بنفسها عند عودتها' };
+  }
+
+  const payload: unknown = await response.json().catch(() => null);
+  if (response.ok) {
+    const record = (payload ?? {}) as Record<string, unknown>;
+    const replay = record.idempotent_replay === true;
+    const ack = {
+      at: new Date().toISOString(),
+      transactionId: typeof record.id === 'string' ? record.id : null,
+      number: typeof record.number === 'string' ? record.number : null,
+      serverStatus: typeof record.status === 'string' ? record.status : null,
+      idempotentReplay: replay,
+      seenByUser: false,
+    };
+    // الذرية (توجيه المالك 6): فشل التثبيت المحلي لا يعرض نجاحًا — العملية تعود
+    // للطابور بمفتاحها؛ الاستئناف يسترد رد الالتزام الأصلي عبر idempotent_replay.
+    const committed = await store.commitAck(queueIdOf(claimed.scope, claimed.idempotencyKey), TAB_OWNER, ack, claimed.scope, formKeyOf(claimed.type));
+    if (!committed) {
+      storeProblem = 'الخادم أكّد، لكن تعذّر تثبيت الإقرار محليًا — سنُحاول الاسترداد بنفس المفتاح دون ازدواج';
+      notify();
+      await requeue(claimed, 'offline');
+      return { kind: 'queued', reason: 'retryable', message: 'حافظنا على العملية بنفس مفتاحها لتأكيدها المرئي — لا ازدواج' };
+    }
+    notify({ ackedKeys: [claimed.idempotencyKey] });
+    return { kind: 'acknowledged', payload: record, idempotentReplay: replay, queueId: claimed.queueId };
+  }
+
+  const code = apiErrorCode(payload) ?? 'internal_error';
+  const message = apiErrorMessage(payload) ?? 'حدث خطأ غير متوقع';
+
+  if (response.status === 401 || code === 'unauthenticated') {
+    // انتهاء الجلسة حصرًا — تُصفّر parked ولا تُحاول إلا بعد تحقق جديد ناجح.
+    await patchIfOwner(claimed, { status: 'parked', conflict: { code, message }, nextAttemptAt: Number.POSITIVE_INFINITY, claimedBy: null, claimExpiresAt: null });
+    return { kind: 'parked', message: 'انتهت الجلسة — سجّل الدخول من جديد وستُكمَل العملية المحفوظة بنفس مفتاحها' };
+  }
+  if (code === 'unauthorized_capability' || code === 'forged_tenant_context') {
+    await patchIfOwner(claimed, { status: 'conflict', conflict: { code, message }, nextAttemptAt: Number.POSITIVE_INFINITY, claimedBy: null, claimExpiresAt: null });
+    return { kind: 'conflict', code, message };
+  }
+  if (code === 'csrf_failed') {
+    // دورة المعالجة تسمح بتجديد CSRF مرة واحدة — ثانيةً يعني إيقافًا تلقائيًا صريحًا.
+    if (claimed.csrfRefreshed) {
+      await patchIfOwner(claimed, {
+        status: 'conflict',
+        conflict: { code: 'csrf_persistent_failure', message: 'فشل تأمين الطلب بعد تجديده — أعِد التحقق من جلستك أو عد للعملية من اللوحة يدويًا' },
+        nextAttemptAt: Number.POSITIVE_INFINITY, claimedBy: null, claimExpiresAt: null,
+      });
+      return { kind: 'conflict', code: 'csrf_persistent_failure', message: 'فشل تأمين الطلب بعد تجديده — لم نعد نحاول تلقائيًا' };
+    }
+    try { document.cookie = 'kayyal_csrf=; Max-Age=0; Path=/'; } catch { /* jsdom */ }
+    await requeue(claimed, 'retryable', { csrfRefreshed: true });
+    return { kind: 'queued', reason: 'retryable', message: 'جدّدنا أمان الطلب مرة واحدة — ستُعاد المحاولة بنفس المفتاح' };
+  }
+  const retryable = response.status === 429 || response.status >= 500
+    || ((payload as { error?: { retryable?: unknown } } | null)?.error?.retryable === true);
+  if (retryable) {
+    await requeue(claimed, 'retryable');
+    return { kind: 'queued', reason: 'retryable', message: 'تعذّر التأكيد من الخادم — ستُعاد المحاولة بنفس المفتاح تلقائيًا' };
+  }
+  await patchIfOwner(claimed, { status: 'conflict', conflict: { code, message }, nextAttemptAt: Number.POSITIVE_INFINITY, claimedBy: null, claimExpiresAt: null });
+  return { kind: 'conflict', code, message };
+}
+
 
 export function formKeyOf(type: MoneyOpType): string {
   return type === 'purchase' || type === 'sale' ? `transaction:${type}` : type;
@@ -338,22 +401,37 @@ export interface SweepResult {
  * - عناقيد syncing بعد إغلاق تعود queued بنفس مفتاحها (لا نفترض وصولًا ولا عداه).
  * - parked تعود queued هنا فقط (المتصل جلسةُ نطاقٍ موثقة الآن) — لا يسري بين نطاقات.
  */
-export async function sweepScope(scope: string, now = Date.now()): Promise<SweepResult> {
+export interface SweepOptions {
+  /** قرار بشري مقصود من حوار الخروج يسمح بالإرسال رغم إيقاف الكنس المؤقت. */
+  readonly deliberate?: boolean;
+}
+
+/**
+ * كنس النطاق — قواعد ثابتة:
+ * - `conflict` و`acknowledged` لا يُمسّان أبدًا (لا إعادة صامتة لنزاع/لمقروء).
+ * - `parked` لا يُستأنف بالوقت أو focus أو online — حصرًا عبر resumeParkedIfSessionValid
+ *   (تحقق جديد ناجح من /api/session بنفس النطاق قبل كل استئناف).
+ * - يتيم `syncing` يُستعاد فقط إن ثبت موت مرسله: Web Locks (القفل ليس محمولًا حيًّا)
+ *   أو lease منقضٍ — غيابه من inFlight المحلي وحده ليس دليلًا (توجيه المالك 3).
+ */
+export async function sweepScope(scope: string, now = Date.now(), options: SweepOptions = {}): Promise<SweepResult> {
   const store = offlineStore();
   const ops = await store.listOps(scope);
+  const held = await heldLockNames();
   let attempted = 0; let acknowledged = 0; let parked = 0; let conflicted = 0; let recoveredOrphans = 0;
   for (const op of ops) {
-    if (sweepPaused) break;
-    if (op.status === 'conflict' || op.status === 'acknowledged') continue;
+    if (sweepPaused && !options.deliberate) break;
+    if (op.status === 'conflict' || op.status === 'acknowledged' || op.status === 'parked') continue;
     if (op.status === 'syncing') {
-      if (!inFlight.has(op.queueId)) {
-        await persistPatch(op.queueId, { status: 'queued', nextAttemptAt: now });
+      const isLiveElsewhere = held
+        ? held.has(lockNameOf(op.queueId))
+        : (op.claimExpiresAt != null && op.claimExpiresAt > now && op.claimedBy !== TAB_OWNER && !inFlight.has(op.queueId));
+      const isMine = op.claimedBy === TAB_OWNER && inFlight.has(op.queueId);
+      if (!isMine && !isLiveElsewhere) {
+        // مرسله ميت ثبوتًا (قفل حرّ / lease منقضٍ بلا مالك محلي حي): استعادة بنفس المفتاح.
+        await persistPatch(op.queueId, { status: 'queued', nextAttemptAt: now, claimedBy: null, claimExpiresAt: null });
         recoveredOrphans += 1;
       }
-      continue;
-    }
-    if (op.status === 'parked') {
-      await persistPatch(op.queueId, { status: 'queued', nextAttemptAt: now, conflict: null });
       continue;
     }
     if (op.nextAttemptAt > now) continue;
@@ -362,9 +440,35 @@ export async function sweepScope(scope: string, now = Date.now()): Promise<Sweep
     if (outcome.kind === 'acknowledged') acknowledged += 1;
     else if (outcome.kind === 'parked') parked += 1;
     else if (outcome.kind === 'conflict') conflicted += 1;
+    else if (outcome.kind === 'queued' && outcome.reason === 'offline') break; // لا معنى لمواصلة الكنس بلا شبكة
   }
   notify();
   return { attempted, acknowledged, parked, conflicted, recoveredOrphans };
+}
+
+/**
+ * استئناف parked المشروط الوحيد: تحقق جديد ناجح من /api/session مطابق للنطاق —
+ * focus/online/الموقت لا يفعلون ذلك، والحساب الآخر (نطاق مختلف) لا يفعله أبدًا.
+ */
+export async function resumeParkedIfSessionValid(scope: string): Promise<boolean> {
+  let response: Response;
+  try {
+    response = await fetch('/api/session', { credentials: 'same-origin', cache: 'no-store' });
+  } catch { return false; }
+  if (!response.ok) return false;
+  const payload = await response.json().catch(() => null) as { data?: { scope?: unknown } } | null;
+  if (payload?.data?.scope !== scope) return false;
+  const store = offlineStore();
+  const ops = await store.listOps(scope);
+  let resumed = 0;
+  for (const op of ops) {
+    if (op.status === 'parked') {
+      await persistPatch(op.queueId, { status: 'queued', nextAttemptAt: Date.now(), conflict: null });
+      resumed += 1;
+    }
+  }
+  if (resumed > 0) await sweepScope(scope); // الكنس جزء من وحدة الاستئناف القابلة للانتظار
+  return resumed > 0;
 }
 
 /** بعد أن يراها المستخدم في اللوحة: حذف الإقرار المقروء نهائيًا ويد المستخدم. */

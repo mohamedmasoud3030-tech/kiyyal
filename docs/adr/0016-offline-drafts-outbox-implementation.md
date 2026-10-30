@@ -81,11 +81,83 @@ the resulting system laws and the interpreted contract policy.
    merging #17 first requires only re-adding `OutboxPanel` wiring, the chip
    handler, and the new copy blocks on rebase.
 10. **Proof boundaries.** The green suites prove only what they execute:
-    jsdom-store engine cases (10), live-server acceptance cases (7), and the
-    C1–C7 browser cases. Service-Worker-less offline page reload is technically
-    impossible (no SW shipped) — the durable identity guarantee covers
-    crash/close between open sessions; it does NOT provide offline navigation.
+    jsdom-store engine cases (17: 10 round-one + 7 round-two), live-server
+    acceptance cases (7), and the C1–C11 + operator browser journeys. Offline
+    page reload is **unsupported in the current implementation** — loading the
+    app shell offline (a Service Worker) remains an unmet item of the original
+    ADR-0010 requirements unless the owner explicitly approves postponement; the
+    durable identity guarantee covers crash/close between open sessions only.
     Rate-limit boundaries of the auth endpoint shape test pacing, not product.
+
+
+## Amendment 2026-10-27 — owner round-2 directives (PR #19 continuation round 2)
+
+The following mechanisms exist because changing test expectations was explicitly
+forbidden; each is implemented code plus observed behavior, not re-labeled UI.
+
+1. **Sign-out split.** Wiping device data and revoking the server session are
+   now two separately-reported outcomes. When the `DELETE /api/auth/session`
+   cannot be confirmed (offline), `SignOutButton` shows the honest
+   `signOutLocked` state ("device locked locally, server termination
+   UNCONFIRMED") instead of navigating on an unverified success; a cross-tab
+   lock (`src/ui/localLogoutLock.ts`, localStorage + BroadcastChannel with
+   sender-tab echo suppression) withholds local data in every tab of the
+   device, and the owed revocation is recorded and retried automatically on
+   connectivity. The lock is never claimed to remove the cookie and never
+   substitutes for server revocation; it lifts only on an explicit successful
+   login. Browser proof: C8 (offline choice → honest state → reconnect →
+   confirmed revoke → same-tab and second-tab re-entry both verified against
+   the real server session state, which answers 401).
+2. **Send-first is a real deliberate attempt.** The gate's
+   "أرسل المعلّق الآن" button performs one bounded sweep with
+   `{ deliberate: true }` — it overrides the pause for that click only, leaves
+   the background machinery paused, reframes the counts afterwards, and shows
+   success or failure verbatim. Browser proof: C9 (offline click → honest
+   failure + unchanged counts; post-reconnect clicks → success + zeroed
+   unresolved count + exactly one ledger row).
+3. **Cross-tab attempt ownership.** Absence from a tab's local `inFlight` set
+   is no longer proof of sender death. Every attempt runs under a Web Locks
+   exclusive lock (`gz.offline.op:{queueId}`, `ifAvailable: true`, no stealing)
+   when the platform offers it, plus an atomic lease (`claimedBy` +
+   `claimExpiresAt`, 30s, renewed before the network hop) as storage-level
+   fallback for environments without Web Locks. Orphan recovery fires only
+   when death is proven (lock free / lease expired) and always requeues the
+   SAME idempotency key, so the server's replay protection collapses any
+   double-delivery. Browser proof: C10 (slow live attempt in tab A survives
+   tab B's mount/focus/online sweeps; exactly one POST) and C10b (tab A dies
+   mid-flight after server commit; tab B recovers the orphan with the same key
+   and receives `idempotent_replay`; exactly one ledger row).
+4. **Parked strictness.** A `parked` op is never returned to the queue by
+   time, focus, or online events; the sweep skips the status entirely. The
+   single resume path is `resumeParkedIfSessionValid(scope)`: a fresh
+   `cache: 'no-store'` `/api/session` fetch whose returned scope must equal
+   the op's scope, called from `ProtectedScreen` once the user actually logged
+   in; it awaits its own sweep so the unit is awaitable. Browser proof: C11
+   (two full timer cycles plus host focus/online pulses ⇒ zero POSTs; a
+   different-account login ⇒ the fresh session's scope differs ⇒ still zero
+   POSTs and the op stays parked; the correct account ⇒ exactly one settlement
+   POST and one ledger row).
+5. **CSRF one-renewal cap.** A `csrf_failed` within a processing cycle is
+   healed exactly once (cookie rotated, op requeued with `csrfRefreshed`);
+   a second failure in the same cycle becomes the terminal
+   `csrf_persistent_failure` conflict with an actionable message, and the
+   sweep never auto-retries conflicts. Engine proof: offline-engine-r2
+   (double-failure ⇒ terminal conflict; two extra sweeps ⇒ zero transaction
+   calls — no infinite loop).
+6. **Ack-commit atomicity.** `commitAck()` commits the acknowledgement and
+   consumes the matching draft intent in ONE IndexedDB readwrite transaction
+   (memory store performs the sequenced equivalent). If the local commit
+   fails after a server success (quota/abort), no success is announced: the op
+   stays `syncing` under its owner, becomes a proven orphan, is requeued with
+   the SAME key, and the next attempt's `idempotent_replay` response is
+   committed instead — the failure surfaces via `storeProblemMessage`. Engine
+   proof: offline-engine-r2 commitAck-failure case (first commit forced to
+   fail ⇒ honest queued outcome, `ack: null`, store problem visible; retry ⇒
+   replay acknowledged, single pending-ack count).
+
+The 2026-10-26 round established and this round preserves: CAS identity,
+idempotency semantics, parked/conflict classification, explicit human gates,
+and full evidence discipline. PR remains draft; no merge or deploy performed.
 
 ## Harness note (test-only fix in this PR)
 

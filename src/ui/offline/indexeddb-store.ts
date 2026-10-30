@@ -62,14 +62,42 @@ export function createIndexedDbOfflineStore(): OfflineStore {
         await requestToPromise(ops.put({ ...current, ...patch }));
       });
     },
-    // ادعاء ذرّي داخل معاملة readwrite واحدة — تبويب ثانٍ يخسر claim تلقائيًا.
-    async claimOp(queueId) {
+    // ادعاء ذرّي مع مالك ومدة صلاحية داخل معاملة readwrite واحدة — يخسر كل من
+    // يأتي بعد مالك حيّ (lease غير منقضٍ) سواء كان في هذا التبويب أو غيره.
+    async claimOp(queueId, owner, now, leaseMs) {
       return withStores('readwrite', async (ops) => {
         const current = await requestToPromise(ops.get(queueId)) as QueuedOp | undefined;
         if (!current || current.status !== 'queued') return null;
-        const claimed: QueuedOp = { ...current, status: 'syncing' };
+        if (current.claimExpiresAt != null && current.claimExpiresAt > now) return null;
+        const claimed: QueuedOp = {
+          ...current, status: 'syncing', claimedBy: owner, claimExpiresAt: now + leaseMs,
+        };
         await requestToPromise(ops.put(claimed));
         return claimed;
+      });
+    },
+    async patchOpIfOwner(queueId, owner, patch) {
+      return withStores('readwrite', async (ops) => {
+        const current = await requestToPromise(ops.get(queueId)) as QueuedOp | undefined;
+        if (!current || current.claimedBy !== owner) return false;
+        await requestToPromise(ops.put({ ...current, ...patch }));
+        return true;
+      });
+    },
+    // تثبيت الإقرار + استهلاك المسودة المطابقة داخل نفس المعاملة: كلٌّ أو لا شيء.
+    async commitAck(queueId, owner, ack, scope, formKey) {
+      return withStores('readwrite', async (ops, drafts) => {
+        const current = await requestToPromise(ops.get(queueId)) as QueuedOp | undefined;
+        if (!current || current.status !== 'syncing' || current.claimedBy !== owner) return false;
+        await requestToPromise(ops.put({
+          ...current, status: 'acknowledged', ack, nextAttemptAt: Number.POSITIVE_INFINITY,
+        }));
+        const key = draftKey(scope, formKey);
+        const draft = await requestToPromise(drafts.get(key)) as DraftRecord | undefined;
+        if (draft?.intent && draft.intent.idempotencyKey === current.idempotencyKey) {
+          await requestToPromise(drafts.put({ ...draft, intent: null }, key));
+        }
+        return true;
       });
     },
     async getOp(queueId) {

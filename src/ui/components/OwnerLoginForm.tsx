@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { ar } from '../copy/ar';
 import { apiErrorMessage, ensureCsrfToken } from '../clientSecurity';
 import { ownerProviderBrowserClient, ownerProviderConfiguration } from '../ownerProvider';
+import { clearLocalLogoutLock } from '../localLogoutLock';
 import { normalizeOwnerPhone } from '../phone';
 import { Button } from './Button';
 import { FormActions } from './FormActions';
@@ -117,6 +118,8 @@ export function OwnerLoginForm() {
         setState('ready');
         return;
       }
+      // Explicit successful login lifts the device-wide logout lock.
+      clearLocalLogoutLock();
       const passwordInput = form.elements.namedItem('password');
       if (passwordInput instanceof HTMLInputElement) passwordInput.value = '';
       window.location.assign('/today');

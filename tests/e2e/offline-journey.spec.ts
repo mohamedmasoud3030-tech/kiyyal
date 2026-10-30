@@ -15,9 +15,11 @@ import { freshRealDatabase, seedYard, stopServer, type Seed, type TestDb } from 
 
 let t: TestDb;
 let A: Seed;
+let B2: Seed;
 let baseUrl: string;
 let nextServer: ChildProcessWithoutNullStreams | undefined;
 let loginCode: string;
+let loginCode2: string;
 
 async function freePort(): Promise<number> {
   const probe: Server = createServer();
@@ -39,9 +41,14 @@ async function dbCountForKey(key: string): Promise<number> {
 
 let cachedLogin: { token: string; csrf: string; scope: string } | null = null;
 
-/** دخول مركزي واحد للملف بالكامل — عدّاد الواسطة يقاوم الضغط المتسلسل (429). */
+/** دخول مركزي واحد للملف بالكامل — عدّاد الواسطة يقاوم الضغط المتسلسل (429).
+ *  والعقدة المقيدة 5 هويات/دقيقة تعني أن التخبئة يجب أن تتحقق وتبقى صادقة: */
 async function loginOnce(force = false): Promise<{ token: string; csrf: string; scope: string }> {
-  if (cachedLogin && !force) return cachedLogin;
+  if (cachedLogin && !force) {
+    const probe = await fetch(`${baseUrl}/api/session`, { headers: { cookie: `kayyal_operator_session=${cachedLogin.token}` } });
+    if (probe.ok) return cachedLogin;
+    cachedLogin = null; // الجلسة أُبطلت (خروج C8/حذف SQL في C11) — لا نُعيد رمزًا ميتًا
+  }
   const csrfResponse = await fetch(`${baseUrl}/api/auth/csrf`);
   const csrf = (csrfResponse.headers.get('set-cookie') ?? '').match(/kayyal_csrf=([^;]+)/)?.[1];
   if (!csrf) throw new Error('csrf cookie missing');
@@ -65,6 +72,36 @@ async function loginOnce(force = false): Promise<{ token: string; csrf: string; 
   const payload = await probe.json() as { data: { scope: string } };
   cachedLogin = { token: decodeURIComponent(token), csrf: decodeURIComponent(csrf), scope: payload.data.scope };
   return cachedLogin;
+}
+
+/** جلسة عامل الساحة الثانية عبر المسار الرسمي — هوية مستقلة عن تخبئة A (5 هويات/15د). */
+async function signInYard2To(context: BrowserContext): Promise<{ token: string; scope: string }> {
+  const csrfResponse = await fetch(`${baseUrl}/api/auth/csrf`);
+  const csrf = (csrfResponse.headers.get('set-cookie') ?? '').match(/kayyal_csrf=([^;]+)/)?.[1];
+  if (!csrf) throw new Error('csrf cookie missing');
+  let signedIn: Response | null = null;
+  for (let tries = 0; tries < 12; tries++) {
+    signedIn = await fetch(`${baseUrl}/api/auth/operator/session`, {
+      method: 'POST',
+      headers: {
+        origin: baseUrl, cookie: `kayyal_csrf=${csrf}`, 'content-type': 'application/json',
+        'x-kayyal-csrf': decodeURIComponent(csrf),
+      },
+      body: JSON.stringify({ operator_login_code: loginCode2, display_name: 'عامل آخر', pin: '4271' }),
+    });
+    if (signedIn.status !== 429) break;
+    await new Promise((resolve) => setTimeout(resolve, 10_000));
+  }
+  if (!signedIn || !signedIn.ok) throw new Error(`yard2 sign-in failed: ${signedIn ? await signedIn.text() : 'no attempt'}`);
+  const token = (signedIn.headers.get('set-cookie') ?? '').match(/kayyal_operator_session=([^;]+)/)?.[1];
+  if (!token) throw new Error('session cookie missing');
+  const probe = await fetch(`${baseUrl}/api/session`, { headers: { cookie: `kayyal_operator_session=${token}` } });
+  const payload = await probe.json() as { data: { scope: string } };
+  await context.addCookies([
+    { name: 'kayyal_csrf', value: decodeURIComponent(csrf), domain: 'localhost', path: '/', httpOnly: false },
+    { name: 'kayyal_operator_session', value: decodeURIComponent(token), domain: 'localhost', path: '/', httpOnly: true },
+  ]);
+  return { token: decodeURIComponent(token), scope: payload.data.scope };
 }
 
 /** جلسة عامل عبر المسار الرسمي ثم حقن الكوكي HttpOnly في سياق المتصفح الحقيقي. */
@@ -130,6 +167,11 @@ test.beforeAll(async () => {
   loginCode = (await t.admin.query<{ operator_login_code: string }>(
     'SELECT operator_login_code FROM app.yards WHERE id = $1', [A.yardId],
   )).rows[0]!.operator_login_code;
+  B2 = await seedYard(t.admin, 'ساحة الحساب الآخر', await hashPin('4271'));
+  loginCode2 = (await t.admin.query<{ operator_login_code: string }>(
+    'SELECT operator_login_code FROM app.yards WHERE id = $1', [B2.yardId],
+  )).rows[0]!.operator_login_code;
+  await t.admin.query("UPDATE app.users SET display_name='عامل آخر' WHERE id = $1", [B2.operatorId]);
   await t.admin.query("UPDATE app.users SET display_name='عامل متصفح' WHERE id = $1", [A.operatorId]);
   const port = await freePort();
   baseUrl = `http://localhost:${port}`;
@@ -321,7 +363,8 @@ test('C5: جلسة منتهية — parked بلا إعادة محاولات، و
 });
 
 test('C6: تعارض يوم مغلق يبقى ظاهرًا بعد إعادة التحميل بسببه وإجراءاته المشروعة', async ({ context }) => {
-  await signInOperatorTo(context);
+  const { yardId, ownerId } = B2;
+  await signInYard2To(context);
   const businessDate = (await t.admin.query<{ d: string }>(
     "SELECT (now() AT TIME ZONE 'Africa/Cairo')::date::text AS d",
   )).rows[0]!.d;
@@ -330,7 +373,7 @@ test('C6: تعارض يوم مغلق يبقى ظاهرًا بعد إعادة ا�
     await tx.query(
       `INSERT INTO app.day_closes (yard_id, business_date, opening_amount, expected_amount, counted_amount, pending_amount, closed_by)
        VALUES ($1::uuid, $2::date, 0, 0, 0, 0, $3::uuid)`,
-      [A.yardId, businessDate, A.ownerId],
+      [yardId, businessDate, ownerId],
     );
   });
   const page = await context.newPage();
@@ -349,6 +392,7 @@ test('C6: تعارض يوم مغلق يبقى ظاهرًا بعد إعادة ا�
   expect(await dbCountForKey(key)).toBe(0);
   await page.close();
 });
+
 
 test('C7: الخروج مع عمل غير محسوم — عدّاد ظاهر واختيار صريح موثق، لا مسح صامت', async ({ context }) => {
   await signInOperatorTo(context);
@@ -384,4 +428,222 @@ test('C7: الخروج مع عمل غير محسوم — عدّاد ظاهر و�
   expect(await dbCountForKey(key)).toBe(0); // المسح لا ينتج تسجيلًا خادميًا أبدًا
   await page.close();
   await page2.close();
+});
+
+test('C8: خروج مقطوع الشبكة — لا ادعاء نجاح، قفل محلي عابر للتبويبات، وإنهاء خادمي مؤكد بعد العودة', async ({ context }) => {
+  const { token } = await signInOperatorTo(context);
+  const page = await context.newPage();
+  await page.goto(`${baseUrl}/today`);
+  await expect(page.getByTestId('connection-chip').first()).toBeVisible();
+
+  // قطع الشبكة ثم طلب الخروج: المسح المحلي يحدث فورًا، والإنهاء الخادمي يتعذّر.
+  await context.setOffline(true);
+  await page.getByRole('button', { name: ar.auth.signOutAction }).first().click();
+
+  // الحالة الصادقة (توجيه 1): قفل محلي + عدم تأكيد الإنهاء — لا نجاح على التنقل وحده.
+  await expect(page.getByText(ar.signOutLocked.title)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(ar.signOutLocked.unconfirmed)).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('gz.session.logoutLock.v1'))).toBe('1');
+
+  // عودة الشبكة ⇒ إعادة المحاولة التلقائية تؤكد الإنهاء ثم تنتقل لشاشة الدخول.
+  await context.setOffline(false);
+  await page.waitForURL(/\/login/, { timeout: 30_000 });
+
+  // الجلسة الخادمية الفعلية مقطوعة الآن — من الخادم نفسه لا من واجهتنا:
+  const serverProbe = await fetch(`${baseUrl}/api/session`, { headers: { cookie: `kayyal_operator_session=${token}` } });
+  expect(serverProbe.status).toBe(401);
+
+  // نفس التبويب يعيد فتح /today ⇒ حارس الجلسة يعيده لـ /login.
+  await page.goto(`${baseUrl}/today`);
+  await page.waitForURL(/\/login/, { timeout: 30_000 });
+
+  // تبويب آخر (نفس الجهاز) يعيد فتح /today ⇒ القفل المحلي الواضح يسبق حتى الشبكة.
+  const tabB = await context.newPage();
+  await tabB.goto(`${baseUrl}/today`);
+  await tabB.waitForURL(/\/login/, { timeout: 30_000 });
+  await page.close();
+  await tabB.close();
+});
+
+test('C9: زر «أرسل المعلّق الآن» نقرة حقيقية — يعمل رغم إيقاف الكنس، يحدّث العدّاد، ويُظهر النجاح/الفشل', async ({ context }) => {
+  await signInOperatorTo(context);
+  const page = await context.newPage();
+  await fillExpense(page, '33.00');
+  await context.setOffline(true);
+  await page.locator('form.expense-form button[type="submit"]').click();
+  await expect(page.getByTestId('connection-chip').first()).toContainText('غير متصل');
+  const draft = await idbDraft(page, 'expense');
+  const key = draft!.intent!.idempotencyKey;
+
+  await page.getByRole('button', { name: ar.auth.signOutAction }).first().click();
+  await expect(page.getByText(ar.signOutGate.pendingTitle)).toBeVisible();
+  await expect(page.getByText(/1 عملية غير مؤكدة/)).toBeVisible();
+
+  // نقرة حقيقية مقطوعة الشبكة: محاولة مقصودة تحدث وتُقاوَم بصدق (توجيه 2).
+  await page.getByRole('button', { name: ar.signOutGate.resumeFirst }).click();
+  await expect(page.getByText(ar.signOutGate.sendFailed)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/1 عملية غير مؤكدة/)).toBeVisible();
+  expect(await dbCountForKey(key)).toBe(0);
+
+  // بعد عودة الشبكة: نفس الزر يُرسل رغم إيقاف الكنس الخلفي. استجابة 429 الممكنة
+  // (ضغط الجناح على مُقيّد المعدل) تُظهر فشلًا صادقًا وتراجعًا — والمستخدم الحقيقي
+  // يكرر النقر بعد انقضائه؛ نحاكي ذلك حتى النجاح أو نفاد السقف الزمني.
+  await context.setOffline(false);
+  const successText = page.getByText(ar.signOutGate.sendSucceeded);
+  for (let clicks = 1; clicks <= 6; clicks += 1) {
+    await page.getByRole('button', { name: ar.signOutGate.resumeFirst }).click();
+    try {
+      await expect(successText).toBeVisible({ timeout: 10_000 });
+      break;
+    } catch (failure) {
+      if (clicks === 6) {
+        const { writeFileSync } = await import('node:fs');
+        writeFileSync('test-results/c9-debug.json', JSON.stringify({
+          ops: await idbOps(page), dbRows: await dbCountForKey(key),
+          dialogText: await page.locator('.outbox-panel').innerText().catch(() => 'no-dialog'),
+        }, null, 2));
+        throw failure;
+      }
+      await page.waitForTimeout(6_000); // تراجع 429/الخدمة ينقضي ثم يعيد المستخدم النقر
+    }
+  }
+  await expect(page.getByText(/0 عملية غير مؤكدة/)).toBeVisible();
+  expect(await dbCountForKey(key)).toBe(1);
+  const ops = await idbOps(page);
+  expect(ops.filter((op) => op.status === 'acknowledged' && op.idempotencyKey === key)).toHaveLength(1);
+  await page.close();
+});
+
+test('C10: تبويب A بطيء وتبويب B يُطلق focus/online — لا سرقة للمحاولة الحيّة ولا تكرار خادمي', async ({ context }) => {
+  await signInOperatorTo(context);
+  const probe = await context.newPage();
+  await probe.goto(`${baseUrl}/login`); // سياق آمن حقيقي (localhost) قبل فحص Web Locks
+  expect(await probe.evaluate(() => 'locks' in navigator && typeof navigator.locks.request === 'function'))
+    .toBe(true); // آلية القفل حقيقية في هذا المتصفح — ليست افتراضًا
+  await probe.close();
+  const pageA = await context.newPage();
+  await fillExpense(pageA, '55.00');
+
+  let expensePosts = 0;
+  let resolveHold: (() => void) | null = null;
+  const holdGate = new Promise<void>((resolve) => { resolveHold = resolve; });
+  await pageA.route('**/api/transactions/expense', async (route) => {
+    expensePosts += 1;
+    await holdGate; // طلب A معلّق عمدًا — A حيّ ويمسك قفل العملية
+    await route.continue();
+  });
+  await pageA.locator('form.expense-form button[type="submit"]').click();
+  await pageA.waitForTimeout(600); // الطلب غادر نحو الخادم ولم يُحسم بعد
+
+  // تبويب B مفعّل بالكامل على نفس النموذج: mount/focus/online كلها تجرّب السرقة.
+  const pageB = await context.newPage();
+  await pageB.goto(`${baseUrl}/expense`);
+  await pageB.waitForTimeout(800);
+  await pageB.evaluate(() => {
+    window.dispatchEvent(new Event('online'));
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await pageB.waitForTimeout(800);
+  expect(expensePosts).toBe(1); // صفر سرقة — المحاولة الثانية لم تحدث
+
+  resolveHold!();
+  const draftKey = (await idbDraft(pageA, 'expense'))!.intent!.idempotencyKey;
+  await expect(pageA.getByTestId('connection-chip').first()).toContainText('اكتملت', { timeout: 30_000 });
+  expect(await dbCountForKey(draftKey)).toBe(1);
+  expect(expensePosts).toBe(1);
+  await pageA.close();
+  await pageB.close();
+});
+
+test('C10b: موت التبويب المالك وسط محاولة — تبويب B يستعيد بنفس المفتاح والخادم يرد replay: سطر واحد', async ({ context }) => {
+  await signInOperatorTo(context);
+  const pageA = await context.newPage();
+  await fillExpense(pageA, '66.00');
+
+  let expensePosts = 0;
+  await pageA.route('**/api/transactions/expense', async (route) => {
+    expensePosts += 1;
+    const upstream = await route.fetch().catch(() => null); // الخادم التزم فعلًا
+    await new Promise((resolve) => setTimeout(resolve, 4_000)); // تبويب A «يموت» قبل الإقرار
+    if (upstream) await route.fulfill({ response: upstream });
+  });
+  await pageA.locator('form.expense-form button[type="submit"]').click();
+  await pageA.waitForTimeout(900); // طلب A وصل الخادم والتزامه وزّار — والرد لم يكتمل
+  const draftKey = (await idbDraft(pageA, 'expense'))!.intent!.idempotencyKey;
+  await pageA.close(); // موت A — القفل يتحرر فورًا، والعملية syncing يتيمة
+
+  const pageB = await context.newPage();
+  await pageB.goto(`${baseUrl}/expense`); // كنس B يكتشف اليتيم ويستكمل بنفس المفتاح
+  await expect(pageB.getByTestId('connection-chip').first()).toContainText('اكتملت', { timeout: 45_000 });
+  expect(await dbCountForKey(draftKey)).toBe(1); // التزام واحد رغم محاولتين
+  expect(expensePosts).toBeGreaterThanOrEqual(1); // الاستعادة قد تسلك route A المحذوف مع الصفحة
+  const opsB = await idbOps(pageB);
+  expect(opsB.filter((op) => op.idempotencyKey === draftKey && op.status === 'acknowledged')).toHaveLength(1);
+  await pageB.close();
+});
+
+test('C11: صرامة parked — دورتا مؤقت بلا إعادة، حساب آخر لا يستأنف، والحساب الصحيح يستأنف بـ POST واحد', async ({ context }) => {
+  test.setTimeout(300_000);
+  const { token, csrf } = await loginOnce();
+  await context.addCookies([
+    { name: 'kayyal_csrf', value: csrf, domain: 'localhost', path: '/', httpOnly: false },
+    { name: 'kayyal_operator_session', value: token, domain: 'localhost', path: '/', httpOnly: true },
+  ]);
+  const page = await context.newPage();
+  await fillExpense(page, '88.00');
+
+  // إنهاء الجلسة خادميًا «خلف ظهر» الواجهة — المحاولة القادمة تواجه 401 حقيقيًا.
+  // (حذف مباشر من قاعدة الاختبار كما في C5 — قاطع ومتحقق منه، بلا حساسية وسيط CSRF.)
+  void token; void csrf;
+  await t.admin.query('DELETE FROM app.sessions WHERE user_id = $1', [A.operatorId]);
+  let expensePosts = 0;
+  page.on('request', (request) => {
+    if (request.url().includes('/api/transactions/expense') && request.method() === 'POST') expensePosts += 1;
+  });
+  await page.locator('form.expense-form button[type="submit"]').click();
+  await expect.poll(async () => (await idbOps(page)).some((op) => op.status === 'parked'), { timeout: 30_000 }).toBe(true);
+  const afterParking = expensePosts;
+
+  // أكثر من دورة مؤقت + نبضات focus/online: لا إعادة محاولة إطلاقًا (توجيه 4).
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('online'));
+    window.dispatchEvent(new Event('focus'));
+  });
+  await page.waitForTimeout(44_000);
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('online'));
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForTimeout(2_000);
+  expect(expensePosts).toBe(afterParking);
+
+  // دخول حساب آخر (نطاق مختلف): الـresume يتحقق من /api/session الجديد — scope≠ ⇒ لا يتحرك شيء.
+  await page.goto(`${baseUrl}/login`);
+  await page.locator('details.login-operator > summary').click();
+  const opForm = page.locator('form');
+  await opForm.locator('input[name="operator_login_code"]').fill(loginCode2);
+  await opForm.locator('input[name="display_name"]').fill('عامل آخر');
+  await opForm.locator('input[name="pin"]').fill('4271');
+  await opForm.locator('button[type="submit"]').click();
+  await page.waitForURL(/\/today/, { timeout: 30_000 });
+  await page.waitForTimeout(2_500); // resumeParkedIfSessionValid(scope2) رأفًا — لا شيء لنطاقه
+  expect(expensePosts).toBe(afterParking);
+  expect((await idbOps(page)).some((op) => op.status === 'parked')).toBe(true);
+
+  // دخول الحساب الصحيح: تحقق جديد ناجح بنفس النطاق ⇒ استئناف وPOST واحد للتسوية.
+  await page.goto(`${baseUrl}/login`);
+  await page.locator('details.login-operator > summary').click();
+  const opForm2 = page.locator('form');
+  await opForm2.locator('input[name="operator_login_code"]').fill(loginCode);
+  await opForm2.locator('input[name="display_name"]').fill('عامل متصفح');
+  await opForm2.locator('input[name="pin"]').fill('4271');
+  await opForm2.locator('button[type="submit"]').click();
+  await page.waitForURL(/\/today/, { timeout: 30_000 });
+  await expect.poll(async () => (await idbOps(page)).some((op) => op.status === 'acknowledged'), { timeout: 30_000 }).toBe(true);
+  expect(expensePosts).toBe(afterParking + 1); // POST تسوية واحد لا أكثر
+  const parkedKey = (await idbOps(page)).find((op) => op.status === 'acknowledged')!.idempotencyKey;
+  expect(await dbCountForKey(parkedKey)).toBe(1);
+  await page.close();
 });
