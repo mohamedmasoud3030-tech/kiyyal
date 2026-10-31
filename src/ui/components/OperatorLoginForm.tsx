@@ -5,7 +5,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { ar } from '../copy/ar';
 import { apiErrorMessage, ensureCsrfToken } from '../clientSecurity';
 import { clearOwnerBrowserSessionForOperator } from '../ownerProvider';
-import { clearLocalLogoutLock } from '../localLogoutLock';
+import { clearLocalLogoutLock, withVerifiedLogoutBeforeLogin } from '../localLogoutLock';
 import { Button } from './Button';
 import { FormActions } from './FormActions';
 import { FormField } from './FormField';
@@ -53,6 +53,7 @@ export function OperatorLoginForm() {
     }
 
     try {
+      await withVerifiedLogoutBeforeLogin(async () => {
       const response = await fetch('/api/auth/operator/session', {
         method: 'POST',
         credentials: 'same-origin',
@@ -75,6 +76,7 @@ export function OperatorLoginForm() {
       const pin = form.elements.namedItem('pin');
       if (pin instanceof HTMLInputElement) pin.value = '';
       window.location.assign('/today');
+      });
     } catch {
       setError(ar.auth.foundationDescription);
       setPhase('ready');
@@ -116,3 +118,4 @@ export function OperatorLoginForm() {
     </form>
   );
 }
+

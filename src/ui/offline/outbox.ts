@@ -1,3 +1,4 @@
+import { isLocalLogoutLocked } from '../localLogoutLock';
 import { apiErrorCode, apiErrorMessage, ensureCsrfToken } from '../clientSecurity';
 import { createIndexedDbOfflineStore } from './indexeddb-store';
 import { createMemoryOfflineStore } from './memory-store';
@@ -50,15 +51,6 @@ async function withOpWebLock<T>(queueId: string, run: () => Promise<T | null>): 
   });
 }
 
-interface HeldLocks { readonly held?: ReadonlyArray<{ readonly name?: string | null }> | null }
-async function heldLockNames(): Promise<ReadonlySet<string> | null> {
-  const nav = typeof navigator === 'undefined' ? undefined : navigator;
-  if (!nav || !('locks' in nav) || !nav.locks?.query) return null;
-  try {
-    const snapshot = await (nav.locks.query as () => Promise<HeldLocks>)();
-    return new Set((snapshot.held ?? []).map((entry) => entry.name ?? ''));
-  } catch { return null; }
-}
 let currentStore: OfflineStore | null = null;
 let durability: StoreDurability = 'volatile';
 let storeProblem: string | null = null;
@@ -215,6 +207,7 @@ export async function enqueueAndAttempt(args: {
   readonly idempotencyKey: string;
   readonly deviceCreatedAt: string;
 }): Promise<OpOutcome> {
+  if (isLocalLogoutLocked()) return { kind: 'parked', message: 'هذا الجهاز مقفول — سجّل الدخول من جديد' };
   const queueId = queueIdOf(args.scope, args.idempotencyKey);
   const store = offlineStore();
   const existing = await store.getOp(queueId);
@@ -257,7 +250,7 @@ async function attemptOp(queueId: string): Promise<OpOutcome> {
   if (inFlight.has(queueId)) return { kind: 'already_in_flight' };
   // القفل العابر للتبويبات أولًا — ثم الادعاء الذري بالملكية والزمن ثانيًا.
   return await withOpWebLock(queueId, async () => {
-    const claimed = await store.claimOp(queueId, TAB_OWNER, Date.now(), CLAIM_LEASE_MS);
+    const claimed = await store.claimOp(queueId, `${TAB_OWNER}:${crypto.randomUUID()}`, Date.now(), CLAIM_LEASE_MS);
     if (!claimed) return { kind: 'already_in_flight' } as OpOutcome;
     inFlight.add(queueId);
     notify();
@@ -304,7 +297,10 @@ async function performAttempt(claimed: QueuedOp): Promise<OpOutcome> {
     return { kind: 'queued', reason: 'offline', message: 'تعذّر تأمين الطلب الآن — العملية محفوظة وستُعاد تلقائيًا' };
   }
   // تجديد الادعاء قبل أطول خطوة — لا أحد يستولي على محاولة حية.
-  await patchIfOwner(claimed, { claimExpiresAt: Date.now() + CLAIM_LEASE_MS });
+  if (isLocalLogoutLocked()) return { kind: 'parked', message: 'هذا الجهاز مقفول' };
+  if (!(await patchIfOwner(claimed, { claimExpiresAt: Date.now() + CLAIM_LEASE_MS }))) {
+    return { kind: 'already_in_flight' };
+  }
   let response: Response;
   try {
     response = await fetch(`/api/transactions/${claimed.type}`, {
@@ -338,7 +334,7 @@ async function performAttempt(claimed: QueuedOp): Promise<OpOutcome> {
     // للطابور بمفتاحها؛ الاستئناف يسترد رد الالتزام الأصلي عبر idempotent_replay.
     let committed = false;
     try {
-      committed = await store.commitAck(queueIdOf(claimed.scope, claimed.idempotencyKey), TAB_OWNER, ack, claimed.scope, formKeyOf(claimed.type));
+      committed = await store.commitAck(queueIdOf(claimed.scope, claimed.idempotencyKey), claimed.claimedBy!, ack, claimed.scope, formKeyOf(claimed.type));
     } catch (error) {
       storeProblem = error instanceof Error ? error.message : 'ack_commit_failed';
       notify();
@@ -419,26 +415,33 @@ export interface SweepOptions {
  * - `parked` لا يُستأنف بالوقت أو focus أو online — حصرًا عبر resumeParkedIfSessionValid
  *   (تحقق جديد ناجح من /api/session بنفس النطاق قبل كل استئناف).
  * - يتيم `syncing` يُستعاد فقط إن ثبت موت مرسله: Web Locks (القفل ليس محمولًا حيًّا)
- *   أو lease منقضٍ — غيابه من inFlight المحلي وحده ليس دليلًا (توجيه المالك 3).
+ *   مع قفل حصري حر؛ انتهاء lease وحده لا يثبت موت تبويب معلّق.
  */
 export async function sweepScope(scope: string, now = Date.now(), options: SweepOptions = {}): Promise<SweepResult> {
   const store = offlineStore();
   const ops = await store.listOps(scope);
-  const held = await heldLockNames();
   let attempted = 0; let acknowledged = 0; let parked = 0; let conflicted = 0; let recoveredOrphans = 0;
   for (const op of ops) {
-    if (sweepPaused && !options.deliberate) break;
+    if (isLocalLogoutLocked() || (sweepPaused && !options.deliberate)) break;
     if (op.status === 'conflict' || op.status === 'acknowledged' || op.status === 'parked') continue;
     if (op.status === 'syncing') {
-      const isLiveElsewhere = held
-        ? held.has(lockNameOf(op.queueId))
-        : (op.claimExpiresAt != null && op.claimExpiresAt > now && op.claimedBy !== TAB_OWNER && !inFlight.has(op.queueId));
-      const isMine = op.claimedBy === TAB_OWNER && inFlight.has(op.queueId);
-      if (!isMine && !isLiveElsewhere) {
-        // مرسله ميت ثبوتًا (قفل حرّ / lease منقضٍ بلا مالك محلي حي): استعادة بنفس المفتاح.
-        await persistPatch(op.queueId, { status: 'queued', nextAttemptAt: now, claimedBy: null, claimExpiresAt: null });
-        recoveredOrphans += 1;
+      if (inFlight.has(op.queueId)) continue;
+      const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+      if (!locks?.request) {
+        // A frozen tab can outlive every lease. Expiry is not proof of death.
+        // Recover only our own completed attempt; foreign attempts remain safe
+        // and visible until a browser with Web Locks can arbitrate recovery.
+        if (!op.claimedBy?.startsWith(`${TAB_OWNER}:`)) {
+          storeProblem = 'تعذّر إثبات توقف التبويب المرسل — أبقينا العملية معلّقة لحمايتها من إرسال متزامن';
+          continue;
+        }
       }
+      const recovered = await withOpWebLock(op.queueId, async () => {
+        // Re-read/CAS inside the storage transaction: a snapshot or lock-query
+        // result cannot overwrite a newer owner, renewal, or acknowledgement.
+        return store.recoverOp(op, now);
+      });
+      if (recovered) recoveredOrphans += 1;
       continue;
     }
     if (op.nextAttemptAt > now) continue;
@@ -499,3 +502,4 @@ export async function discardOp(queueId: string): Promise<void> {
 export async function listScopeOps(scope: string): Promise<readonly QueuedOp[]> {
   return offlineStore().listOps(scope);
 }
+

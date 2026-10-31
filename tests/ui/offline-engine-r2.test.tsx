@@ -137,6 +137,9 @@ describe('ملكية الـlease العابرة للتبويبات (توجيه �
   });
 
   it('موت التبويب المالك (lease منقضٍ) ⇒ استعادة اليتيم بنفس المفتاح', async () => {
+    // Proven free exclusive lock, not a clock-based guess about sender death.
+    vi.stubGlobal('navigator', { onLine: true, locks: { request: async (_name: string, _options: unknown, fn: (lock: object) => unknown) => fn({}) } });
+
     script = [{ kind: 'network-error' }];
     await enqueueAndAttempt(ARGS);
     const store = offlineStore();
@@ -216,3 +219,4 @@ describe('ذرية تثبيت الإقرار (توجيه ٦)', () => {
     expect(counts.ackPending).toBe(1);
   });
 });
+

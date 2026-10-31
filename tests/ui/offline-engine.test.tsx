@@ -91,6 +91,8 @@ describe('الهوية الدائمة ومانع السباق (توجيهات ١
   });
 
   it('يتيم syncing بعد إغلاق يستعاد بنفس المفتاح (لا يُفترض أن الطلب المقتول لم يصل)', async () => {
+    // Proven free exclusive lock, not a clock-based guess about sender death.
+    vi.stubGlobal('navigator', { onLine: true, locks: { request: async (_name: string, _options: unknown, fn: (lock: object) => unknown) => fn({}) } });
     script = []; // نجعله syncing: نسئل المحاولة الأولى بلا نهاية ثم نميتها يدويًا
     await enqueueAndAttempt({ scope: SCOPE, type: 'expense', body: BODY, idempotencyKey: KEY, deviceCreatedAt: '2026-10-26T10:00:00.000Z' });
     await offlineStore().patchOp(`${SCOPE}:${KEY}`, { status: 'syncing' }); // محاكاة موت التبويب
@@ -176,3 +178,4 @@ describe('سجل الإقرار المرئي والعدّ الصادق (توجي
     await clearDraft(SCOPE, 'expense');
   });
 });
+

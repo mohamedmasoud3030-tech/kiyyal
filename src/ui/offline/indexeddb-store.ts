@@ -1,3 +1,4 @@
+import { isLocalLogoutLocked } from '../localLogoutLock';
 import { createMemoryOfflineStore } from './memory-store';
 import type { DraftRecord, OfflineStore, QueuedOp } from './types';
 
@@ -31,17 +32,28 @@ function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
   });
 }
 
-async function withStores<T>(mode: IDBTransactionMode, run: (ops: IDBObjectStore, drafts: IDBObjectStore) => Promise<T>): Promise<T> {
+async function withStores<T>(mode: IDBTransactionMode, run: (ops: IDBObjectStore, drafts: IDBObjectStore) => Promise<T>, allowLocked = false): Promise<T> {
   const db = await openDatabase();
   try {
+    if (mode === 'readwrite' && !allowLocked && isLocalLogoutLocked()) throw new Error('device_locked');
     const tx = db.transaction([OP_STORE, DRAFT_STORE], mode);
-    const result = await run(tx.objectStore(OP_STORE), tx.objectStore(DRAFT_STORE));
-    await new Promise<void>((resolve, reject) => {
+    // Observe completion before any request can fail. Callback exceptions do
+    // not automatically abort IDB: explicitly roll back earlier writes.
+    const completion = new Promise<void>((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onabort = () => reject(tx.error ?? new Error('indexeddb_tx_aborted'));
       tx.onerror = () => reject(tx.error ?? new Error('indexeddb_tx_failed'));
     });
-    return result;
+    void completion.catch(() => {});
+    try {
+      const result = await run(tx.objectStore(OP_STORE), tx.objectStore(DRAFT_STORE));
+      await completion;
+      return result;
+    } catch (error) {
+      try { tx.abort(); } catch { /* already aborted/completed */ }
+      await completion.catch(() => {});
+      throw error;
+    }
   } finally {
     db.close();
   }
@@ -64,6 +76,15 @@ export function createIndexedDbOfflineStore(): OfflineStore {
     },
     // ادعاء ذرّي مع مالك ومدة صلاحية داخل معاملة readwrite واحدة — يخسر كل من
     // يأتي بعد مالك حيّ (lease غير منقضٍ) سواء كان في هذا التبويب أو غيره.
+    async recoverOp(expected, now) {
+      return withStores('readwrite', async (ops) => {
+        const current = await requestToPromise(ops.get(expected.queueId)) as QueuedOp | undefined;
+        if (!current || current.status !== 'syncing' || current.claimedBy !== expected.claimedBy
+          || current.claimExpiresAt !== expected.claimExpiresAt) return false;
+        await requestToPromise(ops.put({ ...current, status: 'queued', nextAttemptAt: now, claimedBy: null, claimExpiresAt: null }));
+        return true;
+      });
+    },
     async claimOp(queueId, owner, now, leaseMs) {
       return withStores('readwrite', async (ops) => {
         const current = await requestToPromise(ops.get(queueId)) as QueuedOp | undefined;
@@ -79,7 +100,7 @@ export function createIndexedDbOfflineStore(): OfflineStore {
     async patchOpIfOwner(queueId, owner, patch) {
       return withStores('readwrite', async (ops) => {
         const current = await requestToPromise(ops.get(queueId)) as QueuedOp | undefined;
-        if (!current || current.claimedBy !== owner) return false;
+        if (!current || current.status !== 'syncing' || current.claimedBy !== owner) return false;
         await requestToPromise(ops.put({ ...current, ...patch }));
         return true;
       });
@@ -143,11 +164,18 @@ export function createIndexedDbOfflineStore(): OfflineStore {
         for (const key of keys) if (typeof key === 'string' && key.startsWith(`${scope}|`)) await requestToPromise(drafts.delete(key));
       });
     },
+    async isEmpty() {
+      return withStores('readonly', async (ops, drafts) => {
+        const count = await requestToPromise(ops.count());
+        const draftCount = await requestToPromise(drafts.count());
+        return count === 0 && draftCount === 0;
+      });
+    },
     async clearAll() {
       await withStores('readwrite', async (ops, drafts) => {
         await requestToPromise(ops.clear());
         await requestToPromise(drafts.clear());
-      });
+      }, true);
     },
   };
 }
@@ -156,3 +184,4 @@ export function createIndexedDbOfflineStore(): OfflineStore {
 export function createDefaultOfflineStore(): OfflineStore {
   return typeof indexedDB === 'undefined' ? createMemoryOfflineStore() : createIndexedDbOfflineStore();
 }
+

@@ -14,8 +14,12 @@
  */
 
 const LOCK_KEY = 'gz.session.logoutLock.v1';
+const WIPE_KEY = 'gz.session.logoutWipePending.v1';
 const RETRY_KEY = 'gz.session.logoutRevocationPending.v1';
 const CHANNEL_NAME = 'gz.session.lock';
+
+const local = new Map<string, boolean>();
+const listeners = new Set<(locked: boolean) => void>();
 
 type LockMessage = { readonly type: 'locked' | 'unlocked'; readonly tabId: string };
 
@@ -30,15 +34,34 @@ const TAB_ID = (() => {
 })();
 
 function read(key: string): boolean {
-  try { return typeof localStorage !== 'undefined' && localStorage.getItem(key) === '1'; }
-  catch { return false; }
+  if (local.get(key) === true) return true;
+  // Non-secret redundant marker survives a full localStorage store and tab death.
+  try { if (document.cookie.split(';').some(part => part.trim() === `${key}=1`)) return true; } catch { return true; }
+  try {
+    // Verify writes too: a readable but full store cannot carry a logout to a
+    // reopened tab. Such a device must not expose protected data.
+    localStorage.setItem(`${LOCK_KEY}.probe`, '1');
+    localStorage.removeItem(`${LOCK_KEY}.probe`);
+    return localStorage.getItem(key) === '1';
+  } catch { return true; }
 }
 
-function write(key: string, on: boolean): void {
+function write(key: string, on: boolean): boolean {
+  if (on) local.set(key, true);
+  let storageWritten = false;
+  let cookieWritten = false;
   try {
-    if (typeof localStorage === 'undefined') return;
     if (on) localStorage.setItem(key, '1'); else localStorage.removeItem(key);
-  } catch { /* storage full / private mode: lock degrades to this tab only */ }
+    storageWritten = (localStorage.getItem(key) === '1') === on;
+  } catch { /* redundant marker below; uncertainty still fails closed */ }
+  try {
+    document.cookie = `${key}=${on ? '1' : ''}; Path=/; SameSite=Strict; Max-Age=${on ? 31536000 : 0}`;
+    cookieWritten = document.cookie.split(';').some(part => part.trim() === `${key}=1`) === on;
+  } catch { /* unavailable cookie storage */ }
+  // Clearing must succeed in BOTH stores: an old marker must not resurrect.
+  const persisted = on ? storageWritten || cookieWritten : storageWritten && cookieWritten;
+  if (persisted) local.set(key, on);
+  return persisted;
 }
 
 function broadcast(message: LockMessage): void {
@@ -57,15 +80,29 @@ export function isLocalLogoutLocked(): boolean { return read(LOCK_KEY); }
 /** Server revocation still unconfirmed — a retry is owed on next connectivity. */
 export function isLogoutRevocationPending(): boolean { return read(RETRY_KEY); }
 
+export function isLocalWipePending(): boolean { return read(WIPE_KEY); }
+
+/** Fence every writer before starting the destructive, user-approved wipe. */
+export function beginLocalLogout(): void {
+  write(WIPE_KEY, true);
+  markLogoutRevocationPending(true);
+  setLocalLogoutLock();
+}
+
 export function setLocalLogoutLock(): void {
   write(LOCK_KEY, true);
+  for (const listener of listeners) listener(true);
   broadcast({ type: 'locked', tabId: TAB_ID });
 }
 
 /** Explicit successful login lifts the lock for every tab of this device. */
 export function clearLocalLogoutLock(): void {
-  write(LOCK_KEY, false);
-  write(RETRY_KEY, false);
+  if (isLocalWipePending() || isLogoutRevocationPending()) throw new Error('logout_not_finished');
+  if (!write(RETRY_KEY, false) || !write(LOCK_KEY, false)) {
+    write(LOCK_KEY, true);
+    throw new Error('logout_lock_storage_unavailable');
+  }
+  for (const listener of listeners) listener(false);
   broadcast({ type: 'unlocked', tabId: TAB_ID });
 }
 
@@ -77,7 +114,36 @@ export function markLogoutRevocationPending(pending: boolean): void {
  * Best-effort retry of the pending server revocation. Returns true only when
  * the server actually answered the DELETE — the caller may then state success.
  */
-export async function retryPendingServerRevocation(): Promise<boolean> {
+let transitionTail: Promise<unknown> = Promise.resolve();
+async function withSessionTransition<T>(run: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+  if (locks?.request) return await locks.request('kayyal-session-transition', run);
+  const pending = transitionTail.then(run, run);
+  transitionTail = pending.catch(() => {});
+  return pending;
+}
+
+export function retryPendingServerRevocation(): Promise<boolean> {
+  return withSessionTransition(finishPendingLogout);
+}
+
+/** Old DELETE requests must finish before a new session is established. */
+export function withVerifiedLogoutBeforeLogin<T>(login: () => Promise<T>): Promise<T> {
+  return withSessionTransition(async () => {
+    if (isLocalLogoutLocked() && !(await finishPendingLogout())) throw new Error('logout_not_finished');
+    return login();
+  });
+}
+
+async function finishPendingLogout(): Promise<boolean> {
+  // Wipe is local and must run even offline. No DELETE before a verified wipe.
+  if (isLocalWipePending()) {
+    try {
+      const { offlineStore } = await import('./offline/outbox');
+      await offlineStore().clearAll();
+      if (!(await offlineStore().isEmpty()) || !write(WIPE_KEY, false)) return false;
+    } catch { return false; }
+  }
   if (!isLogoutRevocationPending()) return true;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
   try {
@@ -106,8 +172,14 @@ export async function retryPendingServerRevocation(): Promise<boolean> {
  * BroadcastChannel for same-instant delivery). Returns an unsubscribe.
  */
 export function subscribeLocalLogoutLock(onLockChange: (locked: boolean) => void): () => void {
+  listeners.add(onLockChange);
   const onStorage = (event: StorageEvent) => {
-    if (event.key === LOCK_KEY) onLockChange(isLocalLogoutLocked());
+    if (event.key === LOCK_KEY || event.key === RETRY_KEY || event.key === WIPE_KEY || event.key === null) {
+      local.delete(LOCK_KEY);
+      local.delete(RETRY_KEY);
+      local.delete(WIPE_KEY);
+      onLockChange(isLocalLogoutLocked());
+    }
   };
   let channel: BroadcastChannel | null = null;
   let onMessage: ((event: MessageEvent) => void) | null = null;
@@ -118,13 +190,23 @@ export function subscribeLocalLogoutLock(onLockChange: (locked: boolean) => void
       onMessage = (event: MessageEvent) => {
         const data = event.data as LockMessage | null;
         if (!data || data.tabId === TAB_ID) return; // own-tab signal: handled locally by the initiator
-        if (data.type === 'locked') onLockChange(true);
-        if (data.type === 'unlocked') onLockChange(false);
+        if (data.type === 'locked') {
+          local.set(LOCK_KEY, true);
+          local.set(RETRY_KEY, true);
+          onLockChange(true);
+        }
+        if (data.type === 'unlocked') {
+          local.delete(LOCK_KEY);
+          local.delete(RETRY_KEY);
+          local.delete(WIPE_KEY);
+          onLockChange(isLocalLogoutLocked());
+        }
       };
       channel.addEventListener('message', onMessage);
     }
   } catch { /* unsupported env */ }
   return () => {
+    listeners.delete(onLockChange);
     try {
       if (typeof window !== 'undefined') window.removeEventListener('storage', onStorage);
       if (channel && onMessage) {
@@ -134,3 +216,4 @@ export function subscribeLocalLogoutLock(onLockChange: (locked: boolean) => void
     } catch { /* noop */ }
   };
 }
+

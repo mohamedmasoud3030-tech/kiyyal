@@ -5,7 +5,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { ar } from '../copy/ar';
 import { apiErrorMessage, ensureCsrfToken } from '../clientSecurity';
 import { ownerProviderBrowserClient, ownerProviderConfiguration } from '../ownerProvider';
-import { clearLocalLogoutLock } from '../localLogoutLock';
+import { clearLocalLogoutLock, withVerifiedLogoutBeforeLogin } from '../localLogoutLock';
 import { normalizeOwnerPhone } from '../phone';
 import { Button } from './Button';
 import { FormActions } from './FormActions';
@@ -85,6 +85,7 @@ export function OwnerLoginForm() {
     }
 
     try {
+      await withVerifiedLogoutBeforeLogin(async () => {
       const supabase = ownerProviderBrowserClient();
       if (!supabase) {
         setState('unavailable');
@@ -123,6 +124,7 @@ export function OwnerLoginForm() {
       const passwordInput = form.elements.namedItem('password');
       if (passwordInput instanceof HTMLInputElement) passwordInput.value = '';
       window.location.assign('/today');
+      });
     } catch {
       setError(ar.auth.ownerAuthenticationFailed);
       setState('ready');
@@ -150,3 +152,4 @@ export function OwnerLoginForm() {
     </form>
   );
 }
+

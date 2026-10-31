@@ -3,14 +3,12 @@
 import { useEffect, useState } from 'react';
 
 import { ar } from '../copy/ar';
-import { ensureCsrfToken } from '../clientSecurity';
 import {
-  markLogoutRevocationPending,
+  beginLocalLogout,
   retryPendingServerRevocation,
-  setLocalLogoutLock,
 } from '../localLogoutLock';
 import { Button } from './Button';
-import { offlineStore, setSweepPaused, statusCounts, sweepScope } from '../offline/outbox';
+import { setSweepPaused, statusCounts, sweepScope } from '../offline/outbox';
 
 type ButtonState = 'idle' | 'submitting' | 'error' | 'gating' | 'locked';
 
@@ -45,34 +43,11 @@ export function SignOutButton({ scope = null }: { readonly scope?: string | null
 
   async function actuallySignOut(wipe: boolean) {
     setState('submitting');
-    // Local rule: chosen wipe never waits on the network (shared-device policy,
-    // ADR-0016 §7). This erases device data only — it revokes nothing remotely.
-    if (wipe) {
-      try {
-        await offlineStore().clearAll();
-        const remainingOps = await offlineStore().listOps(scope ?? '');
-        const remainingDrafts = await offlineStore().listDrafts(scope ?? '');
-        if (remainingOps.length || remainingDrafts.length) throw new Error('local_wipe_incomplete');
-      } catch {
-        setState('error');
-        return; // Never claim a completed local wipe when persistent data may remain.
-      }
-    }
-    let revoked = false;
-    const csrf = await ensureCsrfToken().catch(() => null);
-    if (csrf) {
-      try {
-        const response = await fetch('/api/auth/session', {
-          method: 'DELETE',
-          credentials: 'same-origin',
-          headers: { 'x-kayyal-csrf': csrf },
-        });
-        revoked = response.ok || response.status === 401;
-      } catch { revoked = false; }
-    }
-    // The lock is explicit and cross-tab; pending revocation is a recorded debt.
-    setLocalLogoutLock();
-    markLogoutRevocationPending(!revoked);
+    setSweepPaused(true);
+    // Lock first: all tabs and late IndexedDB writers are fenced before the
+    // wipe. Retry verifies all scopes before it is allowed to revoke remotely.
+    if (wipe) beginLocalLogout();
+    const revoked = await retryPendingServerRevocation();
     if (revoked) {
       window.location.assign('/login');
       return;
@@ -87,7 +62,8 @@ export function SignOutButton({ scope = null }: { readonly scope?: string | null
       await actuallySignOut(true);
       return;
     }
-    const counts = await statusCounts(scope);
+    let counts;
+    try { counts = await statusCounts(scope); } catch { setState('error'); return; }
     const unresolved = counts.queued + counts.syncing + counts.parked + counts.conflict;
     if (unresolved + counts.drafts === 0) {
       await actuallySignOut(true);
@@ -162,7 +138,7 @@ export function SignOutButton({ scope = null }: { readonly scope?: string | null
             </button>
             <button
               className="ui-button ui-button--danger ui-button--sm"
-              onClick={() => void (async () => { setSweepPaused(false); await actuallySignOut(true); })()}
+              onClick={() => void actuallySignOut(true)}
               type="button"
             >
               {ar.signOutGate.destructiveConfirm.replace('{u}', String(gateCounts.unresolved)).replace('{d}', String(gateCounts.drafts))}
@@ -183,3 +159,4 @@ export function SignOutButton({ scope = null }: { readonly scope?: string | null
     </div>
   );
 }
+

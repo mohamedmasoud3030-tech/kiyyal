@@ -17,6 +17,13 @@ export function createMemoryOfflineStore(): OfflineStore {
       if (!current) throw new Error('op_missing');
       ops.set(queueId, { ...current, ...patch });
     },
+    async recoverOp(expected, now) {
+      const current = ops.get(expected.queueId);
+      if (!current || current.status !== 'syncing' || current.claimedBy !== expected.claimedBy
+        || current.claimExpiresAt !== expected.claimExpiresAt) return false;
+      ops.set(current.queueId, { ...current, status: 'queued', nextAttemptAt: now, claimedBy: null, claimExpiresAt: null });
+      return true;
+    },
     async claimOp(queueId, owner, now, leaseMs) {
       const current = ops.get(queueId);
       if (!claimable(current, now)) return null;
@@ -28,7 +35,7 @@ export function createMemoryOfflineStore(): OfflineStore {
     },
     async patchOpIfOwner(queueId, owner, patch) {
       const current = ops.get(queueId);
-      if (!current || current.claimedBy !== owner) return false;
+      if (!current || current.status !== 'syncing' || current.claimedBy !== owner) return false;
       ops.set(queueId, { ...current, ...patch });
       return true;
     },
@@ -57,6 +64,8 @@ export function createMemoryOfflineStore(): OfflineStore {
       for (const [id, op] of ops) if (op.scope === scope) ops.delete(id);
       for (const [key, draft] of drafts) if (draft.scope === scope) drafts.delete(key);
     },
+    async isEmpty() { return ops.size === 0 && drafts.size === 0; },
     async clearAll() { ops.clear(); drafts.clear(); },
   };
 }
+

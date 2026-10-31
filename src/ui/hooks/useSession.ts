@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 
 import {
   isLocalLogoutLocked,
-  retryPendingServerRevocation,
   subscribeLocalLogoutLock,
 } from '../localLogoutLock';
 
@@ -12,7 +11,8 @@ export type WebRole = 'owner' | 'operator';
 export type SessionState =
   | { readonly status: 'loading' }
   | { readonly status: 'authenticated'; readonly role: WebRole; readonly scope: string }
-  | { readonly status: 'unavailable' };
+  | { readonly status: 'unavailable' }
+  | { readonly status: 'locked' };
 
 /**
  * Validates the session through the server on every protected screen. The browser
@@ -24,22 +24,27 @@ export function useSession(): SessionState {
   const [state, setState] = useState<SessionState>({ status: 'loading' });
 
   useEffect(() => {
+    const controller = new AbortController();
+    let locked = false;
+    const lockScreen = () => {
+      locked = true;
+      controller.abort();
+      setState({ status: 'locked' });
+    };
     // Locked device: never render yard data until an explicit new login. Owed
     // revocation is retried best-effort whenever we land here with a network.
     if (isLocalLogoutLocked()) {
-      void retryPendingServerRevocation();
-      window.location.replace('/login');
+      lockScreen();
       return;
     }
     const unsubscribe = subscribeLocalLogoutLock((locked) => {
       if (locked) {
-        void retryPendingServerRevocation();
-        window.location.replace('/login');
+        lockScreen();
       }
     });
-    const controller = new AbortController();
     void fetch('/api/session', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
       .then(async (response) => {
+        if (locked || controller.signal.aborted) return;
         if (response.status === 401) {
           window.location.replace('/login');
           return;
@@ -49,6 +54,7 @@ export function useSession(): SessionState {
           return;
         }
         const payload = await response.json() as { data?: { role?: unknown; scope?: unknown } };
+        if (locked || controller.signal.aborted || isLocalLogoutLocked()) return;
         const role = payload.data?.role;
         const scope = payload.data?.scope;
         if ((role === 'owner' || role === 'operator') && typeof scope === 'string' && /^[0-9a-f]{24}$/.test(scope)) {
@@ -58,6 +64,7 @@ export function useSession(): SessionState {
         setState({ status: 'unavailable' });
       })
       .catch((error: unknown) => {
+        if (locked || controller.signal.aborted) return;
         if (error instanceof DOMException && error.name === 'AbortError') return;
         setState({ status: 'unavailable' });
       });
@@ -66,3 +73,4 @@ export function useSession(): SessionState {
 
   return state;
 }
+

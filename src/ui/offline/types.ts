@@ -77,6 +77,7 @@ export interface OfflineStore {
    * ادعاء ذرّي بالملكية: ينقل queued→syncing فقط إن لم يكن سطرٌ حيًا لمالك آخر
    * (lease غير منقضٍ)، ويكتب claimedBy/claimExpiresAt. المعاملة أحادية tx.
    */
+  recoverOp(expected: QueuedOp, now: number): Promise<boolean>;
   claimOp(queueId: string, owner: string, now: number, leaseMs: number): Promise<QueuedOp | null>;
   /** فحص الملكية عند تحديث النتيجة: الرقعة تُطبَّق فقط لو المالك ما يزال نفسه. */
   patchOpIfOwner(queueId: string, owner: string, patch: Parameters<OfflineStore['patchOp']>[1]): Promise<boolean>;
@@ -94,8 +95,11 @@ export interface OfflineStore {
   removeDraft(scope: string, formKey: string): Promise<void>;
   listDrafts(scope: string): Promise<readonly DraftRecord[]>;
   clearScope(scope: string): Promise<void>;
+  /** Counts every record, including other scopes and tombstones. */
+  isEmpty(): Promise<boolean>;
   clearAll(): Promise<void>;
 }
 
 /** حقيقة المتانة: تُعرض للمستخدم؛ لا وعود كاذبة ببقاء ما لن يبقى. */
 export type StoreDurability = 'persistent' | 'volatile';
+

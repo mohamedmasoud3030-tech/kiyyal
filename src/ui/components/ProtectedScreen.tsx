@@ -2,6 +2,7 @@
 
 import { cloneElement, useEffect, type ReactElement } from 'react';
 
+import { LogoutStatus } from './LogoutStatus';
 import { ar, type AppRole } from '../copy/ar';
 import { useSession } from '../hooks/useSession';
 import { resumeParkedIfSessionValid } from '../offline/outbox';
@@ -34,6 +35,7 @@ export function ProtectedScreen({ activePath, children }: ProtectedScreenProps) 
       void resumeParkedIfSessionValid(session.scope);
     }
   }, [session]);
+  if (session.status === 'locked') return <LogoutStatus />;
   if (session.status === 'loading') {
     return <SessionGuardScreen />;
   }
@@ -60,3 +62,4 @@ export function ProtectedScreen({ activePath, children }: ProtectedScreenProps) 
     </AppShell>
   );
 }
+
