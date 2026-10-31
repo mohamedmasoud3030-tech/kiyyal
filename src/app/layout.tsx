@@ -5,6 +5,7 @@ import { ar } from '../ui/copy/ar';
 import { OfflineRegistration } from '../ui/components/OfflineRegistration';
 
 import './globals.css';
+import './workspace.css';
 
 export const metadata: Metadata = {
   title: ar.app.name,
