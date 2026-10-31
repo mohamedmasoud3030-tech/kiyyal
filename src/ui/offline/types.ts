@@ -65,7 +65,7 @@ export function queueIdOf(scope: string, idempotencyKey: string): string {
   return `${scope}:${idempotencyKey}`;
 }
 
-export interface OfflineStore {
+export interface OfflineStore extends StoreWithRefCache {
   putOp(op: QueuedOp): Promise<void>;
   patchOp(queueId: string, patch: Partial<Omit<QueuedOp, 'queueId' | 'scope' | 'idempotencyKey' | 'deviceCreatedAt' | 'body'>>): Promise<void>;
   /**
@@ -98,6 +98,26 @@ export interface OfflineStore {
   /** Counts every record, including other scopes and tombstones. */
   isEmpty(): Promise<boolean>;
   clearAll(): Promise<void>;
+}
+
+/** لقطة المرجعيات المنزّلة للجهاز — مُقصّرة دوريًا وتُمحى كليًّا عند الخروج (فصل محمي). */
+export interface RefCacheRecord {
+  readonly scope: string;
+  /** قسم اللقطة: materials | parties */
+  readonly kind: string;
+  readonly savedAt: string;
+  readonly payload: unknown;
+}
+
+/**
+ * تقسيم ADR-0010 الصريح: مخبأ المرجعيات «محمي» (لكل scope، يُمسح مع الخروج)،
+ * ولا يحتوي أرصدة/أرباح/مجاميع نقدية — عناصر تعريفية وسعرية فقط لقيادة النماذج.
+ */
+export interface StoreWithRefCache {
+  putRef(record: RefCacheRecord): Promise<void>;
+  getRef(scope: string, kind: string): Promise<RefCacheRecord | null>;
+  clearScopeRefs(scope: string): Promise<void>;
+  clearAllRefs(): Promise<void>;
 }
 
 /** حقيقة المتانة: تُعرض للمستخدم؛ لا وعود كاذبة ببقاء ما لن يبقى. */

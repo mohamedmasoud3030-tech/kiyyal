@@ -110,6 +110,65 @@ export function markLogoutRevocationPending(pending: boolean): void {
   write(RETRY_KEY, pending);
 }
 
+/* ------------------------------------------------------------------ *
+ * Cross-tab session-transition ordering without Web Locks (2026-10-31).
+ *
+ * Fallback is a localStorage mutex: each contender writes a fresh token and a
+ * TTL, then reads back within the SAME synchronous task. Only the last
+ * physical writer sees its own token — losers back off with jittered retries.
+ * A crashed holder releases via TTL expiry; release deletes owner-only.
+ * In tab-less storage this degrades to the per-tab promise chain below.
+ * ------------------------------------------------------------------ */
+const MUTEX_KEY = 'gz.session.transitionMutex.v1';
+const MUTEX_TTL_MS = 30_000;
+const MUTEX_ACQUIRE_BUDGET_MS = 12_000;
+
+interface MutexRecord { readonly token: string; readonly expiresAt: number }
+
+function storageMutexAlive(): boolean {
+  try {
+    localStorage.setItem(`${MUTEX_KEY}.probe`, '1');
+    localStorage.removeItem(`${MUTEX_KEY}.probe`);
+    return true;
+  } catch { return false; }
+}
+
+function readMutex(): MutexRecord | null {
+  try {
+    const raw = localStorage.getItem(MUTEX_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as MutexRecord;
+    return typeof parsed?.token === 'string' && typeof parsed?.expiresAt === 'number' ? parsed : null;
+  } catch { return null; }
+}
+
+function newToken(): string {
+  try { return crypto.randomUUID(); } catch { return `tk-${Math.random().toString(36).slice(2)}`; }
+}
+
+/** Returns a release callback, or null when the mutex could not be acquired. */
+async function acquireStorageMutex(): Promise<(() => void) | null> {
+  const deadline = Date.now() + MUTEX_ACQUIRE_BUDGET_MS;
+  const token = newToken();
+  for (;;) {
+    const now = Date.now();
+    const current = readMutex();
+    if (!current || current.expiresAt <= now) {
+      const record: MutexRecord = { token, expiresAt: now + MUTEX_TTL_MS };
+      try { localStorage.setItem(MUTEX_KEY, JSON.stringify(record)); } catch { return null; }
+      // Synchronous readback: simultaneous contenders leave ONE last writer.
+      if (readMutex()?.token === token) {
+        return () => {
+          // Owner-only release; expiry already covers a crashed holder.
+          try { if (readMutex()?.token === token) localStorage.removeItem(MUTEX_KEY); } catch { /* noop */ }
+        };
+      }
+    }
+    if (Date.now() >= deadline) return null;
+    await new Promise((resolve) => setTimeout(resolve, 35 + Math.floor(Math.random() * 90)));
+  }
+}
+
 /**
  * Best-effort retry of the pending server revocation. Returns true only when
  * the server actually answered the DELETE — the caller may then state success.
@@ -118,10 +177,22 @@ let transitionTail: Promise<unknown> = Promise.resolve();
 async function withSessionTransition<T>(run: () => Promise<T>): Promise<T> {
   const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
   if (locks?.request) return await locks.request('kayyal-session-transition', run);
+  if (storageMutexAlive()) {
+    const release = await acquireStorageMutex();
+    if (release) {
+      // Serial across tabs: logout/login never overlap device-wide, even
+      // without the Locks API. Acquisition failure must NOT run concurrently.
+      try { return await run(); } finally { release(); }
+    }
+    throw new Error('session_transition_busy'); // صريحة: حالة انتقالية معلّقة معروفة
+  }
   const pending = transitionTail.then(run, run);
   transitionTail = pending.catch(() => {});
   return pending;
 }
+
+/** Exposed for regression tests of the no-Web-Locks ordering contract. */
+export const __withSessionTransitionForTests = withSessionTransition;
 
 export function retryPendingServerRevocation(): Promise<boolean> {
   return withSessionTransition(finishPendingLogout);

@@ -39,6 +39,14 @@ const TAB_OWNER = (typeof crypto !== 'undefined' && globalThis.crypto.randomUUID
   : `tab-${Math.random().toString(36).slice(2)}`;
 /** مدة الادعاء (lease): تغطي أطول مهلة طلب عادية؛ تتجدد عند التقدم. */
 const CLAIM_LEASE_MS = 30_000;
+/**
+ * مهلة الأمان للاستعادة في المتصفحات بلا Web Locks (توجيه المالك 2026-10-31):
+ * ادعاء منقضٍ بأقل منها لا يُلمس أبدًا (تبويب معلّق قد يفيق). بعدها يَعتبر
+ * المحرك المرسل ميتًا عملياتيًا — والاستعادة آمنة ماليًا بجدارتين مركّبتين:
+ * المفتاح الأصلي نفسه (الخادم يحصار أي تكرار بـ idempotent_replay) وأسوار
+ * الكتابة (commitAck/patchOpIfOwner تفحص المالك) التي تُخرِس السينات المستفيقة.
+ */
+const RECOVERY_GRACE_MS = 120_000;
 const lockNameOf = (queueId: string) => `kayyal-outbox:${queueId}`;
 
 /** تبويبات حقيقية تستعمل Web Locks حين توجد — وإلا الاكتفاء بالـ lease الذري. */
@@ -421,6 +429,14 @@ export async function sweepScope(scope: string, now = Date.now(), options: Sweep
   const store = offlineStore();
   const ops = await store.listOps(scope);
   let attempted = 0; let acknowledged = 0; let parked = 0; let conflicted = 0; let recoveredOrphans = 0;
+  /** عدّ نتيجة المحاولة الواحدة — وحدة الكنس والاستعادة معًا. */
+  const countOutcome = (outcome: OpOutcome): boolean => {
+    attempted += 1;
+    if (outcome.kind === 'acknowledged') acknowledged += 1;
+    else if (outcome.kind === 'parked') parked += 1;
+    else if (outcome.kind === 'conflict') conflicted += 1;
+    return outcome.kind === 'queued' && outcome.reason === 'offline';
+  };
   for (const op of ops) {
     if (isLocalLogoutLocked() || (sweepPaused && !options.deliberate)) break;
     if (op.status === 'conflict' || op.status === 'acknowledged' || op.status === 'parked') continue;
@@ -428,13 +444,25 @@ export async function sweepScope(scope: string, now = Date.now(), options: Sweep
       if (inFlight.has(op.queueId)) continue;
       const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
       if (!locks?.request) {
-        // A frozen tab can outlive every lease. Expiry is not proof of death.
-        // Recover only our own completed attempt; foreign attempts remain safe
-        // and visible until a browser with Web Locks can arbitrate recovery.
-        if (!op.claimedBy?.startsWith(`${TAB_OWNER}:`)) {
-          storeProblem = 'تعذّر إثبات توقف التبويب المرسل — أبقينا العملية معلّقة لحمايتها من إرسال متزامن';
+        // بلا Web Locks: «الانقضاء» وحده لا يثبت الموت — لكن الانقضاء بأكثر من
+        // مهلة الأمان يثبته عملياتيًا. قبلها نُبقي الادعاء محميًا ونُعلن أنفسنا.
+        const expiredGrace = op.claimExpiresAt != null && op.claimExpiresAt + RECOVERY_GRACE_MS < now;
+        if (!expiredGrace) {
+          if (!op.claimedBy?.startsWith(`${TAB_OWNER}:`)) {
+            storeProblem = 'عملية معلّقة لدى تبويب آخر قد يكون حيًّا — ستُسترد تلقائيًا إن ثبت توقفه بعد مهلة الأمان';
+          }
           continue;
         }
+        // الاستعادة بـ CAS على (المالك، انقضاء الادعاء) — منافس آخر يخسر،
+        // والمستفيق القديم يجد ملكيته ملغاة فتفشل كل كتاباته النهائية.
+        const recoveredNoLocks = await store.recoverOp(op, now);
+        if (recoveredNoLocks) {
+          recoveredOrphans += 1;
+          if (storeProblem?.includes('مهلة الأمان')) storeProblem = null; // علت الغيمة — انسحب الإعلان الصادق
+          // المستعاد يُرسَل في نفس دورة الكنس — لا ينتظر مؤقتًا آخر.
+          if (countOutcome(await attemptOp(op.queueId))) break;
+        }
+        continue;
       }
       const recovered = await withOpWebLock(op.queueId, async () => {
         // Re-read/CAS inside the storage transaction: a snapshot or lock-query
@@ -445,12 +473,7 @@ export async function sweepScope(scope: string, now = Date.now(), options: Sweep
       continue;
     }
     if (op.nextAttemptAt > now) continue;
-    attempted += 1;
-    const outcome = await attemptOp(op.queueId);
-    if (outcome.kind === 'acknowledged') acknowledged += 1;
-    else if (outcome.kind === 'parked') parked += 1;
-    else if (outcome.kind === 'conflict') conflicted += 1;
-    else if (outcome.kind === 'queued' && outcome.reason === 'offline') break; // لا معنى لمواصلة الكنس بلا شبكة
+    if (countOutcome(await attemptOp(op.queueId))) break; // لا معنى لمواصلة الكنس بلا شبكة
   }
   notify();
   return { attempted, acknowledged, parked, conflicted, recoveredOrphans };

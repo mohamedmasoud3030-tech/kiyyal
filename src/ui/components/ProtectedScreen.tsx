@@ -6,6 +6,7 @@ import { LogoutStatus } from './LogoutStatus';
 import { ar, type AppRole } from '../copy/ar';
 import { useSession } from '../hooks/useSession';
 import { resumeParkedIfSessionValid } from '../offline/outbox';
+import { warmReferenceCache } from '../offline/refCache';
 import { AppShell } from './AppShell';
 import { SessionGuardScreen } from './SessionGuardScreen';
 import { PageContainer } from './PageContainer';
@@ -33,6 +34,8 @@ export function ProtectedScreen({ activePath, children }: ProtectedScreenProps) 
   useEffect(() => {
     if (session.status === 'authenticated') {
       void resumeParkedIfSessionValid(session.scope);
+      // حدّث لقطة المرجعيات المحمية لهذا النطاق — تعمل النماذج والقشرة بها
+      void warmReferenceCache(session.scope);
     }
   }, [session]);
   if (session.status === 'locked') return <LogoutStatus />;
