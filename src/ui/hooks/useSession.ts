@@ -37,6 +37,10 @@ export function useSession(): SessionState {
       lockScreen();
       return;
     }
+    const recheckLock = () => { if (isLocalLogoutLocked()) lockScreen(); };
+    window.addEventListener('pageshow', recheckLock);
+    window.addEventListener('focus', recheckLock);
+    document.addEventListener('visibilitychange', recheckLock);
     const unsubscribe = subscribeLocalLogoutLock((locked) => {
       if (locked) {
         lockScreen();
@@ -68,7 +72,12 @@ export function useSession(): SessionState {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         setState({ status: 'unavailable' });
       });
-    return () => { unsubscribe(); controller.abort(); };
+    return () => {
+      unsubscribe(); controller.abort();
+      window.removeEventListener('pageshow', recheckLock);
+      window.removeEventListener('focus', recheckLock);
+      document.removeEventListener('visibilitychange', recheckLock);
+    };
   }, []);
 
   return state;
