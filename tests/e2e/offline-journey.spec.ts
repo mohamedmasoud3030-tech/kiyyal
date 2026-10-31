@@ -216,7 +216,7 @@ test('C1: إغلاق أثناء الإرسال قبل الوصول — المف�
   expect(draftBefore?.intent?.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
   await context.setOffline(true);
   await page.locator('form.expense-form button[type="submit"]').click();
-  await expect(page.getByTestId('connection-chip').first()).toContainText('غير متصل');
+  await expect(page.locator('[data-testid="connection-chip"]:visible').first()).toContainText('غير متصل');
 
   // «أُغلق التطبيق مقطوعًا وفُتح لاحقًا بشبكة»: بلا Service Worker التنقل
   // يتطلب اتصالًا — القطع هنا كان قبل إرسال الطلب قطعيًا (يلتزم به العدّاد).
@@ -225,7 +225,7 @@ test('C1: إغلاق أثناء الإرسال قبل الوصول — المف�
   // [تشخيص مؤقت] راقب مفتاح المسودة قبل/بعد إعادة الفتح لتحديد مصدر الاستراقاق:
   await page.reload();
   // الاستئناف التلقائي بنفس المفتاح حرفيًا + شارة الإقرار المرئية — وبعد الإقرار:
-  await expect(page.getByTestId('connection-chip').first()).toContainText('اكتملت', { timeout: 30_000 });
+  await expect(page.locator('[data-testid="connection-chip"]:visible').first()).toContainText('اكتملت', { timeout: 30_000 });
   // المسودة صارت شاهدة مستهلكة (intent=null) والنموذج صُفّر — لا ترجيع «كجديدة».
   expect((await idbDraft(page, 'expense'))?.intent ?? null).toBeNull();
   expect(await page.locator('#expense-amount').inputValue()).toBe('');
@@ -254,7 +254,7 @@ test('C2: إغلاق أثناء الإرسال بعد التزام الخادم 
 
   await page.unroute('**/api/transactions/expense');
   await page.reload();
-  await expect(page.getByTestId('connection-chip').first()).toContainText('اكتملت', { timeout: 30_000 });
+  await expect(page.locator('[data-testid="connection-chip"]:visible').first()).toContainText('اكتملت', { timeout: 30_000 });
   const ops = await idbOps(page);
   const acked = ops.find((op) => op.status === 'acknowledged');
   expect(acked?.idempotencyKey).toBe(capturedKey);
@@ -270,7 +270,7 @@ test('C3: الضغط حفظ قبل الاستئناف التلقائي وبعد�
   const key = draft!.intent!.idempotencyKey;
   await context.setOffline(true);
   await page.locator('form.expense-form button[type="submit"]').click();
-  await expect(page.getByTestId('connection-chip').first()).toContainText('غير متصل');
+  await expect(page.locator('[data-testid="connection-chip"]:visible').first()).toContainText('غير متصل');
   await context.setOffline(false);
   // ضغطة ثانية محدقة تزامنًا مع الكنس التلقائي — قفل الطيران الواحد هو الحكم.
   // requestSubmit يختبر منطق الأزرار/الصندوق دون انتظار تفعيل واجهة الاستجابة.
@@ -278,7 +278,7 @@ test('C3: الضغط حفظ قبل الاستئناف التلقائي وبعد�
     const form = document.querySelector('form.expense-form');
     if (form instanceof HTMLFormElement) form.requestSubmit();
   });
-  await expect(page.getByTestId('connection-chip').first()).toContainText('اكتملت', { timeout: 30_000 });
+  await expect(page.locator('[data-testid="connection-chip"]:visible').first()).toContainText('اكتملت', { timeout: 30_000 });
   await page.waitForFunction(async () => {
     const db = await new Promise<IDBDatabase | null>((resolve) => {
       const open = indexedDB.open('kayyal-offline')  // بلا تثبيت إصدار: يفتح النسخة الجارية (v2 بمخازنها الثلاثة);
@@ -323,14 +323,14 @@ test('C4: تبويبان بإعادة اتصال متزامنة — مانع ا�
   // التبويب الثاني يُفتح قبل انفلات الشبكة (واقع الفتح المسبق — لا تنقّل مقطوعًا).
   const page2 = await context.newPage();
   await page2.goto(`${baseUrl}/today`);
-  await expect(page2.getByTestId('connection-chip').first()).toBeVisible({ timeout: 15_000 });
+  await expect(page2.locator('[data-testid="connection-chip"]:visible').first()).toBeVisible({ timeout: 15_000 });
   await context.setOffline(true);
   await page1.locator('form.expense-form button[type="submit"]').click();
-  await expect(page1.getByTestId('connection-chip').first()).toContainText('غير متصل');
-  await expect(page2.getByTestId('connection-chip').first()).toContainText('لم تُرسل', { timeout: 15_000 });
+  await expect(page1.locator('[data-testid="connection-chip"]:visible').first()).toContainText('غير متصل');
+  await expect(page2.locator('[data-testid="connection-chip"]:visible').first()).toContainText('لم تُرسل', { timeout: 15_000 });
   await context.setOffline(false); // عودة الشبكة تضرب التبويبين معًا
-  await expect(page1.getByTestId('connection-chip').first()).toContainText('اكتملت', { timeout: 40_000 });
-  await expect(page2.getByTestId('connection-chip').first()).toContainText('اكتملت', { timeout: 40_000 });
+  await expect(page1.locator('[data-testid="connection-chip"]:visible').first()).toContainText('اكتملت', { timeout: 40_000 });
+  await expect(page2.locator('[data-testid="connection-chip"]:visible').first()).toContainText('اكتملت', { timeout: 40_000 });
   expect(await dbCountForKey(key)).toBe(1);
   const ops1 = await idbOps(page1);
   const ops2 = await idbOps(page2);
@@ -357,7 +357,7 @@ test('C5: جلسة منتهية — parked بلا إعادة محاولات، و
   // دخول جديد لنفس المستخدم = نفس scope ⇒ استئناف بنفس المفتاح.
   await signInOperatorTo(context, true);
   await page.goto(`${baseUrl}/today`);
-  await expect(page.getByTestId('connection-chip').first()).toContainText('اكتملت', { timeout: 40_000 });
+  await expect(page.locator('[data-testid="connection-chip"]:visible').first()).toContainText('اكتملت', { timeout: 40_000 });
   expect(await dbCountForKey(key)).toBe(1);
   await page.close();
 });
@@ -385,7 +385,7 @@ test('C6: تعارض يوم مغلق يبقى ظاهرًا بعد إعادة ا�
   expect(await dbCountForKey(key)).toBe(0); // تعارض = صفر توليد
   await page.reload();
   // بعد الإعادة: الرقاقة ما تزال تنادي بالنزاع، واللوحة تفصّله.
-  await page.getByTestId('connection-chip').first().click();
+  await page.locator('[data-testid="connection-chip"]:visible').first() // قشرة العرض تعرض نسختين (جوال/مكتب)؛ نختار المرئية — لا العنصر المخفي بالCSS.click();
   await expect(page.getByText(/اليوم مقفول|تعارض في البيانات/)).toBeVisible({ timeout: 15_000 });
   // الكنس لا يلمس التعارضات أبدًا (لا إعادة صامتة):
   await page.waitForTimeout(1_500);
@@ -400,7 +400,7 @@ test('C7: الخروج مع عمل غير محسوم — عدّاد ظاهر و�
   await fillExpense(page, '77.00');
   await context.setOffline(true);
   await page.locator('form.expense-form button[type="submit"]').click();
-  await expect(page.getByTestId('connection-chip').first()).toContainText('غير متصل');
+  await expect(page.locator('[data-testid="connection-chip"]:visible').first()).toContainText('غير متصل');
   const draft = await idbDraft(page, 'expense');
   const key = draft!.intent!.idempotencyKey;
 
@@ -411,7 +411,7 @@ test('C7: الخروج مع عمل غير محسوم — عدّاد ظاهر و�
   // التراجع يُبقي كل شيء:
   await page.getByRole('button', { name: ar.signOutGate.cancel }).click();
   expect(await dbCountForKey(key)).toBe(0);
-  await expect(page.getByTestId('connection-chip').first()).toContainText('غير متصل');
+  await expect(page.locator('[data-testid="connection-chip"]:visible').first()).toContainText('غير متصل');
   // القرار التدميري الصريح هو وحده من يمسح:
   await page.getByRole('button', { name: ar.auth.signOutAction }).first().click();
   await expect(page.getByText(ar.signOutGate.pendingTitle)).toBeVisible();
@@ -434,7 +434,7 @@ test('C8: خروج مقطوع الشبكة — لا ادعاء نجاح، قفل
   const { token } = await signInOperatorTo(context);
   const page = await context.newPage();
   await page.goto(`${baseUrl}/today`);
-  await expect(page.getByTestId('connection-chip').first()).toBeVisible();
+  await expect(page.locator('[data-testid="connection-chip"]:visible').first()).toBeVisible();
 
   // قطع الشبكة ثم طلب الخروج: المسح المحلي يحدث فورًا، والإنهاء الخادمي يتعذّر.
   await context.setOffline(true);
@@ -471,7 +471,7 @@ test('C9: زر «أرسل المعلّق الآن» نقرة حقيقية — ي
   await fillExpense(page, '33.00');
   await context.setOffline(true);
   await page.locator('form.expense-form button[type="submit"]').click();
-  await expect(page.getByTestId('connection-chip').first()).toContainText('غير متصل');
+  await expect(page.locator('[data-testid="connection-chip"]:visible').first()).toContainText('غير متصل');
   const draft = await idbDraft(page, 'expense');
   const key = draft!.intent!.idempotencyKey;
 
@@ -549,7 +549,7 @@ test('C10: تبويب A بطيء وتبويب B يُطلق focus/online — لا
 
   resolveHold!();
   const draftKey = (await idbDraft(pageA, 'expense'))!.intent!.idempotencyKey;
-  await expect(pageA.getByTestId('connection-chip').first()).toContainText('اكتملت', { timeout: 30_000 });
+  await expect(pageA.locator('[data-testid="connection-chip"]:visible').first()).toContainText('اكتملت', { timeout: 30_000 });
   expect(await dbCountForKey(draftKey)).toBe(1);
   expect(expensePosts).toBe(1);
   await pageA.close();
@@ -575,7 +575,7 @@ test('C10b: موت التبويب المالك وسط محاولة — تبوي�
 
   const pageB = await context.newPage();
   await pageB.goto(`${baseUrl}/expense`); // كنس B يكتشف اليتيم ويستكمل بنفس المفتاح
-  await expect(pageB.getByTestId('connection-chip').first()).toContainText('اكتملت', { timeout: 45_000 });
+  await expect(pageB.locator('[data-testid="connection-chip"]:visible').first()).toContainText('اكتملت', { timeout: 45_000 });
   expect(await dbCountForKey(draftKey)).toBe(1); // التزام واحد رغم محاولتين
   expect(expensePosts).toBeGreaterThanOrEqual(1); // الاستعادة قد تسلك route A المحذوف مع الصفحة
   const opsB = await idbOps(pageB);
