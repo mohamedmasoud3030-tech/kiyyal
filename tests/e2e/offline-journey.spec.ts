@@ -117,7 +117,7 @@ async function signInOperatorTo(context: BrowserContext, forceNew = false): Prom
 /** فحص مخزن IndexedDB الحقيقي من داخل الصفحة نفسها. */
 async function idbOps(page: Page): Promise<Array<{ queueId: string; status: string; idempotencyKey: string; body: Record<string, unknown> }>> {
   return page.evaluate(async () => new Promise((resolve, reject) => {
-    const open = indexedDB.open('kayyal-offline', 1);
+    const open = indexedDB.open('kayyal-offline')  // بلا تثبيت إصدار: يفتح النسخة الجارية (v2 بمخازنها الثلاثة);
     open.onerror = () => reject(open.error);
     open.onsuccess = () => {
       const db = open.result;
@@ -133,7 +133,7 @@ async function idbOps(page: Page): Promise<Array<{ queueId: string; status: stri
 
 async function idbDraft(page: Page, formKey: string): Promise<{ intent: { idempotencyKey: string } | null; fields: Record<string, unknown> } | null> {
   return page.evaluate(async (key) => new Promise((resolve, reject) => {
-    const open = indexedDB.open('kayyal-offline', 1);
+    const open = indexedDB.open('kayyal-offline')  // بلا تثبيت إصدار: يفتح النسخة الجارية (v2 بمخازنها الثلاثة);
     open.onerror = () => reject(open.error);
     open.onsuccess = () => {
       const db = open.result;
@@ -281,7 +281,7 @@ test('C3: الضغط حفظ قبل الاستئناف التلقائي وبعد�
   await expect(page.getByTestId('connection-chip').first()).toContainText('اكتملت', { timeout: 30_000 });
   await page.waitForFunction(async () => {
     const db = await new Promise<IDBDatabase | null>((resolve) => {
-      const open = indexedDB.open('kayyal-offline', 1);
+      const open = indexedDB.open('kayyal-offline')  // بلا تثبيت إصدار: يفتح النسخة الجارية (v2 بمخازنها الثلاثة);
       open.onsuccess = () => resolve(open.result);
       open.onerror = () => resolve(null);
       open.onupgradeneeded = () => { open.result.close(); resolve(null); };

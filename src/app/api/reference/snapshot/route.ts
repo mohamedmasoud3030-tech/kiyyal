@@ -40,7 +40,7 @@ export async function GET(request: Request): Promise<Response> {
   return withApi(async () => {
     const db = await getRuntimeDatabase();
     const context = await authenticateRequest(db, request);
-    if (!context.yardId) throw new SecurityError('unauthenticated', 'هذه اللقطة خاصة بساحة مسجّلة');
+    if (!context.yardId) throw new SecurityError('unauthenticated', 'yard-scoped snapshot requires an authenticated yard session');
     const [materials, parties] = await Promise.all([
       listMaterials(db, context),
       listParties(db, context),
