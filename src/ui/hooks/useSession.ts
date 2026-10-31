@@ -44,7 +44,12 @@ export function useSession(): SessionState {
     const unsubscribe = subscribeLocalLogoutLock((locked) => {
       if (locked) {
         lockScreen();
+        return;
       }
+      // الإلغاء الصادر بعد «الإنهاء الخادمي المؤكّد» ينقّل تلقائيًا لشاشة الدخول —
+      // دونه تجمّد الشاشة على «أكّد الخادم إنهاء الجلسة» بلا نهاية.
+      controller.abort();
+      window.location.assign('/login');
     });
     void fetch('/api/session', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
       .then(async (response) => {

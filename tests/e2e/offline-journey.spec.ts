@@ -385,7 +385,7 @@ test('C6: تعارض يوم مغلق يبقى ظاهرًا بعد إعادة ا�
   expect(await dbCountForKey(key)).toBe(0); // تعارض = صفر توليد
   await page.reload();
   // بعد الإعادة: الرقاقة ما تزال تنادي بالنزاع، واللوحة تفصّله.
-  await page.locator('[data-testid="connection-chip"]:visible').first() // قشرة العرض تعرض نسختين (جوال/مكتب)؛ نختار المرئية — لا العنصر المخفي بالCSS.click();
+  await page.locator('[data-testid="connection-chip"]:visible').first().click();
   await expect(page.getByText(/اليوم مقفول|تعارض في البيانات/)).toBeVisible({ timeout: 15_000 });
   // الكنس لا يلمس التعارضات أبدًا (لا إعادة صامتة):
   await page.waitForTimeout(1_500);
@@ -397,6 +397,7 @@ test('C6: تعارض يوم مغلق يبقى ظاهرًا بعد إعادة ا�
 test('C7: الخروج مع عمل غير محسوم — عدّاد ظاهر واختيار صريح موثق، لا مسح صامت', async ({ context }) => {
   await signInOperatorTo(context);
   const page = await context.newPage();
+  page.on('pageerror', (e) => console.log('[c7-pageerror]', String(e).slice(0, 400)));
   await fillExpense(page, '77.00');
   await context.setOffline(true);
   await page.locator('form.expense-form button[type="submit"]').click();
@@ -415,7 +416,7 @@ test('C7: الخروج مع عمل غير محسوم — عدّاد ظاهر و�
   // القرار التدميري الصريح هو وحده من يمسح:
   await page.getByRole('button', { name: ar.auth.signOutAction }).first().click();
   await expect(page.getByText(ar.signOutGate.pendingTitle)).toBeVisible();
-  await page.getByRole('button', { name: /أخرج واحذف المحلي نهائيًا/ }).click();
+  await page.getByRole('button', { name: /أخرج واحذف المحلي نهائيًا/ }).first().click();
   // القرار المحلي نُفّذ فورًا رغم القطع؛ التنقل بعده يتطلب شبكة (بلا SW)
   // — نعيد الشبكة ونعيد التنقّل كما سيفعل المستخدم فعليًا.
   await page.waitForTimeout(1_200);
@@ -433,6 +434,7 @@ test('C7: الخروج مع عمل غير محسوم — عدّاد ظاهر و�
 test('C8: خروج مقطوع الشبكة — لا ادعاء نجاح، قفل محلي عابر للتبويبات، وإنهاء خادمي مؤكد بعد العودة', async ({ context }) => {
   const { token } = await signInOperatorTo(context);
   const page = await context.newPage();
+  page.on('pageerror', (e) => console.log('[c8-pageerror]', String(e).slice(0, 300)));
   await page.goto(`${baseUrl}/today`);
   await expect(page.locator('[data-testid="connection-chip"]:visible').first()).toBeVisible();
 

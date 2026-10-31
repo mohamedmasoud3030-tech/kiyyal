@@ -21,6 +21,7 @@ const CHANNEL_NAME = 'gz.session.lock';
 const local = new Map<string, boolean>();
 const listeners = new Set<(locked: boolean) => void>();
 
+
 type LockMessage = { readonly type: 'locked' | 'unlocked'; readonly tabId: string };
 
 /**
@@ -230,6 +231,15 @@ async function finishPendingLogout(): Promise<boolean> {
       // Revoked, or the session was already gone server-side — either way the
       // pending debt is settled and this is now confirmed, not assumed.
       markLogoutRevocationPending(false);
+      // الدينان سُوِّيا: المسح تحقق والإنهاء الخادمي مؤكد ⇒ المسح المحلي أكّد
+      //  ببث «unlocked» حتى تنتقل الشاشات المقفولة (LogoutStatus/useSession)
+      // إلى شاشة الدخول تلقائيًا بدل التجميد على «أكّد الخادم».
+      if (!isLocalWipePending() && !isLogoutRevocationPending()) {
+        if (write(RETRY_KEY, false)) {
+          for (const listener of listeners) listener(false);
+          broadcast({ type: 'unlocked', tabId: TAB_ID });
+        }
+      }
       return true;
     }
     return false;
