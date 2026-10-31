@@ -1,0 +1,41 @@
+
+> kayyal@0.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /workspace/scratch/2c04fc2d83d7/kayyal
+
+ ❯ tests/auth/auth.test.ts (26 tests | 26 skipped) 271ms
+ ❯ tests/ui/operator-live-flow.test.tsx (15 tests | 15 skipped) 268ms
+ ❯ tests/ui/offline-resilience.test.tsx (7 tests | 7 skipped) 268ms
+ ❯ tests/services/posting.test.ts (70 tests | 70 skipped) 271ms
+ ❯ tests/db/real-postgres-security.test.ts (22 tests | 22 skipped) 274ms
+ ❯ tests/e2e-day/next-day.test.ts (5 tests | 5 skipped) 267ms
+ ❯ tests/e2e-day/operating-day.test.ts (16 tests | 16 skipped) 264ms
+ ❯ tests/routes/app-routes.test.ts (1 test | 1 skipped) 267ms
+ ❯ tests/routes/next-http.test.ts (2 tests | 2 skipped) 265ms
+
+ Test Files  9 failed | 14 passed (23)
+      Tests  142 passed | 164 skipped (306)
+   Start at  23:29:14
+   Duration  31.04s (transform 1.55s, setup 0ms, import 3.13s, tests 21.18s, environment 3.37s)
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/auth/auth.test.ts [ tests/auth/auth.test.ts ]
+ FAIL  tests/db/real-postgres-security.test.ts [ tests/db/real-postgres-security.test.ts ]
+ FAIL  tests/e2e-day/next-day.test.ts [ tests/e2e-day/next-day.test.ts ]
+ FAIL  tests/e2e-day/operating-day.test.ts [ tests/e2e-day/operating-day.test.ts ]
+ FAIL  tests/routes/app-routes.test.ts [ tests/routes/app-routes.test.ts ]
+ FAIL  tests/routes/next-http.test.ts [ tests/routes/next-http.test.ts ]
+ FAIL  tests/services/posting.test.ts [ tests/services/posting.test.ts ]
+ FAIL  tests/ui/offline-resilience.test.tsx [ tests/ui/offline-resilience.test.tsx ]
+ FAIL  tests/ui/operator-live-flow.test.tsx [ tests/ui/operator-live-flow.test.tsx ]
+Error: You are running this script as root. Postgres does not support running as root. If you wish to continue, configure embedded-postgres to create a Postgres user by setting the `createPostgresUser` option to true.
+ ❯ EmbeddedPostgres.<anonymous> node_modules/embedded-postgres/dist/index.js:342:27
+ ❯ rejected node_modules/embedded-postgres/dist/index.js:5:65
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+

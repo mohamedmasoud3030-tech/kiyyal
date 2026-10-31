@@ -1,0 +1,73 @@
+
+Running 20 tests using 3 workers
+
+  ✘   1 tests/e2e/operator-journey.spec.ts:124:1 › operator login, protected deep-link, purchase persistence, reload, responsive shell, receipt, and sign-out/sign-in (0ms)
+  ✘   2 tests/e2e/offline-journey.spec.ts:211:1 › C1: إغلاق أثناء الإرسال قبل الوصول — المفتاح والمحتوى يُستعادان، والإكمال التلقائي يظهر ويسجّل مرة واحدة (0ms)
+  -   4 tests/e2e/offline-journey.spec.ts:238:1 › C2: إغلاق أثناء الإرسال بعد التزام الخادم — إعادة بنفس المفتاح تسترجع الرد الأصلي بعلم replay
+  -   5 tests/e2e/offline-journey.spec.ts:265:1 › C3: الضغط حفظ قبل الاستئناف التلقائي وبعده — سطر واحد، وأي إدخال لاحق هوية جديدة لا إعادة تسجيل
+  -   6 tests/e2e/offline-journey.spec.ts:317:1 › C4: تبويبان بإعادة اتصال متزامنة — مانع السباق الذرّي يضمن التسجيل الوحيد
+  -   7 tests/e2e/offline-journey.spec.ts:343:1 › C5: جلسة منتهية — parked بلا إعادة محاولات، ولا استئناف إلا بعد جلسة صالحة لنفس النطاق
+  -   8 tests/e2e/offline-journey.spec.ts:365:1 › C6: تعارض يوم مغلق يبقى ظاهرًا بعد إعادة التحميل بسببه وإجراءاته المشروعة
+  -   9 tests/e2e/offline-journey.spec.ts:397:1 › C7: الخروج مع عمل غير محسوم — عدّاد ظاهر واختيار صريح موثق، لا مسح صامت
+  -  10 tests/e2e/offline-journey.spec.ts:433:1 › C8: خروج مقطوع الشبكة — لا ادعاء نجاح، قفل محلي عابر للتبويبات، وإنهاء خادمي مؤكد بعد العودة
+  -  11 tests/e2e/offline-journey.spec.ts:468:1 › C9: زر «أرسل المعلّق الآن» نقرة حقيقية — يعمل رغم إيقاف الكنس، يحدّث العدّاد، ويُظهر النجاح/الفشل
+  -  12 tests/e2e/offline-journey.spec.ts:517:1 › C10: تبويب A بطيء وتبويب B يُطلق focus/online — لا سرقة للمحاولة الحيّة ولا تكرار خادمي
+  -  13 tests/e2e/offline-journey.spec.ts:559:1 › C10b: موت التبويب المالك وسط محاولة — تبويب B يستعيد بنفس المفتاح والخادم يرد replay: سطر واحد
+  -  14 tests/e2e/offline-journey.spec.ts:586:1 › C11: صرامة parked — دورتا مؤقت بلا إعادة، حساب آخر لا يستأنف، والحساب الصحيح يستأنف بـ POST واحد
+  ✓   3 tests/e2e/storage-contract.spec.ts:37:1 › real two-tab IndexedDB ownership: one claim wins; no-lock expiry and stale recovery cannot steal (511ms)
+  ✓  15 tests/e2e/storage-contract.spec.ts:68:1 › a reopened tab stays locked when localStorage writing failed in the signing-out tab (227ms)
+  ✓  16 tests/e2e/storage-contract.spec.ts:89:1 › logout lock prevents a late draft writer from repopulating a wiped real database (167ms)
+  ✓  17 tests/e2e/storage-contract.spec.ts:107:1 › service worker reopens a safe shell offline without caching session or transaction responses (281ms)
+  ✓  18 tests/e2e/storage-contract.spec.ts:142:1 › real IndexedDB: exception rolls back an earlier ack write and preserves draft on restart (225ms)
+  ✓  19 tests/e2e/storage-contract.spec.ts:142:1 › real IndexedDB: abort rolls back an earlier ack write and preserves draft on restart (227ms)
+  ✓  20 tests/e2e/storage-contract.spec.ts:177:1 › real IndexedDB: aborted clear cannot claim success and verification sees every scope (141ms)
+
+
+  1) tests/e2e/offline-journey.spec.ts:211:1 › C1: إغلاق أثناء الإرسال قبل الوصول — المفتاح والمحتوى يُستعادان، والإكمال التلقائي يظهر ويسجّل مرة واحدة 
+
+    Error: You are running this script as root. Postgres does not support running as root. If you wish to continue, configure embedded-postgres to create a Postgres user by setting the `createPostgresUser` option to true.
+        at EmbeddedPostgres.<anonymous> (/workspace/scratch/2c04fc2d83d7/kayyal/node_modules/embedded-postgres/dist/index.js:342:27)
+        at rejected (/workspace/scratch/2c04fc2d83d7/kayyal/node_modules/embedded-postgres/dist/index.js:5:65)
+
+    Error Context: test-results/offline-journey-C1-إغلاق-أ-03b07-لقائي-يظهر-ويسجّل-مرة-واحدة/error-context.md
+
+    Error Context: test-results/offline-journey-C1-إغلاق-أ-03b07-لقائي-يظهر-ويسجّل-مرة-واحدة/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/offline-journey-C1-إغلاق-أ-03b07-لقائي-يظهر-ويسجّل-مرة-واحدة/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/offline-journey-C1-إغلاق-أ-03b07-لقائي-يظهر-ويسجّل-مرة-واحدة/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) tests/e2e/operator-journey.spec.ts:124:1 › operator login, protected deep-link, purchase persistence, reload, responsive shell, receipt, and sign-out/sign-in 
+
+    Error: You are running this script as root. Postgres does not support running as root. If you wish to continue, configure embedded-postgres to create a Postgres user by setting the `createPostgresUser` option to true.
+        at EmbeddedPostgres.<anonymous> (/workspace/scratch/2c04fc2d83d7/kayyal/node_modules/embedded-postgres/dist/index.js:342:27)
+        at rejected (/workspace/scratch/2c04fc2d83d7/kayyal/node_modules/embedded-postgres/dist/index.js:5:65)
+
+    Error Context: test-results/operator-journey-operator--198f7-eceipt-and-sign-out-sign-in/error-context.md
+
+    Error Context: test-results/operator-journey-operator--198f7-eceipt-and-sign-out-sign-in/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/operator-journey-operator--198f7-eceipt-and-sign-out-sign-in/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/operator-journey-operator--198f7-eceipt-and-sign-out-sign-in/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    tests/e2e/offline-journey.spec.ts:211:1 › C1: إغلاق أثناء الإرسال قبل الوصول — المفتاح والمحتوى يُستعادان، والإكمال التلقائي يظهر ويسجّل مرة واحدة 
+    tests/e2e/operator-journey.spec.ts:124:1 › operator login, protected deep-link, purchase persistence, reload, responsive shell, receipt, and sign-out/sign-in 
+  11 did not run
+  7 passed (3.1s)
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+(node:1467) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1468) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1474) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)

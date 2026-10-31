@@ -3,6 +3,12 @@
 > Canonical state file (2026-10-22). Product: `PRD.md`. Contracts win over
 > code (see `README.md` hierarchy). Stage reports are in Git history.
 
+## PR #19 — 2026-10-31 independent verification
+
+**BLOCKED** on branch `feat/offline-drafts-queue`. Runtime repairs are published through `c6947962c2d206ffe32153330828ea1085fb6dad`; no merge or production deploy. Strict gate: 5/14 commands passed, 9 failed. Full Vitest: 142 passed, 164 skipped after native PostgreSQL setup failed under root. New real-browser storage/SW contracts: 7/7 passed. Vercel status succeeded; GitHub Actions failed without runner/steps and its logs returned 404. Full offline operation and safe no-Web-Locks recovery/session ordering remain open; no owner deferral is assumed.
+
+See [the complete repair and evidence report](2026-10-31-pr19-independent-verification.md) for exact paths, commands, limitations and remote links. Earlier historical readiness figures below do not certify PR #19.
+
 ## Product
 
 Scrap-yard (recycling warehouse) operations system for Egypt: weighing,

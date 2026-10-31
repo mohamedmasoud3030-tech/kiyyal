@@ -1,0 +1,14 @@
+
+> kayyal@0.0.0 test:unit
+> vitest run tests/domain
+
+
+ RUN  v4.1.11 /workspace/scratch/2c04fc2d83d7/kayyal
+
+
+ Test Files  2 passed (2)
+      Tests  36 passed (36)
+   Start at  23:28:36
+   Duration  527ms (transform 148ms, setup 0ms, import 197ms, tests 26ms, environment 0ms)
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
