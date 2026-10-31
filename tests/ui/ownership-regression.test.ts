@@ -7,11 +7,22 @@ const op = { queueId: 'a:k', scope: 'a', type: 'expense', status: 'syncing', cla
 afterEach(() => { __setOfflineStoreForTests(null); vi.unstubAllGlobals(); });
 it('lease expiry alone never proves a suspended foreign sender is dead without Web Locks', async () => {
   const store = createMemoryOfflineStore();
-  await store.putOp(op);
+  // انتهاء الإيجار وحده (هنا: قبل ثانية واحدة فقط، داخل فترة الغريس 120s) ليس
+  // برهان موت: لا استرداد، لا تحرير، وصاحب العملية يحتفظ بمطالبته كما هي.
+  await store.putOp({ ...op, claimExpiresAt: Date.now() - 1000 });
   __setOfflineStoreForTests(store);
   const result = await sweepScope('a');
   expect(result.recoveredOrphans).toBe(0);
   expect((await store.getOp('a:k'))?.claimedBy).toBe('foreign-attempt');
+});
+it('lease expiry beyond the grace window is the death proof that triggers orphan recovery with the same key', async () => {
+  const store = createMemoryOfflineStore();
+  await store.putOp({ ...op, claimExpiresAt: Date.now() - 121_000 });
+  __setOfflineStoreForTests(store);
+  const result = await sweepScope('a');
+  expect(result.recoveredOrphans).toBe(1);
+  const after = await store.getOp('a:k');
+  expect(after?.idempotencyKey).toBe('k'); // المفتاح الأصلي يُحفظ — لا تكرار أبدًا
 });
 it('orphan recovery cannot overwrite an acknowledgement committed after the list snapshot', async () => {
   const inner = createMemoryOfflineStore();

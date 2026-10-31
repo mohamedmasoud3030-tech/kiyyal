@@ -1,9 +1,10 @@
-import type { DraftRecord, OfflineStore, OpAck, QueuedOp } from './types';
+import type { DraftRecord, OfflineStore, OpAck, QueuedOp, RefCacheRecord } from './types';
 
 /** تخزين ذاكري يحقق عقد OfflineStore — للاختبارات؛ ليس سقوطًا صامتًا في المنتج (ADR-0016 §7). */
 export function createMemoryOfflineStore(): OfflineStore {
   const ops = new Map<string, QueuedOp>();
   const drafts = new Map<string, DraftRecord>();
+  const refs = new Map<string, RefCacheRecord>();
   const draftKey = (scope: string, formKey: string) => `${scope}|${formKey}`;
 
   const claimable = (current: QueuedOp | undefined, now: number): current is QueuedOp =>
@@ -63,9 +64,23 @@ export function createMemoryOfflineStore(): OfflineStore {
     async clearScope(scope) {
       for (const [id, op] of ops) if (op.scope === scope) ops.delete(id);
       for (const [key, draft] of drafts) if (draft.scope === scope) drafts.delete(key);
+      for (const [key, ref] of refs) if (ref.scope === scope) refs.delete(key);
     },
-    async isEmpty() { return ops.size === 0 && drafts.size === 0; },
-    async clearAll() { ops.clear(); drafts.clear(); },
-  };
+    // عدم ترك أي شيء خلفًا عند الخروج: الطابور والمسودات والمرجعيات معًا.
+    async isEmpty() { return ops.size === 0 && drafts.size === 0 && refs.size === 0; },
+    async clearAll() { ops.clear(); drafts.clear(); refs.clear(); },
+    async putRef(record) {
+      refs.set(`${record.scope}|${record.kind}`, record);
+    },
+    async getRef(scope, kind) {
+      return refs.get(`${scope}|${kind}`) ?? null;
+    },
+    async clearScopeRefs(scope) {
+      for (const key of [...refs.keys()]) if (key.startsWith(`${scope}|`)) refs.delete(key);
+    },
+    async clearAllRefs() {
+      refs.clear();
+    },
+};
 }
 

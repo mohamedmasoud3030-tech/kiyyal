@@ -120,6 +120,55 @@ describe('صرامة parked (توجيه ٤) — لا استئناف بالوقت
   });
 });
 
+describe('استعادة بلا Web Locks — مهلة الأمان (توجيه 31 أكتوبر ١)', () => {
+  it('ادعاء أجنبي منقضٍ دون مهلة الأمان لا يُلمس — وبعدها يُسترد بنفس المفتاح', async () => {
+    script = [{ kind: 'network-error' }];
+    await enqueueAndAttempt(ARGS);
+    const store = offlineStore();
+    const justExpired = Date.now() - 1_000; // منقضٍ لكن داخل مهلة الأمان (120ث)
+    await store.patchOp(`${SCOPE}:${KEY}`, {
+      status: 'syncing', claimedBy: 'frozen-foreign-tab:x', claimExpiresAt: justExpired,
+    });
+    let result = await sweepScope(SCOPE, Date.now());
+    expect(result.recoveredOrphans).toBe(0);
+    expect((await store.getOp(`${SCOPE}:${KEY}`))?.status).toBe('syncing');
+    expect(storeProblemMessage()).toContain('مهلة الأمان');
+
+    // بعد انقضاء مهلة الأمان: استرداد CAS بنفس المفتاح والهوية — إثبات موت.
+    const beyondGrace = Date.now() + 121_000;
+    result = await sweepScope(SCOPE, beyondGrace);
+    expect(result.recoveredOrphans).toBe(1);
+    const op = await store.getOp(`${SCOPE}:${KEY}`);
+    expect(op?.status).toBe('queued');
+    expect(op?.idempotencyKey).toBe(KEY); // المفتاح الأصلي — لا عودة عنه أبدًا
+    expect(storeProblemMessage()).toBeNull(); // زوال الغيمة يسحب الإعلان الصادق تلقائيًا
+  });
+
+  it('المستفيق القديم لا يكتب شيئًا: أسوار الملكية تُخرِس إقراره المتأخر', async () => {
+    script = [{ kind: 'network-error' }];
+    await enqueueAndAttempt(ARGS);
+    const store = offlineStore();
+    await store.patchOp(`${SCOPE}:${KEY}`, {
+      status: 'syncing', claimedBy: 'frozen-foreign-tab:x', claimExpiresAt: Date.now() - 121_000,
+    });
+    // هذا التبويب يسترد ويكمل بنفس المفتاح:
+    script = [{ kind: 'response', status: 200, payload: { id: 'tx-2', number: 'EXP-2', status: 'recorded', idempotent_replay: true } }];
+    const result = await sweepScope(SCOPE, Date.now());
+    expect(result.recoveredOrphans).toBe(1);
+    expect(result.acknowledged).toBe(1);
+    // المستفيق القديم يحاول كتابة إقراره بمالكيته الملغاة — يُرفض البتة:
+    const lateWrite = await store.patchOpIfOwner(`${SCOPE}:${KEY}`, 'frozen-foreign-tab:x', { status: 'queued' });
+    expect(lateWrite).toBe(false);
+    const lateAck = await store.commitAck(`${SCOPE}:${KEY}`, 'frozen-foreign-tab:x', {
+      at: new Date().toISOString(), transactionId: 'tx-fake', number: null, serverStatus: null,
+      idempotentReplay: false, seenByUser: false,
+    }, SCOPE, 'expense');
+    expect(lateAck).toBe(false);
+    const op = await store.getOp(`${SCOPE}:${KEY}`);
+    expect(op?.ack?.transactionId).toBe('tx-2'); // الإقرار الشرعي الوحيد
+  });
+});
+
 describe('ملكية الـlease العابرة للتبويبات (توجيه ٣)', () => {
   it('محاولة syncing بملكية تبويب آخر وlease حيّ لا تُسرَق ولا تُلمس', async () => {
     script = [{ kind: 'network-error' }]; // النتيجة المتوقعة: queued بعد انقطاع

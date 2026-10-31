@@ -117,7 +117,7 @@ export const ar = {
     recentTransactionsDescription: 'تظهر حركات يوم العمل الحالي المسموح بها لهذه الجلسة فقط.',
     stockTitle: 'كميات المخزون',
     stockDescription: 'يعرض لموظف التشغيل الكمية فقط دون تكلفة أو قيمة.',
-    kpiTransactionsLabel: 'حركات اليوم',
+    kpiTransactionsLabel: 'الحركات المعروضة',  // مؤشر على آخر ٨ حركات معروضة فقط — لا ادعاء إجمالي يوم
     kpiSalesLabel: 'مبيعات اليوم',
     kpiPendingLabel: 'بانتظار إجراء',
     kpiStockLabel: 'أصناف بالمخزون',

@@ -13,10 +13,13 @@ test.beforeAll(async () => {
   server = createServer((req, res) => {
     if (networkDown) { req.socket.destroy(); return; }
     if (req.url === '/') { res.end('<!doctype html><title>Storage contract</title>'); return; }
-    if (['/sw.js', '/offline.html', '/manifest.webmanifest', '/icon.svg'].includes(req.url ?? '')) {
+    if (['/sw.js', '/offline.html', '/offline.js', '/manifest.webmanifest', '/icon.svg'].includes(req.url ?? '') || (req.url ?? '').startsWith('/icons/')) {
       try {
-        res.setHeader('Content-Type', req.url === '/sw.js' ? 'application/javascript' : 'text/html');
-        res.end(readFileSync(resolve('public', '.' + req.url)));
+        const pathname = req.url ?? '';
+        const js = pathname.endsWith('.js');
+        const png = pathname.endsWith('.png');
+        res.setHeader('Content-Type', js ? 'application/javascript' : png ? 'image/png' : 'text/html');
+        res.end(readFileSync(resolve('public', '.' + pathname)));
       } catch { res.writeHead(404).end(); }
       return;
     }
@@ -61,7 +64,13 @@ test('real two-tab IndexedDB ownership: one claim wins; no-lock expiry and stale
     const recovered = await s.recoverOp(stale, Date.now());
     return { recovered, orphans: sweep.recoveredOrphans, owner: afterSweep.claimedBy, expectedOwner: stale.claimedBy };
   });
-  expect(result).toEqual({ recovered: false, orphans: 0, owner: result.expectedOwner, expectedOwner: result.expectedOwner });
+  // جولة 3 (الاستعادة بالغريس): المطالبة المنتهية أمدها بعيدًا (أكثر من فترة
+  // السماح) يثبت موت صاحبها، فيستردها الكاسح ويعيدها للطابور بذات مفتاحها —
+  // والمطالب القديم لا يصلح (fenced) ولا يسترد ثانية (CAS).
+  expect(result.recovered).toBe(false);
+  expect(result.orphans).toBe(1);
+  expect(result.owner).toBeNull();
+  expect(['owner-0', 'owner-1']).toContain(result.expectedOwner);
   await browser.close();
 });
 
@@ -125,16 +134,73 @@ test('service worker reopens a safe shell offline without caching session or tra
   await page.close();
   const reopened = await context.newPage();
   await reopened.goto(origin + '/today');
-  await expect(reopened.getByRole('heading', { name: 'كيّال — غير متصل' })).toBeVisible();
+  await expect(reopened.getByRole('heading', { name: 'كيّال — تشتغل دون شبكة' })).toBeVisible();
   const cached = await reopened.evaluate(async () => {
     const names = await caches.keys();
     return (await Promise.all(names.map(async name => (await (await caches.open(name)).keys()).map(r => new URL(r.url).pathname)))).flat();
   });
-  expect(cached).toEqual(['/offline.html']);
+  // العقد: nothing cached beyond the public shell + static assets — no API
+  // responses, no authenticated HTML, no RSC payloads.
+  const allowedPrefixes = ['/offline.html', '/offline.js', '/manifest.webmanifest', '/icons/', '/_next/static/'];
+  expect(cached.every((path) => allowedPrefixes.some((prefix) => path.startsWith(prefix)))).toBe(true);
+  expect(cached.some((path) => path.startsWith('/api/'))).toBe(false);
+  expect(cached).toContain('/offline.html');
+  expect(cached).toContain('/offline.js');
   networkDown = false;
   await context.setOffline(false);
   await reopened.goto(origin);
   await expect(reopened).toHaveTitle('Storage contract');
+  await browser.close();
+});
+
+test('ADR-0010 round-3: functional offline shell reads device store, edits drafts by same key, shows honest reference age', async () => {
+  const browser = await chromium.launch({ ...(process.env.KAYYAL_CHROMIUM_PATH ? { executablePath: process.env.KAYYAL_CHROMIUM_PATH } : {}), args: ['--no-sandbox'] });
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.goto(origin);
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+  });
+  // Seed the device store exactly as the product would (same store module).
+  await page.evaluate(async () => {
+    const { createIndexedDbOfflineStore } = await import('/src/ui/offline/indexeddb-store' as string);
+    const s = createIndexedDbOfflineStore();
+    const scope = 'f'.repeat(24);
+    await s.putOp({ queueId: scope + ':k1', scope, idempotencyKey: 'aaaaaaaa-1111-4111-8111-111111111111', type: 'expense', body: { amount: '45' }, status: 'queued', attempts: 0, claimedBy: 'tab-x', claimExpiresAt: 1, ack: null });
+    await s.putDraft({ scope, formKey: 'expense', fields: { amount: '120', note: 'شاحن' }, intent: { idempotencyKey: 'bbbbbbbb-2222-4222-8222-222222222222', opType: 'expense', acked: false }, savedAt: '2026-10-31T08:00:00.000Z' });
+    await s.putRef({ scope, kind: 'snapshot', savedAt: '2026-10-31T07:30:00.000Z', payload: { scope, fetched_at: '2026-10-31T07:30:00.000Z', materials: [{ id: '33333333-3333-4333-8333-333333333333', display_name: 'نحاس أحمر', default_pricing_unit: 'kg' }], parties: [] } });
+  });
+  networkDown = true;
+  await context.setOffline(true);
+  await page.close();
+  const shell = await context.newPage();
+  await shell.goto(origin + '/today'); // تنقّل حقيقي دون شبكة — القشرة تخدمه
+  await expect(shell.getByRole('heading', { name: 'كيّال — تشتغل دون شبكة' })).toBeVisible();
+  // الطابور يعرض العملية المعلقة بصدق مع مبلغها
+  await expect(shell.locator('#ops-list li')).toHaveCount(1);
+  await expect(shell.locator('#ops-list li').first()).toContainText('مصروف');
+  await expect(shell.locator('#ops-list li').first()).toContainText('بانتظار الشبكة');
+  await expect(shell.locator('#ops-list li').first()).toContainText('45');
+  // المسودة قابلة للتعديل، واللقطة المرجعية تُعرض بختم «آخر مزامنة»
+  const amountInput = shell.locator('#drafts-list input').first();
+  await expect(amountInput).toBeVisible();
+  await expect(shell.locator('#ref-note')).toContainText('آخر مزامنة');
+  await amountInput.fill('350');
+  await amountInput.blur();
+  await expect(shell.locator('#banner')).toContainText('تم حفظ تعديل المسودة');
+  // التحقق من القاعدة الذهبية: التعديل حفظ الحقول فقط — مفتاح الإرسال الأصلي لم يتغير
+  const draftAfter = await shell.evaluate(async () => {
+    const req = indexedDB.open('kayyal-offline');
+    const db = await new Promise<IDBDatabase>((res, rej) => { req.onsuccess = () => res(req.result as IDBDatabase); req.onerror = () => rej(req.error); });
+    const get = db.transaction('drafts').objectStore('drafts').get(('f'.repeat(24)) + '|expense');
+    return new Promise<{ fields: { amount: string; note: string }; intent: { idempotencyKey: string } }>((res, rej) => { get.onsuccess = () => res(get.result as { fields: { amount: string; note: string }; intent: { idempotencyKey: string } }); get.onerror = () => rej(get.error); });
+  });
+  expect(draftAfter.fields.amount).toBe('350');
+  expect(draftAfter.fields.note).toBe('شاحن');
+  expect(draftAfter.intent.idempotencyKey).toBe('bbbbbbbb-2222-4222-8222-222222222222');
+  networkDown = false;
+  await context.setOffline(false);
   await browser.close();
 });
 
