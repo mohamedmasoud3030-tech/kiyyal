@@ -20,6 +20,12 @@ type FilterOption = { id: string; label: string };
 
 function isReportName(value: string): value is ReportName { return reportNames.includes(value as ReportName); }
 function safeText(value: unknown): string { return value == null ? ar.reports.emptyValue : String(value); }
+function reportRowKey(row: Record<string, unknown>): string {
+  for (const field of ['id', 'material_id', 'party_id']) {
+    if (row[field] != null) return String(row[field]);
+  }
+  return Object.entries(row).sort(([left], [right]) => left.localeCompare(right)).map(([key, value]) => `${key}=${String(value)}`).join('|');
+}
 
 /**
  * Clipboard access is deliberately best-effort. The app can be rendered inside
@@ -145,7 +151,7 @@ export function ReportsContent({ role: injectedRole }: { readonly role?: AppRole
     {state.status === 'loaded' && state.rows.length === 0 ? <StatePanel title={ar.reports.emptyTitle} description={ar.reports.emptyDescription} /> : null}
     {state.status === 'loaded' ? <>
       <Section title={ar.reports.summaryTitle}><dl className="reports-summary">{Object.entries(state.summary).map(([key, value]) => <div key={key}><dt>{ar.reports.summaryLabels[key as keyof typeof ar.reports.summaryLabels] ?? key}</dt><dd><bdi dir="ltr">{safeText(value)}</bdi></dd></div>)}</dl></Section>
-      {state.rows.length ? <Section title={`${ar.reports.rowsTitle} (${state.rows.length})`}><DataTable rows={state.rows} columns={columns} getRowKey={(row, index) => `${String(row.id ?? index)}-${index}`} wrapperClassName="reports-table-wrap" tableClassName="reports-table" /></Section> : null}
+      {state.rows.length ? <Section title={`${ar.reports.rowsTitle} (${state.rows.length})`}><DataTable ariaLabel={ar.reports.reportLabels[report]} caption={ar.reports.reportLabels[report]} rows={state.rows} columns={columns} getRowKey={reportRowKey} wrapperClassName="reports-table-wrap" tableClassName="reports-table" /></Section> : null}
     </> : null}
   </PageContainer>;
 }

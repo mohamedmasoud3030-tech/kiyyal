@@ -9,11 +9,13 @@ export type DataTableColumn<Row> = {
 type DataTableProps<Row> = {
   readonly rows: readonly Row[];
   readonly columns: readonly DataTableColumn<Row>[];
-  readonly getRowKey?: (row: Row, rowIndex: number) => string | number;
+  /** A domain identity, not the array position. Duplicate identities are disambiguated locally. */
+  readonly getRowKey: (row: Row, rowIndex: number) => string | number;
   readonly wrapperClassName?: string;
   readonly tableClassName?: string;
   readonly emptyMessage?: ReactNode;
-  readonly caption?: ReactNode;
+  readonly caption: ReactNode;
+  readonly ariaLabel?: string;
 };
 
 /**
@@ -32,22 +34,36 @@ export function DataTable<Row>({
   tableClassName = 'data-table',
   emptyMessage,
   caption,
+  ariaLabel,
 }: DataTableProps<Row>) {
+  const seenKeys = new Map<string, number>();
+
   return (
-    <div className={wrapperClassName}>
+    <div
+      aria-label={ariaLabel}
+      className={wrapperClassName}
+      role="region"
+      tabIndex={0}
+    >
       <table className={tableClassName}>
-        {caption ? <caption>{caption}</caption> : null}
+        <caption className="visually-hidden">{caption}</caption>
         <thead>
           <tr>
             {columns.map((column) => <th key={column.key} scope="col">{column.header}</th>)}
           </tr>
         </thead>
         <tbody>
-          {rows.length ? rows.map((row, rowIndex) => (
-            <tr key={getRowKey ? getRowKey(row, rowIndex) : rowIndex}>
-              {columns.map((column) => <td key={column.key}>{column.cell(row, rowIndex)}</td>)}
-            </tr>
-          )) : emptyMessage != null ? (
+          {rows.length ? rows.map((row, rowIndex) => {
+            const baseKey = String(getRowKey(row, rowIndex));
+            const occurrence = seenKeys.get(baseKey) ?? 0;
+            seenKeys.set(baseKey, occurrence + 1);
+            const rowKey = occurrence === 0 ? baseKey : `${baseKey}:${occurrence}`;
+            return (
+              <tr key={rowKey}>
+                {columns.map((column) => <td key={column.key}>{column.cell(row, rowIndex)}</td>)}
+              </tr>
+            );
+          }) : emptyMessage != null ? (
             <tr><td colSpan={Math.max(columns.length, 1)}>{emptyMessage}</td></tr>
           ) : null}
         </tbody>
