@@ -256,3 +256,97 @@
   .app-shell__desktop-header, .navigation-overflow { display: none !important; }
   .app-shell__workspace { display: block; }
 }
+
+/* Shared table/report refinement. Keep the scroll boundary on the table shell,
+   never on the page, so wide owner read models remain usable in RTL and on
+   narrow screens without changing their server-derived values. */
+@media screen {
+  .operations-form,
+  .regrade-form {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .detail-list {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 0;
+  }
+
+  .detail-list > div {
+    display: grid;
+    gap: .25rem;
+    min-inline-size: 0;
+  }
+
+  .detail-list dt {
+    color: var(--color-muted);
+    font-size: .8125rem;
+  }
+
+  .detail-list dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-weight: 700;
+  }
+
+  .form-feedback {
+    color: var(--color-primary-strong);
+    margin-block-start: .75rem;
+  }
+
+  .reports-filters__actions {
+    grid-column: 1 / -1;
+  }
+
+  .reports-actions {
+    margin-block: 1rem;
+  }
+
+  .reports-table-wrap,
+  .regrade-preview-table-wrap,
+  .table-scroll {
+    max-inline-size: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .reports-table,
+  .regrade-preview-table,
+  .data-table {
+    inline-size: 100%;
+  }
+
+  .reports-table th,
+  .reports-table td,
+  .regrade-preview-table th,
+  .regrade-preview-table td,
+  .data-table th,
+  .data-table td {
+    vertical-align: middle;
+  }
+
+  @media (max-width: 48rem) {
+    .detail-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 37.499rem) {
+    .detail-list {
+      grid-template-columns: 1fr;
+    }
+
+    .reports-filters__actions,
+    .reports-filters__actions .ui-button,
+    .reports-actions,
+    .reports-actions .ui-button {
+      inline-size: 100%;
+    }
+
+    .reports-actions {
+      display: grid;
+    }
+  }
+}
