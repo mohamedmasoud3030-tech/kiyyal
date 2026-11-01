@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { describe, expect, it } from 'vitest';
 
-import { DataTable } from '../../src/ui/components/DataTable.js';
+import { composeDataTableRowKey, DataTable } from '../../src/ui/components/DataTable.js';
 
 describe('DataTable', () => {
   it('renders an accessible shared table skeleton without altering cell values', () => {
@@ -26,6 +26,27 @@ describe('DataTable', () => {
     expect(html).toContain('scope="col"');
     expect(html).toContain('dir="ltr"');
     expect(html).toContain('A-01');
+  });
+
+  it('composes unambiguous keys for duplicate and delimiter-containing identities', () => {
+    const identities = ['a', 'a', 'a:1'];
+    const keys = identities.map((identity, index) => composeDataTableRowKey(identity, index === 1 ? 1 : 0));
+
+    expect(new Set(keys).size).toBe(3);
+    expect(keys[1]).not.toBe(keys[2]);
+
+    const html = renderToStaticMarkup(
+      <DataTable
+        caption="هويات الصفوف"
+        columns={[{ key: 'value', header: 'القيمة', cell: (row: { identity: string; value: string }) => row.value }]}
+        getRowKey={(row) => row.identity}
+        rows={identities.map((identity, index) => ({ identity, value: `row-${index}` }))}
+      />,
+    );
+
+    expect(html).toContain('row-0');
+    expect(html).toContain('row-1');
+    expect(html).toContain('row-2');
   });
 
   it('keeps the empty state inside the table and spans all columns', () => {

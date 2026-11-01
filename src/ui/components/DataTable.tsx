@@ -6,6 +6,12 @@ export type DataTableColumn<Row> = {
   readonly cell: (row: Row, rowIndex: number) => ReactNode;
 };
 
+export function composeDataTableRowKey(baseKey: string, occurrence: number): string {
+  // Encode the tuple rather than concatenating with ':'; an identity of
+  // "a:1" must never collide with the second occurrence of "a".
+  return `row:${JSON.stringify([baseKey, occurrence])}`;
+}
+
 type DataTableProps<Row> = {
   readonly rows: readonly Row[];
   readonly columns: readonly DataTableColumn<Row>[];
@@ -57,7 +63,7 @@ export function DataTable<Row>({
             const baseKey = String(getRowKey(row, rowIndex));
             const occurrence = seenKeys.get(baseKey) ?? 0;
             seenKeys.set(baseKey, occurrence + 1);
-            const rowKey = occurrence === 0 ? baseKey : `${baseKey}:${occurrence}`;
+            const rowKey = composeDataTableRowKey(baseKey, occurrence);
             return (
               <tr key={rowKey}>
                 {columns.map((column) => <td key={column.key}>{column.cell(row, rowIndex)}</td>)}

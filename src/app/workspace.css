@@ -59,6 +59,7 @@
     }
   }
   html, body { font-family: 'Kayyal Arabic', Tahoma, Arial, sans-serif; }
+  .app-shell { overflow-x: clip; }
   body { line-height: 1.7; }
   h1, h2, h3, p, strong, span { overflow-wrap: anywhere; }
   button, input, select, textarea { font-family: inherit; }
