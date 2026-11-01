@@ -253,12 +253,12 @@ export function TransactionDetailContent({ role: injectedRole, transactionId }: 
           action: (
             <div className="page-header__actions">
               {canIssueTransactionReceipt(transaction) ? (
-                <Link className="ui-button ui-button--secondary ui-button--md" href={`/transactions/${encodeURIComponent(transaction.id)}/receipt`}>
+                <Link prefetch={false} className="ui-button ui-button--secondary ui-button--md" href={`/transactions/${encodeURIComponent(transaction.id)}/receipt`}>
                   {ar.receipt.viewAction}
                 </Link>
               ) : null}
               {canCorrectClosedPurchase ? (
-                <Link className="ui-button ui-button--primary ui-button--md" href={`/transactions/${encodeURIComponent(transaction.id)}/cost-adjustment`}>
+                <Link prefetch={false} className="ui-button ui-button--primary ui-button--md" href={`/transactions/${encodeURIComponent(transaction.id)}/cost-adjustment`}>
                   {ar.transactionDetail.costAdjustmentAction}
                 </Link>
               ) : null}
@@ -296,7 +296,7 @@ export function TransactionDetailContent({ role: injectedRole, transactionId }: 
             <div>
               <dt>{ar.transactionDetail.originalTransactionLabel}</dt>
               <dd>
-                <Link className="operational-list__detail-link" href={`/transactions/${encodeURIComponent(transaction.cost_adjustment.original_transaction_id)}`}>
+                <Link prefetch={false} className="operational-list__detail-link" href={`/transactions/${encodeURIComponent(transaction.cost_adjustment.original_transaction_id)}`}>
                   <bdi dir="ltr">{transaction.cost_adjustment.original_transaction_number ?? transaction.cost_adjustment.original_transaction_id}</bdi>
                 </Link>
               </dd>

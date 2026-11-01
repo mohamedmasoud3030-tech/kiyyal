@@ -71,7 +71,7 @@ export function InventoryContent({ role: injectedRole }: { readonly role?: AppRo
                 <li className="inventory-list__item" key={item.material_id}>
                   <div className="inventory-list__identity">
                     {role === 'owner' ? (
-                      <Link className="inventory-list__name inventory-list__name--link" href={`/inventory/${encodeURIComponent(item.material_id)}`}>
+                      <Link prefetch={false} className="inventory-list__name inventory-list__name--link" href={`/inventory/${encodeURIComponent(item.material_id)}`}>
                         {item.material_name}
                       </Link>
                     ) : <strong className="inventory-list__name">{item.material_name}</strong>}
@@ -87,7 +87,7 @@ export function InventoryContent({ role: injectedRole }: { readonly role?: AppRo
                       </>
                     ) : null}
                   </div>
-                  {role === 'owner' ? <Link className="operational-list__detail-link inventory-list__detail-link" href={`/inventory/${encodeURIComponent(item.material_id)}`}>{ar.inventory.detailAction}</Link> : null}
+                  {role === 'owner' ? <Link prefetch={false} className="operational-list__detail-link inventory-list__detail-link" href={`/inventory/${encodeURIComponent(item.material_id)}`}>{ar.inventory.detailAction}</Link> : null}
                 </li>
               ))}
             </ul>

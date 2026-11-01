@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { ar } from '../copy/ar';
 import { apiErrorMessage, ensureCsrfToken } from '../clientSecurity';
 import { clearOwnerBrowserSessionForOperator } from '../ownerProvider';
+import { clearLocalLogoutLock, withVerifiedLogoutBeforeLogin } from '../localLogoutLock';
 import { Button } from './Button';
 import { FormActions } from './FormActions';
 import { FormField } from './FormField';
@@ -52,6 +53,7 @@ export function OperatorLoginForm() {
     }
 
     try {
+      await withVerifiedLogoutBeforeLogin(async () => {
       const response = await fetch('/api/auth/operator/session', {
         method: 'POST',
         credentials: 'same-origin',
@@ -68,10 +70,13 @@ export function OperatorLoginForm() {
         setPhase('ready');
         return;
       }
+      // Explicit successful login lifts the device-wide logout lock.
+      clearLocalLogoutLock();
       // Clear the short-lived DOM value before leaving the public route.
       const pin = form.elements.namedItem('pin');
       if (pin instanceof HTMLInputElement) pin.value = '';
       window.location.assign('/today');
+      });
     } catch {
       setError(ar.auth.foundationDescription);
       setPhase('ready');
@@ -113,3 +118,4 @@ export function OperatorLoginForm() {
     </form>
   );
 }
+

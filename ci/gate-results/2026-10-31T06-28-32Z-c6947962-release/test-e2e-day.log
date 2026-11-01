@@ -1,0 +1,23 @@
+
+ RUN  v4.1.11 /workspace/scratch/2c04fc2d83d7/kayyal
+
+ ❯ tests/e2e-day/next-day.test.ts (5 tests | 5 skipped) 266ms
+ ❯ tests/e2e-day/operating-day.test.ts (16 tests | 16 skipped) 265ms
+
+ Test Files  2 failed (2)
+      Tests  21 skipped (21)
+   Start at  23:29:09
+   Duration  1.06s (transform 145ms, setup 0ms, import 245ms, tests 531ms, environment 0ms)
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/e2e-day/next-day.test.ts [ tests/e2e-day/next-day.test.ts ]
+ FAIL  tests/e2e-day/operating-day.test.ts [ tests/e2e-day/operating-day.test.ts ]
+Error: You are running this script as root. Postgres does not support running as root. If you wish to continue, configure embedded-postgres to create a Postgres user by setting the `createPostgresUser` option to true.
+ ❯ EmbeddedPostgres.<anonymous> node_modules/embedded-postgres/dist/index.js:342:27
+ ❯ rejected node_modules/embedded-postgres/dist/index.js:5:65
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+

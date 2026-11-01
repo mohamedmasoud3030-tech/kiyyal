@@ -232,7 +232,7 @@ export function HistoryContent({ role: injectedRole }: { readonly role?: AppRole
                         <span><bdi dir="ltr">{transaction.number ?? transaction.business_date}</bdi></span>
                         {amountForTransaction(transaction, isOwner)}
                         <StatusBadge label={status.label} tone={status.tone} />
-                        <Link className="operational-list__detail-link" href={`/transactions/${encodeURIComponent(transaction.id)}`}>
+                        <Link prefetch={false} className="operational-list__detail-link" href={`/transactions/${encodeURIComponent(transaction.id)}`}>
                           {ar.history.detailAction}
                         </Link>
                       </div>

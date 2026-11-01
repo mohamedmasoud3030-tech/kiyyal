@@ -128,7 +128,7 @@ export function TransactionReceiptContent({ role: _role, transactionId }: {
   return (
     <PageContainer width="document">
       <div className="receipt-screen__actions">
-        <Link className="ui-link" href={detailHref}>{ar.receipt.backToTransaction}</Link>
+        <Link prefetch={false} className="ui-link" href={detailHref}>{ar.receipt.backToTransaction}</Link>
         <Button className="receipt-screen__print" onClick={() => window.print()} type="button" variant="secondary">
           {ar.receipt.printAction}
         </Button>

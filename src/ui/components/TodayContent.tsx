@@ -12,6 +12,8 @@ import { Section } from './Section';
 import { StatePanel } from './StatePanel';
 import { StatusBadge } from './StatusBadge';
 import { Weight } from './Weight';
+import { Button } from './Button';
+import { WorkspaceIcon } from './WorkspaceIcon';
 
 interface TransactionSummary {
   readonly id: string;
@@ -61,9 +63,11 @@ function statusFor(transaction: TransactionSummary): { label: string; tone: 'suc
 export function TodayContent({ role: injectedRole }: { readonly role?: AppRole }) {
   const role = requireInjectedRole(injectedRole);
   const [state, setState] = useState<ContentState>({ status: 'loading' });
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
+    setState({ status: 'loading' });
     void Promise.all([
       fetch('/api/transactions?scope=today&limit=8', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal }),
       fetch('/api/stock', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal }),
@@ -86,22 +90,48 @@ export function TodayContent({ role: injectedRole }: { readonly role?: AppRole }
         setState({ status: 'error' });
       });
     return () => controller.abort();
-  }, [role]);
+  }, [role, attempt]);
 
   return (
     <PageContainer>
       <PageHeader
         description={ar.today.description}
+        eyebrow={ar.workspace.todayEyebrow}
+        action={<Link className="workspace-history-link" href="/history" prefetch={false}><WorkspaceIcon name="history" />{ar.workspace.viewHistory}</Link>}
         title={ar.today.title}
       />
+      <div className="workspace-actions-heading"><h2>{ar.workspace.quickActions}</h2><p>{ar.workspace.quickActionsHint}</p></div>
+          <div aria-label={ar.workspace.quickActions} className="action-grid">
+            <Link className="action-tile action-tile--primary" href="/sale" prefetch={false}>
+              <span className="action-tile__icon"><WorkspaceIcon name="sale" /></span>
+              <span className="action-tile__title">{ar.today.saleAction}</span>
+              <span className="action-tile__hint">{ar.today.saleTileHint}</span>
+            </Link>
+            <Link className="action-tile" href="/purchase" prefetch={false}>
+              <span className="action-tile__icon"><WorkspaceIcon name="purchase" /></span>
+              <span className="action-tile__title">{ar.today.purchaseAction}</span>
+              <span className="action-tile__hint">{ar.today.purchaseTileHint}</span>
+            </Link>
+            <Link className="action-tile" href="/payment" prefetch={false}>
+              <span className="action-tile__icon"><WorkspaceIcon name="payment" /></span>
+              <span className="action-tile__title">{ar.today.paymentAction}</span>
+              <span className="action-tile__hint">{ar.today.paymentTileHint}</span>
+            </Link>
+            <Link className="action-tile" href="/expense" prefetch={false}>
+              <span className="action-tile__icon"><WorkspaceIcon name="expense" /></span>
+              <span className="action-tile__title">{ar.expense.title}</span>
+              <span className="action-tile__hint">{ar.today.expenseTileHint}</span>
+            </Link>
+          </div>
       {state.status === 'loading' ? (
         <StatePanel description={ar.state.sessionCheckingDescription} title={ar.common.loading} />
       ) : null}
       {state.status === 'error' ? (
-        <StatePanel description={ar.state.sessionUnavailableDescription} title={ar.state.sessionUnavailableTitle} tone="warning" />
+        <StatePanel action={<Button onClick={() => setAttempt(value => value + 1)}>{ar.common.tryAgain}</Button>} description={ar.state.sessionUnavailableDescription} title={ar.state.sessionUnavailableTitle} tone="warning" />
       ) : null}
       {state.status === 'loaded' ? (
         <>
+          <p className="workspace-scope">{ar.workspace.recentScope}</p>
           <div aria-label={ar.today.title} className="kpi-grid">
             <div className="kpi-card">
               <p className="kpi-card__label">{ar.today.kpiTransactionsLabel}</p>
@@ -120,29 +150,8 @@ export function TodayContent({ role: injectedRole }: { readonly role?: AppRole }
               <p className="kpi-card__value">{state.stock.length}</p>
             </div>
           </div>
-          <div aria-label={ar.navigation.main} className="action-grid">
-            <Link className="action-tile action-tile--primary" href="/sale">
-              <span className="action-tile__icon"><SaleIcon /></span>
-              <span className="action-tile__title">{ar.today.saleAction}</span>
-              <span className="action-tile__hint">{ar.today.saleTileHint}</span>
-            </Link>
-            <Link className="action-tile" href="/purchase">
-              <span className="action-tile__icon"><PurchaseIcon /></span>
-              <span className="action-tile__title">{ar.today.purchaseAction}</span>
-              <span className="action-tile__hint">{ar.today.purchaseTileHint}</span>
-            </Link>
-            <Link className="action-tile" href="/payment">
-              <span className="action-tile__icon"><PaymentIcon /></span>
-              <span className="action-tile__title">{ar.today.paymentAction}</span>
-              <span className="action-tile__hint">{ar.today.paymentTileHint}</span>
-            </Link>
-            <Link className="action-tile" href="/expense">
-              <span className="action-tile__icon"><ExpenseIcon /></span>
-              <span className="action-tile__title">{ar.expense.title}</span>
-              <span className="action-tile__hint">{ar.today.expenseTileHint}</span>
-            </Link>
-          </div>
-          <Section description={ar.today.recentTransactionsDescription} title={ar.today.recentTransactionsTitle}>
+          <div className="today-columns">
+          <Section className="today-transactions" description={ar.today.recentTransactionsDescription} title={ar.today.recentTransactionsTitle}>
             {state.transactions.length === 0 ? (
               <StatePanel description={ar.today.noTransactionsDescription} title={ar.today.noTransactionsTitle} />
             ) : (
@@ -151,6 +160,7 @@ export function TodayContent({ role: injectedRole }: { readonly role?: AppRole }
                   const status = statusFor(transaction);
                   return (
                     <li className="operational-list__item" key={transaction.id}>
+                      <span className={`movement-icon movement-icon--${transaction.type}`}><WorkspaceIcon name={transaction.type === 'sale' ? 'sale' : transaction.type === 'purchase' ? 'purchase' : 'history'} /></span>
                       <div className="operational-list__primary">
                         <strong>{typeLabel(transaction.type)}</strong>
                         <span>{transaction.type === 'cost_adjustment'
@@ -163,7 +173,7 @@ export function TodayContent({ role: injectedRole }: { readonly role?: AppRole }
                         <span><bdi dir="ltr">{transaction.business_date}</bdi></span>
                         {amountForTransaction(transaction, role)}
                         <StatusBadge label={status.label} tone={status.tone} />
-                        <Link className="operational-list__detail-link" href={`/transactions/${encodeURIComponent(transaction.id)}`}>
+                        <Link className="operational-list__detail-link" href={`/transactions/${encodeURIComponent(transaction.id)}`} prefetch={false}>
                           {ar.history.detailAction}
                         </Link>
                       </div>
@@ -173,13 +183,14 @@ export function TodayContent({ role: injectedRole }: { readonly role?: AppRole }
               </ul>
             )}
           </Section>
-          <Section description={ar.today.stockDescription} title={ar.today.stockTitle}>
+          <Section className="today-stock" action={role === 'owner' ? <Link className="ui-link" href="/inventory" prefetch={false}>{ar.workspace.viewStock}</Link> : undefined} description={ar.workspace.stockHint} title={ar.today.stockTitle}>
             {state.stock.length === 0 ? (
               <StatePanel description={ar.today.noStockDescription} title={ar.today.noStockTitle} />
             ) : (
               <ul className="operational-list">
                 {state.stock.map((item) => (
                   <li className="operational-list__item" key={item.material_id}>
+                    <span className="stock-icon"><WorkspaceIcon name="inventory" /></span>
                     <strong>{item.material_name}</strong>
                     <Weight emphasis value={item.quantity_kg} />
                   </li>
@@ -187,40 +198,9 @@ export function TodayContent({ role: injectedRole }: { readonly role?: AppRole }
               </ul>
             )}
           </Section>
+          </div>
         </>
       ) : null}
     </PageContainer>
-  );
-}
-
-function SaleIcon() {
-  return (
-    <svg aria-hidden="true" fill="none" height="22" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="22">
-      <path d="M5 12h14" /><path d="M13 6l6 6-6 6" /><path d="M4 5v14" strokeOpacity=".4" />
-    </svg>
-  );
-}
-
-function PurchaseIcon() {
-  return (
-    <svg aria-hidden="true" fill="none" height="22" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="22">
-      <path d="M19 12H5" /><path d="M11 6l-6 6 6 6" /><path d="M20 5v14" strokeOpacity=".4" />
-    </svg>
-  );
-}
-
-function PaymentIcon() {
-  return (
-    <svg aria-hidden="true" fill="none" height="22" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="22">
-      <rect height="13" rx="2.5" width="18" x="3" y="6" /><path d="M3 10.5h18" /><path d="M7 15h4" />
-    </svg>
-  );
-}
-
-function ExpenseIcon() {
-  return (
-    <svg aria-hidden="true" fill="none" height="22" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="22">
-      <path d="M7 3h10l1 4v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7Z" /><path d="M9 8h6" /><path d="M9 12h6M9 16h4" />
-    </svg>
   );
 }

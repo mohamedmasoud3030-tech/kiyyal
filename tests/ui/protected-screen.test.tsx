@@ -12,7 +12,7 @@ vi.mock('../../src/ui/hooks/useSession.js', () => ({
   useSession: () => session,
 }));
 vi.mock('next/link', () => ({
-  default: (properties: ComponentProps<'a'>) => <a {...properties} />,
+  default: ({ prefetch: _prefetch, ...properties }: ComponentProps<'a'> & { prefetch?: boolean }) => <a {...properties} />,
 }));
 
 import { requireInjectedRole } from '../../src/ui/requiredRole.js';
@@ -37,8 +37,16 @@ describe('ProtectedScreen server/client composition', () => {
     expect(screen.queryByTestId('role-probe')).toBeNull();
   });
 
+  it('keeps the verified shell while a navigation probe refreshes, but withholds route data', () => {
+    session = { status: 'refreshing', role: 'owner', scope: 'a'.repeat(24) };
+    render(<ProtectedScreen activePath="/cash"><RoleProbe /></ProtectedScreen>);
+    expect(screen.getByText(ar.common.loading)).toBeTruthy();
+    expect(screen.queryByTestId('role-probe')).toBeNull();
+    expect(screen.getAllByRole('link', { name: ar.navigation.cash }).length).toBe(2);
+  });
+
   it('injects the verified role into a serializable child element only after authentication', () => {
-    session = { status: 'authenticated', role: 'owner' };
+    session = { status: 'authenticated', role: 'owner', scope: 'a'.repeat(24) };
     render(<ProtectedScreen activePath="/cash"><RoleProbe /></ProtectedScreen>);
     expect(screen.getByTestId('role-probe').textContent).toBe('owner');
     expect(screen.getAllByRole('link', { name: ar.navigation.cash }).map((link) => link.getAttribute('aria-current')))

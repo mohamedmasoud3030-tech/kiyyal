@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#173f35">
+<title>كيّال — وضع عدم الاتصال</title>
+<style>
+  :root{color-scheme:light}
+  body{margin:0;background:#f4f5f1;color:#173f35;font:17px/1.75 system-ui,'Segoe UI',Tahoma,sans-serif}
+  header{background:#173f35;color:#fff;padding:1rem clamp(1rem,4vw,3rem)}
+  header h1{margin:0;font-size:1.35rem}
+  header p{margin:.25rem 0 0;font-size:.9rem;opacity:.9}
+  main{max-width:44rem;margin:0 auto;padding:1rem}
+  .card{background:#fff;border:1px solid #d7ded9;border-radius:.9rem;padding:1rem;margin-block:1rem;box-shadow:0 4px 14px rgba(23,63,53,.06)}
+  .card h2{margin:0 0 .5rem;font-size:1.05rem}
+  .pill{display:inline-block;border-radius:999px;padding:.15rem .7rem;font-size:.8rem;font-weight:700}
+  .pill--queued{background:#eaf4ff;color:#1c5ea8}.pill--syncing{background:#fff0cf;color:#8a5000}
+  .pill--parked,.pill--conflict{background:#fde7e7;color:#a02727}.pill--ack{background:#dff3e9;color:#176b4d}
+  ul.ops{list-style:none;margin:0;padding:0;display:grid;gap:.55rem}
+  ul.ops li{border-block-end:1px solid #eef2ef;padding-block:.5rem}
+  ul.ops li:last-child{border:0}
+  .meta{color:#51625a;font-size:.85rem}
+  label{display:grid;gap:.25rem;font-weight:700;font-size:.9rem;margin-block:.6rem}
+  input,select{font:inherit;padding:.55rem .7rem;border:1px solid #cbd6cf;border-radius:.55rem;background:#fff}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+  @media (max-width:38rem){.row{grid-template-columns:1fr}}
+  .actions{display:flex;gap:.6rem;align-items:center;margin-block-start:1rem;flex-wrap:wrap}
+  button.primary{background:#176b4d;color:#fff;border:0;border-radius:.6rem;padding:.65rem 1.3rem;font-weight:800;cursor:pointer}
+  button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #c28b35;outline-offset:3px}
+  .note{color:#51625a;font-size:.9rem}
+  .hidden{display:none}
+  #banner{background:#fff0cf;border:1px solid #e8be70;color:#8a5000;border-radius:.7rem;padding:.7rem 1rem;margin-block:1rem}
+  #banner.ok{background:#dff3e9;border-color:#79be9d;color:#176b4d}
+</style>
+</head>
+<body>
+<header>
+  <h1>كيّال — تشتغل دون شبكة</h1>
+  <p>هذه صفحة الجهاز: كل ما تراه محفوظ عليه، والإرسال الفعلي ينتظر عودة الاتصال.</p>
+</header>
+<main>
+  <div id="banner" class="hidden" role="status"></div>
+
+  <section id="locked" class="card hidden" aria-live="polite">
+    <h2>الجهاز مقفول</h2>
+    <p>طُلب تسجيل الخروج على هذا الجهاز. لا تُعرض بيانات محلية هنا حتى اكتمال الخروج أو تسجيل دخول جديد.</p>
+    <div class="actions"><button class="primary" id="retry-locked" type="button">أعد المحاولة عند عودة الشبكة</button></div>
+  </section>
+
+  <section id="content" class="hidden">
+    <div class="card">
+      <h2>العمليات المحفوظة على الجهاز <span class="meta" id="ops-scope"></span></h2>
+      <p class="note">تُرسل تلقائيًا بنفس مفاتيحها الأصلية فور عودة الاتصال — لا تُكرَّر أبدًا، والمؤكَّد منها لا يُعاد.</p>
+      <ul class="ops" id="ops-list"></ul>
+      <p id="ops-empty" class="note hidden">لا توجد عمليات معلّقة على هذا الجهاز حاليًا.</p>
+    </div>
+
+    <div class="card" id="drafts-card">
+      <h2>المسودات — عدّلها وأنت دون اتصال</h2>
+      <p class="note">تعديل المسودة يُحفظ محليًا فورًا بنفس مفتاحها؛ لا يُرسل شيء هنا. عند عودة الشبكة يستعيد النموذج مسودته ويكمّل بنفسه.</p>
+      <div id="drafts-list"></div>
+      <p id="drafts-empty" class="note hidden">لا مسودات محفوظة حاليًا.</p>
+    </div>
+
+    <div class="card">
+      <h2>العودة للتطبيق</h2>
+      <p class="note" id="ref-note">القوائم المرجعية أدناه من آخر مزامنة محفوظة على هذا الجهاز.</p>
+      <div class="actions">
+        <button class="primary" id="retry" type="button">تحقق من الاتصال وافتح التطبيق</button>
+      </div>
+    </div>
+  </section>
+</main>
+<script src="/offline.js" defer></script>
+</body>
+</html>

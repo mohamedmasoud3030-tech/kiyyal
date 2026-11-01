@@ -1,0 +1,86 @@
+import type { DraftRecord, OfflineStore, OpAck, QueuedOp, RefCacheRecord } from './types';
+
+/** تخزين ذاكري يحقق عقد OfflineStore — للاختبارات؛ ليس سقوطًا صامتًا في المنتج (ADR-0016 §7). */
+export function createMemoryOfflineStore(): OfflineStore {
+  const ops = new Map<string, QueuedOp>();
+  const drafts = new Map<string, DraftRecord>();
+  const refs = new Map<string, RefCacheRecord>();
+  const draftKey = (scope: string, formKey: string) => `${scope}|${formKey}`;
+
+  const claimable = (current: QueuedOp | undefined, now: number): current is QueuedOp =>
+    Boolean(current && current.status === 'queued'
+      && (current.claimExpiresAt == null || current.claimExpiresAt <= now));
+
+  return {
+    async putOp(op) { ops.set(op.queueId, op); },
+    async patchOp(queueId, patch) {
+      const current = ops.get(queueId);
+      if (!current) throw new Error('op_missing');
+      ops.set(queueId, { ...current, ...patch });
+    },
+    async recoverOp(expected, now) {
+      const current = ops.get(expected.queueId);
+      if (!current || current.status !== 'syncing' || current.claimedBy !== expected.claimedBy
+        || current.claimExpiresAt !== expected.claimExpiresAt) return false;
+      ops.set(current.queueId, { ...current, status: 'queued', nextAttemptAt: now, claimedBy: null, claimExpiresAt: null });
+      return true;
+    },
+    async claimOp(queueId, owner, now, leaseMs) {
+      const current = ops.get(queueId);
+      if (!claimable(current, now)) return null;
+      const claimed: QueuedOp = {
+        ...current, status: 'syncing', claimedBy: owner, claimExpiresAt: now + leaseMs,
+      };
+      ops.set(queueId, claimed);
+      return claimed;
+    },
+    async patchOpIfOwner(queueId, owner, patch) {
+      const current = ops.get(queueId);
+      if (!current || current.status !== 'syncing' || current.claimedBy !== owner) return false;
+      ops.set(queueId, { ...current, ...patch });
+      return true;
+    },
+    // الذرية هنا = تسلسل محايد في ذاكرة صفّ واحد؛ نظيره IndexedDB tx واحدة.
+    async commitAck(queueId, owner, ack: OpAck, scope, formKey) {
+      const current = ops.get(queueId);
+      if (!current || current.status !== 'syncing' || current.claimedBy !== owner) return false;
+      ops.set(queueId, {
+        ...current, status: 'acknowledged', ack,
+        nextAttemptAt: Number.POSITIVE_INFINITY,
+      });
+      const draft = drafts.get(draftKey(scope, formKey));
+      if (draft?.intent && draft.intent.idempotencyKey === current.idempotencyKey) {
+        drafts.set(draftKey(scope, formKey), { ...draft, intent: null });
+      }
+      return true;
+    },
+    async getOp(queueId) { return ops.get(queueId) ?? null; },
+    async removeOp(queueId) { ops.delete(queueId); },
+    async listOps(scope) { return [...ops.values()].filter((op) => op.scope === scope); },
+    async putDraft(draft) { drafts.set(draftKey(draft.scope, draft.formKey), draft); },
+    async getDraft(scope, formKey) { return drafts.get(draftKey(scope, formKey)) ?? null; },
+    async removeDraft(scope, formKey) { drafts.delete(draftKey(scope, formKey)); },
+    async listDrafts(scope) { return [...drafts.values()].filter((draft) => draft.scope === scope); },
+    async clearScope(scope) {
+      for (const [id, op] of ops) if (op.scope === scope) ops.delete(id);
+      for (const [key, draft] of drafts) if (draft.scope === scope) drafts.delete(key);
+      for (const [key, ref] of refs) if (ref.scope === scope) refs.delete(key);
+    },
+    // عدم ترك أي شيء خلفًا عند الخروج: الطابور والمسودات والمرجعيات معًا.
+    async isEmpty() { return ops.size === 0 && drafts.size === 0 && refs.size === 0; },
+    async clearAll() { ops.clear(); drafts.clear(); refs.clear(); },
+    async putRef(record) {
+      refs.set(`${record.scope}|${record.kind}`, record);
+    },
+    async getRef(scope, kind) {
+      return refs.get(`${scope}|${kind}`) ?? null;
+    },
+    async clearScopeRefs(scope) {
+      for (const key of [...refs.keys()]) if (key.startsWith(`${scope}|`)) refs.delete(key);
+    },
+    async clearAllRefs() {
+      refs.clear();
+    },
+};
+}
+

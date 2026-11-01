@@ -325,9 +325,9 @@ function SavedMovement({ materialId, result }: { readonly materialId: string; re
         </dl>
       </Section>
       <FormActions>
-        <Link className="ui-button ui-button--primary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}`}>{ar.stockMovement.viewTransactionAction}</Link>
-        <Link className="ui-button ui-button--secondary ui-button--md" href={`/inventory/${encodeURIComponent(materialId)}`}>{ar.stockMovement.newAction}</Link>
-        <Link className="ui-link" href="/inventory">{ar.stockMovement.backToInventory}</Link>
+        <Link prefetch={false} className="ui-button ui-button--primary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}`}>{ar.stockMovement.viewTransactionAction}</Link>
+        <Link prefetch={false} className="ui-button ui-button--secondary ui-button--md" href={`/inventory/${encodeURIComponent(materialId)}`}>{ar.stockMovement.newAction}</Link>
+        <Link prefetch={false} className="ui-link" href="/inventory">{ar.stockMovement.backToInventory}</Link>
       </FormActions>
     </PageContainer>
   );
@@ -377,7 +377,7 @@ export function InventoryDetailContent({ materialId, role: injectedRole }: { rea
   return (
     <PageContainer>
       <PageHeader
-        action={<Link className="ui-link" href="/inventory">{ar.stockMovement.backToInventory}</Link>}
+        action={<Link prefetch={false} className="ui-link" href="/inventory">{ar.stockMovement.backToInventory}</Link>}
         description={ar.stockMovement.description}
         eyebrow={detail.material_grade ? `${detail.material_type} — ${detail.material_grade}` : detail.material_type}
         title={detail.material_name}
@@ -421,7 +421,7 @@ export function InventoryDetailContent({ materialId, role: injectedRole }: { rea
                     </>
                   )}
                 </dl>
-                <Link className="operational-list__detail-link" href={`/transactions/${encodeURIComponent(movement.id)}`}>{ar.history.detailAction}</Link>
+                <Link prefetch={false} className="operational-list__detail-link" href={`/transactions/${encodeURIComponent(movement.id)}`}>{ar.history.detailAction}</Link>
               </li>
             ))}
           </ol>

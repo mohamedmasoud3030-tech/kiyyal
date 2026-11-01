@@ -1,0 +1,25 @@
+
+> kayyal@0.0.0 test:auth
+> vitest run tests/auth
+
+
+ RUN  v4.1.11 /workspace/scratch/2c04fc2d83d7/kayyal
+
+ ❯ tests/auth/auth.test.ts (26 tests | 26 skipped) 270ms
+
+ Test Files  1 failed (1)
+      Tests  26 skipped (26)
+   Start at  23:28:59
+   Duration  591ms (transform 102ms, setup 0ms, import 174ms, tests 270ms, environment 0ms)
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/auth/auth.test.ts [ tests/auth/auth.test.ts ]
+Error: You are running this script as root. Postgres does not support running as root. If you wish to continue, configure embedded-postgres to create a Postgres user by setting the `createPostgresUser` option to true.
+ ❯ EmbeddedPostgres.<anonymous> node_modules/embedded-postgres/dist/index.js:342:27
+ ❯ rejected node_modules/embedded-postgres/dist/index.js:5:65
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

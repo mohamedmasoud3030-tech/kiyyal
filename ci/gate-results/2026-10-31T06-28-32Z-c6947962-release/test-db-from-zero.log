@@ -1,0 +1,14 @@
+
+> kayyal@0.0.0 test:db
+> vitest run tests/db/schema.test.ts tests/db/immutability.test.ts
+
+
+ RUN  v4.1.11 /workspace/scratch/2c04fc2d83d7/kayyal
+
+
+ Test Files  2 passed (2)
+      Tests  33 passed (33)
+   Start at  23:28:37
+   Duration  19.21s (transform 57ms, setup 0ms, import 111ms, tests 18.80s, environment 0ms)
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.

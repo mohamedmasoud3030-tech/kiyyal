@@ -1,0 +1,25 @@
+
+> kayyal@0.0.0 test:ui
+> vitest run tests/ui --exclude=tests/ui/operator-live-flow.test.tsx
+
+
+ RUN  v4.1.11 /workspace/scratch/2c04fc2d83d7/kayyal
+
+ ❯ tests/ui/offline-resilience.test.tsx (7 tests | 7 skipped) 268ms
+
+ Test Files  1 failed | 8 passed (9)
+      Tests  53 passed | 7 skipped (60)
+   Start at  23:29:01
+   Duration  6.67s (transform 887ms, setup 0ms, import 1.50s, tests 778ms, environment 3.07s)
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/offline-resilience.test.tsx [ tests/ui/offline-resilience.test.tsx ]
+Error: You are running this script as root. Postgres does not support running as root. If you wish to continue, configure embedded-postgres to create a Postgres user by setting the `createPostgresUser` option to true.
+ ❯ EmbeddedPostgres.<anonymous> node_modules/embedded-postgres/dist/index.js:342:27
+ ❯ rejected node_modules/embedded-postgres/dist/index.js:5:65
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

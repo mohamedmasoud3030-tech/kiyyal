@@ -5,7 +5,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 import { ar, type AppRole } from '../copy/ar';
 import { requireInjectedRole } from '../requiredRole';
-import { apiErrorCode, apiErrorMessage, ensureCsrfToken } from '../clientSecurity';
+import { offlineStore } from '../offline/outbox';
+import { useResilientSubmit, loadDraft } from '../offline/useResilientSubmit';
 import { Amount } from './Amount';
 import { Button } from './Button';
 import { FormActions } from './FormActions';
@@ -60,9 +61,10 @@ function partyLabel(party: Party): string {
  * avoids fetching any party balance for an operator; only its server receipt is
  * rendered after submission.
  */
-export function PaymentContent({ initialPartyId, role: injectedRole }: {
+export function PaymentContent({ initialPartyId, role: injectedRole, scope = null }: {
   readonly initialPartyId?: string;
   readonly role?: AppRole;
+  readonly scope?: string | null;
 }) {
   const role = requireInjectedRole(injectedRole);
   const [parties, setParties] = useState<PartiesState>({ status: 'loading' });
@@ -70,13 +72,42 @@ export function PaymentContent({ initialPartyId, role: injectedRole }: {
   const [direction, setDirection] = useState<PaymentDirection>('in');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
-  const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [partyError, setPartyError] = useState<string | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState(false);
   const [duplicateConfirmed, setDuplicateConfirmed] = useState(false);
   const [result, setResult] = useState<PaymentResponse | null>(null);
+  const [replayNote, setReplayNote] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const { submit: resilientSubmit, submitting, outcome, intentState, externallyAcked, externalAckNumber, consumeExternalAck, dismissExternalAckBanner, persistDraft } = useResilientSubmit('payment', scope);
+  const [extAckShown, setExtAckShown] = useState(false);
+  useEffect(() => { if (externallyAcked) setExtAckShown(true); }, [externallyAcked]);
+  useEffect(() => {
+    if (externallyAcked) { setAmount(''); setNote(''); setDirection('in'); clearDuplicateConfirmation(); consumeExternalAck(); }
+  }, [externallyAcked, consumeExternalAck]);
+
+  // مسودة محلية مقفولة على النطاق (PWA_RULES 4, 14-16): نجاة من الإغلاق/الموت،
+  // بلا تسريب بين مستخدمين أو ساحات، وبلا أي رصيد أو مجاميع.
+  useEffect(() => {
+    if (!scope || draftRestored) return;
+    setDraftRestored(true);
+    void loadDraft(scope, 'payment').then((fields) => {
+      if (!fields) return;
+      if (typeof fields.partyId === 'string') setPartyId((selected) => selected || fields.partyId as string);
+      if (fields.direction === 'in' || fields.direction === 'out') setDirection(fields.direction);
+      if (typeof fields.amount === 'string') setAmount(fields.amount);
+      if (typeof fields.note === 'string') setNote(fields.note);
+    });
+  }, [scope, draftRestored]);
+
+  useEffect(() => {
+    if (!scope || !draftRestored || result) return;
+    const timer = window.setTimeout(() => {
+      if (partyId.trim() !== '' && /[1-9]/.test(amount)) void persistDraft({ partyId, direction, amount, note });
+      else void offlineStore().removeDraft(scope, 'payment');
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [scope, draftRestored, partyId, direction, amount, note, result]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -106,9 +137,8 @@ export function PaymentContent({ initialPartyId, role: injectedRole }: {
     setDirection('in');
     setAmount('');
     setNote('');
-    setIdempotencyKey(null);
-    setSubmitting(false);
     setError(null);
+    setReplayNote(false);
     setPartyError(null);
     clearDuplicateConfirmation();
     setResult(null);
@@ -125,52 +155,39 @@ export function PaymentContent({ initialPartyId, role: injectedRole }: {
       setError(ar.payment.duplicateConfirmationLabel);
       return;
     }
-    const key = idempotencyKey ?? globalThis.crypto?.randomUUID();
-    if (!key) {
-      setError(ar.payment.failed);
-      return;
-    }
     setError(null);
     setPartyError(null);
-    setSubmitting(true);
-    setIdempotencyKey(key);
-    const csrf = await ensureCsrfToken();
-    if (!csrf) {
-      setError(ar.auth.csrfUnavailable);
-      setSubmitting(false);
+    const outcomeResult = await resilientSubmit({
+      party_id: partyId,
+      direction,
+      amount: amount.trim(),
+      ...(note.trim() ? { note: note.trim() } : {}),
+      ...(duplicateWarning && duplicateConfirmed ? { confirm_duplicate: true } : {}),
+    });
+    if (!outcomeResult) {
+      setError(ar.payment.failed);
       return;
     }
-    try {
-      const response = await fetch('/api/transactions/payment', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'content-type': 'application/json', 'idempotency-key': key, 'x-kayyal-csrf': csrf },
-        body: JSON.stringify({
-          party_id: partyId,
-          direction,
-          amount: amount.trim(),
-          ...(note.trim() ? { note: note.trim() } : {}),
-          ...(duplicateWarning && duplicateConfirmed ? { confirm_duplicate: true } : {}),
-        }),
-      });
-      const payload: unknown = await response.json().catch(() => null);
-      if (!response.ok || !isPaymentResponse(payload)) {
-        if (apiErrorCode(payload) === 'duplicate_payment_suspected') {
-          setDuplicateWarning(true);
-          setDuplicateConfirmed(false);
-          setError(null);
-        } else {
-          setError(apiErrorMessage(payload) ?? ar.payment.failed);
-        }
-        return;
+    if (outcomeResult.kind === 'acknowledged') {
+      if (isPaymentResponse(outcomeResult.payload)) {
+        setResult(outcomeResult.payload);
+        setReplayNote(outcomeResult.idempotentReplay);
+        clearDuplicateConfirmation();
+      } else {
+        setError(ar.payment.failed);
       }
-      setResult(payload);
-      setIdempotencyKey(null);
-      clearDuplicateConfirmation();
-    } catch {
-      setError(ar.payment.failed);
-    } finally {
-      setSubmitting(false);
+      return;
+    }
+    // تحذير «سداد مشتبه» يبقى تجربة تأكيد صريحة كما صممها العقد (409 خاص).
+    if (outcomeResult.kind === 'conflict' && outcomeResult.code === 'duplicate_payment_suspected') {
+      setDuplicateWarning(true);
+      setDuplicateConfirmed(false);
+      setError(null);
+      return;
+    }
+    // بقية queued/parked/conflict تُعرض بنيرًا ولا تزعم الحفظ أبدًا (أدناه).
+    if (outcomeResult.kind === 'conflict' || outcomeResult.kind === 'parked') {
+      setError(outcomeResult.kind === 'conflict' ? `${ar.offline.conflictPrefix} ${outcomeResult.message}` : outcomeResult.message);
     }
   }
 
@@ -178,6 +195,7 @@ export function PaymentContent({ initialPartyId, role: injectedRole }: {
     return (
       <PageContainer width="form">
         <PageHeader description={ar.payment.savedDescription} title={ar.payment.savedTitle} />
+        {replayNote ? <p className="offline-outcome" role="status">{ar.offline.replayedNote}</p> : null}
         <Section title={ar.payment.savedTitle} tone="muted">
           <dl className="payment-result">
             <div>
@@ -200,13 +218,13 @@ export function PaymentContent({ initialPartyId, role: injectedRole }: {
         </Section>
         <FormActions>
           <Button onClick={resetForNextPayment} type="button" variant="secondary">{ar.payment.newPaymentAction}</Button>
-          <Link className="ui-button ui-button--primary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}/receipt`}>
+          <Link prefetch={false} className="ui-button ui-button--primary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}/receipt`}>
             {ar.receipt.viewAction}
           </Link>
-          <Link className="ui-button ui-button--secondary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}`}>
+          <Link prefetch={false} className="ui-button ui-button--secondary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}`}>
             {ar.payment.viewTransactionAction}
           </Link>
-          <Link className="ui-link" href="/today">{ar.payment.backToToday}</Link>
+          <Link prefetch={false} className="ui-link" href="/today">{ar.payment.backToToday}</Link>
         </FormActions>
       </PageContainer>
     );
@@ -215,7 +233,7 @@ export function PaymentContent({ initialPartyId, role: injectedRole }: {
   return (
     <PageContainer width="form">
       <PageHeader
-        action={<Link className="ui-link" href="/today">{ar.payment.backToToday}</Link>}
+        action={<Link prefetch={false} className="ui-link" href="/today">{ar.payment.backToToday}</Link>}
         description={ar.payment.description}
         title={ar.payment.title}
       />
@@ -231,6 +249,16 @@ export function PaymentContent({ initialPartyId, role: injectedRole }: {
       ) : null}
       {parties.status === 'loaded' && parties.data.length > 0 ? (
         <form className="payment-form" onSubmit={submit}>
+          {extAckShown ? (
+          <section aria-live="polite" className="offline-outcome ui-alert ui-alert--success" data-testid="external-ack-banner" role="status">
+            <p>
+              {ar.offlineAck.bannerPrefix}{externalAckNumber ? ` ${ar.offlineAck.bannerNumbered.replace('{n}', externalAckNumber)}` : ''}.
+            </p>
+            <button className="ui-link" onClick={() => { setExtAckShown(false); dismissExternalAckBanner(); }} type="button">{ar.offlineAck.dismiss}</button>
+          </section>
+        ) : null}
+        {intentState === 'resuming' ? <p className="offline-outcome" role="status">{ar.intentBanners.resuming}</p> : null}
+          {intentState === 'hasQueued' ? <p className="offline-outcome" role="status">{ar.intentBanners.hasQueued}</p> : null}
           <FormField {...(partyError ? { error: partyError } : {})} id="payment-party" label={ar.payment.partyLabel} required>
             <select
               className="text-input"
@@ -279,6 +307,9 @@ export function PaymentContent({ initialPartyId, role: injectedRole }: {
                 <span>{ar.payment.duplicateConfirmationLabel}</span>
               </label>
             </Section>
+          ) : null}
+          {outcome && outcome.kind === 'queued' ? (
+            <p aria-live="polite" className="offline-outcome" role="status">{ar.offline.queuedPrefix} {outcome.message}</p>
           ) : null}
           <FormActions stickyOnMobile {...(error ? { status: <span role="alert">{error}</span> } : {})}>
             <Button loading={submitting} size="lg" type="submit">

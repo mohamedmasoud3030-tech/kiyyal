@@ -155,7 +155,7 @@ export function PartiesContent({ role: injectedRole }: { readonly role?: AppRole
                   </div>
                   <span>{kindLabel(party.kind)}</span>
                   {role === 'owner' ? (
-                    <Link className="ui-link" href={`/parties/${encodeURIComponent(party.id)}`}>
+                    <Link prefetch={false} className="ui-link" href={`/parties/${encodeURIComponent(party.id)}`}>
                       {ar.parties.viewLedgerAction}
                     </Link>
                   ) : null}

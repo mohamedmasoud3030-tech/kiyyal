@@ -10,6 +10,11 @@ import { once } from 'node:events';
 import { createServer, type Server } from 'node:net';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+// عقد الجلسة المعدّل (ADR-0016 §7.1): المسبار يعيد دورًا + مُلخّص scope غير سرّي بطول 24.
+function sessionShape(role: 'owner' | 'operator') {
+  return { data: { role, scope: expect.stringMatching(/^[0-9a-f]{24}$/) } };
+}
+
 
 import { hashPin } from '../../src/auth/hash.js';
 import { ar } from '../../src/ui/copy/ar.js';
@@ -156,7 +161,7 @@ describe('Next page routing over HTTP', () => {
 
     const session = await fetch(`${baseUrl}/api/session`, { headers: { cookie: sessionCookie } });
     expect(session.status).toBe(200);
-    expect(await session.json()).toEqual({ data: { role: 'operator' } });
+    expect(await session.json()).toEqual(sessionShape('operator'));
 
     const randomId = randomUUID();
     const protectedPaths = [

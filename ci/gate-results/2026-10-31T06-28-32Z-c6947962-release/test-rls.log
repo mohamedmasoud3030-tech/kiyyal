@@ -1,0 +1,25 @@
+
+> kayyal@0.0.0 test:rls
+> vitest run tests/db/isolation.test.ts tests/db/real-postgres-security.test.ts
+
+
+ RUN  v4.1.11 /workspace/scratch/2c04fc2d83d7/kayyal
+
+ ❯ tests/db/real-postgres-security.test.ts (22 tests | 22 skipped) 267ms
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  16 passed | 22 skipped (38)
+   Start at  23:28:56
+   Duration  1.97s (transform 95ms, setup 0ms, import 160ms, tests 1.52s, environment 0ms)
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/db/real-postgres-security.test.ts [ tests/db/real-postgres-security.test.ts ]
+Error: You are running this script as root. Postgres does not support running as root. If you wish to continue, configure embedded-postgres to create a Postgres user by setting the `createPostgresUser` option to true.
+ ❯ EmbeddedPostgres.<anonymous> node_modules/embedded-postgres/dist/index.js:342:27
+ ❯ rejected node_modules/embedded-postgres/dist/index.js:5:65
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

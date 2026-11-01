@@ -1,0 +1,71 @@
+
+> kayyal@0.0.0 build
+> next build
+
+▲ Next.js 16.3.4 (Turbopack)
+✓ Running next.config.ts took 25ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 287ms
+  Running TypeScript ...
+  Finished TypeScript in 2.8s ...
+  Collecting page data using 8 workers ...
+  Generating static pages using 8 workers (0/7) ...
+  Generating static pages using 8 workers (1/7) 
+  Generating static pages using 8 workers (3/7) 
+  Generating static pages using 8 workers (5/7) 
+✓ Generating static pages using 8 workers (7/7) in 223ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/auth/csrf
+├ ƒ /api/auth/operator/session
+├ ƒ /api/auth/owner/session
+├ ƒ /api/auth/session
+├ ƒ /api/cash/close
+├ ƒ /api/cash/day
+├ ƒ /api/materials
+├ ƒ /api/materials/[materialId]
+├ ƒ /api/parties
+├ ƒ /api/parties/[partyId]
+├ ƒ /api/session
+├ ƒ /api/stock
+├ ƒ /api/stock/[materialId]
+├ ƒ /api/stock/movements
+├ ƒ /api/transactions
+├ ƒ /api/transactions/[transactionId]
+├ ƒ /api/transactions/[transactionId]/cost-adjustment
+├ ƒ /api/transactions/[transactionId]/resolve-stock
+├ ƒ /api/transactions/expense
+├ ƒ /api/transactions/payment
+├ ƒ /api/transactions/purchase
+├ ƒ /api/transactions/sale
+├ ƒ /cash
+├ ƒ /expense
+├ ○ /forbidden
+├ ƒ /history
+├ ƒ /inventory
+├ ƒ /inventory/[materialId]
+├ ○ /login
+├ ƒ /materials
+├ ○ /offline
+├ ƒ /parties
+├ ƒ /parties/[partyId]
+├ ƒ /payment
+├ ƒ /purchase
+├ ƒ /sale
+├ ƒ /today
+├ ƒ /transactions/[transactionId]
+├ ƒ /transactions/[transactionId]/cost-adjustment
+├ ƒ /transactions/[transactionId]/receipt
+└ ○ /ui-preview
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.

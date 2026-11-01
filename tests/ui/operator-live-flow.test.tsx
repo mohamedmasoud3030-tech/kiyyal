@@ -8,16 +8,21 @@
  * alternative interaction proof while a Chromium binary is unavailable; it is
  * not presented as a substitute for visual/browser compatibility testing.
  */
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { once } from 'node:events';
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 import { createServer, type Server } from 'node:net';
 import { randomUUID } from 'node:crypto';
 
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, configure } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+// عقد الجلسة المعدّل (ADR-0016 §7.1): المسبار يعيد دورًا + مُلخّص scope غير سرّي بطول 24.
+function sessionShape(role: 'owner' | 'operator') {
+  return { data: { role, scope: expect.stringMatching(/^[0-9a-f]{24}$/) } };
+}
+
 
 // Route navigation itself is verified through the real Next server in
 // tests/routes/next-http.test.ts. This avoids JSDOM-only Next Link scheduler
@@ -27,6 +32,7 @@ vi.mock('next/link', () => ({
 }));
 
 import { hashPin } from '../../src/auth/hash.js';
+import { normalizeOwnerPhone } from '../../src/ui/phone.js';
 import type { AuthContext } from '../../src/auth/context.js';
 import { createParty } from '../../src/services/party.js';
 import { postCostAdjustment } from '../../src/services/postCostAdjustment.js';
@@ -59,6 +65,15 @@ let baseUrl: string;
 let ownerSubject: string;
 let providerBaseUrl: string;
 let providerServer: HttpServer | undefined;
+let serverExitEvidence: string | null = null;
+const serverTrace: string[] = [];
+function pushServerTrace(line: string): void {
+  serverTrace.push(line);
+  if (serverTrace.length > 300) serverTrace.splice(0, serverTrace.length - 300);
+  if (line.includes('Error') || line.includes('Killed') || line.includes('heap')) {
+    console.error(`[next-server] ${line.trimEnd()}`);
+  }
+}
 let ownerAccessTokenRevoked = false;
 let ownerPasswordGrantRequests = 0;
 let operatorSessionToken: string;
@@ -118,6 +133,13 @@ async function requestJson(request: import('node:http').IncomingMessage): Promis
 
 async function startOwnerProvider(): Promise<void> {
   providerServer = createHttpServer(async (request, response) => {
+    // Supabase الحقيقي يرسل ترويسات CORS على كل رد ويرد على preflight؛ المتصفح
+    // (وhence jsdom fetch بأصل http://localhost) يرفض العبور بدونها، فكان الطلب
+    // يسقط قبل الوصول ويظهر وكأنه «لم يُرسَل». نحاكي السلوك الحقيقي بأمانة.
+    response.setHeader('access-control-allow-origin', '*');
+    response.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS');
+    response.setHeader('access-control-allow-headers', 'authorization, content-type, apikey, x-client-info, x-supabase-api-version');
+    if (request.method === 'OPTIONS') { response.writeHead(204); response.end(); return; }
     if (request.url === '/auth/v1/user' && !ownerAccessTokenRevoked && request.headers.authorization === `Bearer ${OWNER_ACCESS_TOKEN}`) {
       response.writeHead(200, { 'content-type': 'application/json' });
       response.end(JSON.stringify(ownerProviderUser()));
@@ -125,7 +147,10 @@ async function startOwnerProvider(): Promise<void> {
     }
     if (request.method === 'POST' && request.url?.startsWith('/auth/v1/token?grant_type=password')) {
       const credentials = await requestJson(request) as { phone?: unknown; password?: unknown } | null;
-      if (credentials?.phone === OWNER_PHONE && credentials.password === OWNER_PASSWORD) {
+      // مزوّد الهوية الحقيقي يخزّن الهاتف بصيغة E.164 المحسوبة عبر normalizeOwnerPhone —
+      // النموذج يرسلها كذلك؛ مقارنة mock يجب أن تحاكي ذلك بدل النص الخام (وإلا
+      // سقطت كل الجلسات بصمت: يسجَّل الفشل `ownerPasswordGrantRequests = 0`).
+      if (credentials?.phone === normalizeOwnerPhone(OWNER_PHONE) && credentials.password === OWNER_PASSWORD) {
         ownerPasswordGrantRequests += 1;
         ownerAccessTokenRevoked = false;
         response.writeHead(200, { 'content-type': 'application/json' });
@@ -222,8 +247,13 @@ async function establishOwnerBrowserCookie(): Promise<void> {
   ownerAccessTokenRevoked = false;
   const encodedSession = `base64-${Buffer.from(JSON.stringify(ownerProviderSession())).toString('base64url')}`;
   document.cookie = `${OWNER_SESSION_COOKIE}=${encodeURIComponent(encodedSession)}; Path=/`;
-  const response = await nativeFetch(`${baseUrl}/api/session`, { headers: { cookie: document.cookie } });
-  if (!response.ok || JSON.stringify(await response.json()) !== JSON.stringify({ data: { role: 'owner' } })) {
+  const accepted = await waitFor(async () => {
+    const response = await nativeFetch(`${baseUrl}/api/session`, { headers: { cookie: document.cookie } });
+    if (!response.ok) return false;
+    const payload = await response.json() as { data?: { role?: unknown; scope?: unknown } };
+    return payload.data?.role === 'owner' && typeof payload.data?.scope === 'string' && /^[0-9a-f]{24}$/.test(payload.data.scope);
+  }, { timeout: 30_000, interval: 500 });
+  if (!accepted) {
     throw new Error('owner session cookie was not accepted by the live application');
   }
 }
@@ -339,6 +369,13 @@ async function resetWorkflowFacts(): Promise<void> {
   `);
 }
 
+// نوافذ findBy/waitFor الضمنية في testing-library أصلها ثانية واحدة — وهو سقف
+// ينكسر تحت أي عاصفة كمون على صندوق 2GB (شوهد إخفاق «تم تسجيل إقفال اليوم»
+// بعد 2.8s بينما تدفق الإقفال نفسه صحيح). نوسّع النافذة الضمنية للمجموعة كلها
+// إلى 15s؛ النوافذ الصريحة الأطول في الاختبارات الحرجة تبقى كما هي. لا إعادة
+// محاولة مقنّعة: الاختبارات تنجح بأدلة أو تفشل موثقة.
+configure({ asyncUtilTimeout: 15_000 });
+
 beforeAll(async () => {
   nativeFetch = globalThis.fetch;
   t = await freshRealDatabase();
@@ -369,15 +406,44 @@ beforeAll(async () => {
   delete environment.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   environment.DATABASE_URL = `postgres://${t.runtimeUser}:rtpw@localhost:${process.env.TEST_PG_PORT ?? '55433'}/${t.dbName}`;
   environment.NEXT_TELEMETRY_DISABLED = '1';
+  // تحقيق جذري (2026-10-26، سجلّ النواة dmesg): قاتل OOM العالمي يقتل ابن
+  // «next-server (v1)» (anon-rss 1.16GB — ذاكرة Turbopack الأصلية لا يحكمها سقف
+  // V8)، فيخرج CLI الأب exit(0) نظيفًا وتسقط الطلبات المتبقية بـ «fetch failed».
+  // الحل البنيوي: بناء الإنتاج مرة واحدة ثم تشغيل «next start» — بصمة التشغيل
+  // 250–400MB فقط، وكل المسارات جاهزة مسبقًا فيختفي صنفا التذبذب معًا (ذروة
+  // التجميع وتجميد التجميع الكسول). الاختبارات تستورد المكوّنات من المصدر ولا
+  // تعتمد أي سلوك dev-exclusive للخادم؛ دلالات واجهات API متطابقة في الوضعين.
+  // مرصد الخروج أدناه يبقى الحكم: أي موت خادم يُطبع بكود/إشارة وأثر صريح.
+  const build = spawnSync(process.execPath, [
+    './node_modules/next/dist/bin/next', 'build',
+  ], { cwd: process.cwd(), env: environment, stdio: 'pipe', timeout: 240_000 });
+  if ((build.status ?? 1) !== 0) {
+    throw new Error(`next build failed inside the live-flow suite:\n${String(build.stderr)}\n${String(build.stdout)}`);
+  }
   nextServer = spawn(process.execPath, [
-    './node_modules/next/dist/bin/next', 'dev', '--hostname', '127.0.0.1', '--port', String(port),
+    './node_modules/next/dist/bin/next', 'start', '--hostname', '127.0.0.1', '--port', String(port),
   ], { cwd: process.cwd(), env: environment, stdio: 'pipe' });
-  nextServer.stderr.on('data', () => undefined);
-  nextServer.stdout.on('data', () => undefined);
+  // مرصد الخروج (ملاحظة المالك 6): عند موت الخادم أثناء التشغيل نلتقط كود الخروج
+  // والإشارة وآخر stderr — فيُثبت OOM بإشارة SIGKILL مثلًا بدل اتهام الذاكرة تعسّفًا.
+  nextServer.stderr.on('data', (chunk: Buffer) => pushServerTrace('[stderr] ' + chunk.toString('utf8')));
+  nextServer.stdout.on('data', (chunk: Buffer) => pushServerTrace('[stdout] ' + chunk.toString('utf8')));
+  nextServer.on('exit', (code, signal) => {
+    serverExitEvidence = `next server exited — code=${String(code)} signal=${String(signal)}`;
+    console.error(`\n[next-server exit] ${serverExitEvidence}\n${serverTrace.join('')}`);
+  });
   await waitForNext(baseUrl);
   await createStableOperatorSession();
+  // تدفئة تجميع dev لمسار DELETE /api/auth/session: أول نداء فعلي لهذا المسار
+  // (اختبار إبطال جلسة المالك) كان يدفع كلفة التجميع الكسول — حتى دقيقة تحت
+  // ضغط RAM البالغ 2GB داخل بوابة الإصدار — فينفجر صبر نافذة التحقق. ننقل الكلفة
+  // هنا إلى الإقلاع بطلبٍ غير موثّق (401 لا يهمنا، التجميع هو المطلوب).
+  try {
+    await nativeFetch(`${baseUrl}/api/auth/session`, { method: 'DELETE' });
+  } catch {
+    // أفضل جهد ممكن: انقطاع الشبكة هنا يكشفه إقلاع الخادم نفسه لاحقًا.
+  }
   installLiveBrowserFetch();
-}, 180_000);
+}, 480_000);
 
 beforeEach(async () => {
   await resetWorkflowFacts();
@@ -417,7 +483,7 @@ describe('operator client workflows against the live application boundary', () =
     await waitFor(() => expect(document.cookie).toContain('kayyal_operator_session='), { timeout: 10_000 });
     const session = await nativeFetch(`${baseUrl}/api/session`, { headers: { cookie: document.cookie } });
     expect(session.status).toBe(200);
-    expect(await session.json()).toEqual({ data: { role: 'operator' } });
+    expect(await session.json()).toEqual(sessionShape('operator'));
     expect(document.cookie).not.toContain('4271');
   });
 
@@ -655,7 +721,7 @@ describe('operator client workflows against the live application boundary', () =
     }, { timeout: 10_000 });
     const mappedSession = await nativeFetch(`${baseUrl}/api/session`, { headers: { cookie: document.cookie } });
     expect(mappedSession.status).toBe(200);
-    expect(await mappedSession.json()).toEqual({ data: { role: 'owner' } });
+    expect(await mappedSession.json()).toEqual(sessionShape('owner'));
     await waitFor(() => expect((form.querySelector('input[name="password"]') as HTMLInputElement).value).toBe(''), { timeout: 10_000 });
   });
 
@@ -886,15 +952,29 @@ describe('operator client workflows against the live application boundary', () =
     expect((await screen.findAllByText(ar.cash.closedDayStatus)).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('uses the live sign-out control to revoke an owner cookie session instead of merely hiding owner UI', async () => {
+  // كمون صندوق 2GB تحت حمل متتابع يبلغ عشرات الثواني لكل رحلة خادم (مُقاس
+  // 2026-10-26: النجاح الطازج 17–26s مقابل 50–130s تحت الضغط، والخادم يخرج
+  // code=0 — لا OOM). سقف ممدود صادق لهذا الاختبار بينما سياسة «لا إعادة محاولة
+  // مقنّعة» تبقى: إما نجاح بأدلة أو فشل موثق.
+  it('uses the live sign-out control to revoke an owner cookie session instead of merely hiding owner UI', { timeout: 150_000 }, async () => {
     await establishOwnerBrowserCookie();
     const user = userEvent.setup();
     render(<SignOutButton />);
     await user.click(screen.getByRole('button', { name: ar.auth.signOutAction }));
 
-    await waitFor(() => expect(ownerAccessTokenRevoked).toBe(true), { timeout: 10_000 });
+    try {
+      await waitFor(() => expect(ownerAccessTokenRevoked).toBe(true), { timeout: 30_000 });
+    } catch (failure) {
+      const errorText = document.querySelector('.session-actions__error')?.textContent ?? '(لا عرض خطأ)';
+      const buttonText = screen.getByRole('button').textContent ?? '(لا زر)';
+      console.error(
+        `[sign-out diagnostics] error="${errorText}" button="${buttonText}"\n`
+        + `آخر أثر الخادم:\n${serverTrace.slice(-14).join('')}`,
+      );
+      throw failure;
+    }
     const sessionResponse = await nativeFetch(`${baseUrl}/api/session`, { headers: { cookie: document.cookie } });
     expect(sessionResponse.status).toBe(401);
     expect(document.querySelector('.session-actions__error')).toBeNull();
-  });
+  }, );
 });
