@@ -6,31 +6,27 @@
 ## Current checkpoint — 2026-11-01
 
 - GitHub's canonical repository name is now `kiyyal` (the former
-  `bug-free-garbanzo` slug redirects). `main` is `8e8c724a3b4c`; the current
-  release candidate is `release/kayyal-stage1-offline-candidate-2026-11-01`
-  at `9014c0d`, sourced from `integration/kayyal-unified` at `ca527d72342f`.
-  It has **not** been merged to `main` or deployed by this candidate.
-- The candidate contains the Stage 1 Arabic RTL web slice, the ADR-0016
-  offline drafts/outbox work, the Round-3 session/offline hardening, the
-  Next.js security patch to `16.4.3`, and the dependency security refresh to
-  `zod 4.6.7` plus patched transitive packages. It is a release candidate,
-  not a production-readiness claim.
+  `bug-free-garbanzo` slug redirects). PR #22 merged the release candidate
+  `release/kayyal-stage1-offline-candidate-2026-11-01` (candidate head
+  `c4c8b9d`, squash merge `4acb084c8822`) into `main` on 2026-11-01. The
+  source integration branch was `integration/kayyal-unified` at `ca527d72342f`.
+- The shipped candidate contains the Stage 1 Arabic RTL web slice, the
+  ADR-0016 offline drafts/outbox work, the Round-3 session/offline hardening,
+  the Next.js security patch to `16.4.3`, and the dependency security refresh
+  to `zod 4.6.7` plus patched transitive packages.
 - The local `release-readiness` skill is synchronized byte-for-byte from
   `command-center-` commit `07017ed028b7b9e9090c177a350fb0e8a499e871`
   (source blob `71641b6fc7f517012e7f451ed3ce45d84da268f5`; SHA-256
   `6b8d585a0c5491a89a64fccba66214452ed2c9c26ff1e18f386086671e60b427`).
 - The preceding candidate head `00679c1` had successful GitHub `verify` and
-  Vercel preview checks. The performance head `933f1b6` had fresh GitHub
-  `verify` success on both push and pull-request runs, with Vercel Preview
-  Comments successful and `staging-gate` skipped as designed. The
-  dependency-security head `b9eb135` passed fresh GitHub `verify` and Vercel
-  Preview Comments checks. The current Node 22 runtime head is awaiting its
-  fresh GitHub result. On the current tree, `typecheck`, `guard:decimal`,
-  production build, and full Vitest **322/322** pass; the real browser suite
-  after the dependency refresh passed **21/21** under Node 22. A strict local
-  run was **not called green** because the 2 GB
-  sandbox's combined UI/HTTP run OOM-killed a Next server. The existing strict
-  PASS at `b584477445c5` is earlier evidence only.
+  Vercel preview checks. The performance head `933f1b6`, dependency-security
+  head `b9eb135`, and final Node 22 candidate head `c4c8b9d` all passed fresh
+  GitHub `verify`; Vercel Preview Comments also succeeded. On the shipped
+  tree, `typecheck`, `guard:decimal`, production build, and full Vitest
+  **322/322** pass; the real browser suite passed **21/21** under Node 22.
+  A strict local run was **not called green** because the 2 GB sandbox's
+  combined UI/HTTP run OOM-killed a Next server. The existing strict PASS at
+  `b584477445c5` is earlier evidence only.
 - Performance checkpoint (local production `next start` with a browser/API
   fixture, not a production-latency claim): the `/today` initial load dropped
   from **41 requests / 18 RSC prefetches / 5 API calls** to **23 requests / 0
@@ -40,12 +36,27 @@
   already verified shell while a fresh session probe runs, skips parked-work
   revalidation when no parked operation exists, and refreshes reference data
   at most once per five minutes per scope.
-- `npm audit` on the current tree reports **0 vulnerabilities** after the
+- `npm audit` on the shipped tree reports **0 vulnerabilities** after the
   explicit Zod 4 and transitive dependency refresh. The release runtime and
-  both CI jobs now target Node 22, matching the Supabase 2.116 engine
-  requirement; local Node 22 validation passed.
-- No merge, deployment, hosted migration, hosted-data mutation, or secret
-  rotation is part of this checkpoint.
+  both CI jobs target Node 22, matching the Supabase 2.116 engine requirement;
+  local Node 22 validation passed.
+- GitHub `verify` on `main` at `4acb084c8822` passed. The main-branch
+  `staging-gate` failed closed because `STAGING_MIGRATOR_URL` and
+  `STAGING_RUNTIME_URL` are not configured (run `41295798270`, job
+  `124817105273`); this is a missing owner-controlled staging credential, not
+  a product-test failure. No secret was invented or added.
+- Vercel production deployment `dpl_2jj9Hw4LTePhjZdgFxCXjMWVfT18` built
+  `main@4acb084c8822`, reached **READY/PROMOTED**, and serves the production
+  aliases `kayyal-psi.vercel.app` and `kayyal-ahmedmasoud050-9337.vercel.app`.
+  Read-only smoke checks returned `/login` **200**, `/` **307 → /login**,
+  `/today` **307 → /login**, and `/api/session` **401** with the expected
+  unauthenticated contract.
+- The candidate has no migration diff from `main`; all 18 repository
+  migrations are covered by local zero-to-schema tests. No hosted Supabase
+  migration or hosted-data mutation was performed. The connected Supabase
+  account exposes only the unrelated `nilesys-demo` project, so there was no
+  authorized Kayyal project ref to target safely. A real staging journey
+  remains pending until the owner supplies the two staging URLs.
 
 ## PR #19 — historical independent verification (2026-10-31)
 
