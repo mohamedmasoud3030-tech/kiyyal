@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: 'npm' }
+        with: { node-version: '24.22.2', cache: 'npm' }
       - run: npm ci
       - run: mkdir -p /tmp/kayyal-logs
 
@@ -84,6 +84,41 @@ jobs:
           path: /tmp/kayyal-logs
           retention-days: 14
 
+  # Full browser coverage runs independently from verify so an E2E failure is
+  # visible instead of being hidden behind a unit/route gate. The hosted runner
+  # has materially more memory than the local 2 GB reproduction environment;
+  # failures remain failures and are uploaded with their traces.
+  browser-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24.22.2', cache: 'npm' }
+      - run: npm ci
+      - name: Install libicu60 for embedded Postgres
+        run: |
+          curl -fsSL -o /tmp/libicu60.deb "https://security.ubuntu.com/ubuntu/pool/main/i/icu/libicu60_60.2-3ubuntu3.2_amd64.deb"
+          echo "f01f61f57e63dc905e02e6441d10370fe0c79e43e70e6f5fe24b342fd2633209  /tmp/libicu60.deb" | sha256sum -c -
+          sudo dpkg -i /tmp/libicu60.deb
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Full Playwright suite
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: npm run test:e2e
+      - name: Upload Playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-diagnostics-${{ github.run_attempt }}
+          if-no-files-found: ignore
+          path: |
+            test-results
+            playwright-report
+            ci/browser-evidence/latest
+          retention-days: 14
+
   # Runs only where the owner has provided staging credentials as repository secrets.
   staging-gate:
     runs-on: ubuntu-latest
@@ -93,7 +128,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: 'npm' }
+        with: { node-version: '24.22.2', cache: 'npm' }
       - run: npm ci
       - name: Supabase staging gate (STG-1..STG-9)
         env:

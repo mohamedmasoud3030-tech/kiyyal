@@ -1,0 +1,1821 @@
+{
+  "evidenceVersion": "production-components-v1",
+  "generatedAt": "2026-11-01T23:21:23.517Z",
+  "reference": "current",
+  "sourceSha": "427be699494347e7b23aa11231ebf5430374f58b",
+  "origin": "http://127.0.0.1:3137",
+  "browser": "153.0.8010.12",
+  "strict": true,
+  "script": "scripts/capture-production-visuals.mjs",
+  "dataMode": "read-model fixture intercepted at HTTP boundaries; real Next routes and React pages are rendered; no hosted-data mutation",
+  "sourceRoutes": [
+    "/reports",
+    "/regrade",
+    "/regrade/fixture-regrade"
+  ],
+  "sourceComponents": [
+    "src/ui/components/ReportsContent.tsx",
+    "src/ui/components/RegradeDetailContent.tsx",
+    "src/ui/components/AppShell.tsx",
+    "src/ui/components/DataTable.tsx"
+  ],
+  "cases": [
+    {
+      "pageName": "reports-loaded",
+      "viewportName": "phone",
+      "viewport": {
+        "width": 375,
+        "height": 900
+      },
+      "media": "screen",
+      "theme": "light",
+      "file": "reports-loaded-light-phone.png",
+      "assets": {
+        "fontStatus": "loaded",
+        "fontCheck": true,
+        "manifestStatus": 200,
+        "iconStatus": 200,
+        "fontEntries": [
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2"
+        ]
+      },
+      "checks": {
+        "documentNoOverflow": true,
+        "documentScrollWidth": 375,
+        "documentClientWidth": 375,
+        "bodyClientWidth": 375,
+        "bodyOverflowX": "visible",
+        "bodyOverflowY": "visible",
+        "appOverflowX": "clip",
+        "viewportWidth": 375,
+        "overflowElements": [
+          {
+            "tag": "DIV",
+            "className": "reports-table-wrap",
+            "left": 33,
+            "right": 342,
+            "width": 309,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TABLE",
+            "className": "reports-table",
+            "left": -1302,
+            "right": 342,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "THEAD",
+            "className": "",
+            "left": -1302,
+            "right": 342,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TR",
+            "className": "",
+            "left": -1302,
+            "right": 342,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -43,
+            "right": 38,
+            "width": 81,
+            "scrollWidth": 81
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -143,
+            "right": -43,
+            "width": 100,
+            "scrollWidth": 100
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -469,
+            "right": -143,
+            "width": 326,
+            "scrollWidth": 326
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -609,
+            "right": -469,
+            "width": 140,
+            "scrollWidth": 140
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -720,
+            "right": -609,
+            "width": 111,
+            "scrollWidth": 111
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -836,
+            "right": -720,
+            "width": 116,
+            "scrollWidth": 116
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -1176,
+            "right": -836,
+            "width": 340,
+            "scrollWidth": 340
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -1302,
+            "right": -1176,
+            "width": 126,
+            "scrollWidth": 126
+          }
+        ],
+        "tableFound": true,
+        "tableText": "مشتريات اليومidرقم الحركةالتاريخmaterial_nameالكميةprice_per_kgvalueparty_nameالمستخدمaaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa10242026-10-31مادة صناعية ذات اسم عربي طويل جداً لاختبار حدود الجدول1234567890.1200987654.32104500000.0000شركة تدوير المعادن والخامات الصناعية ذات الاسم الطويل جداًالمستخدم الاختباريbbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb10232026-10-30نحاس أحمر12.5000700.00008750.0000أحمد محمودالمستخدم الاختباري",
+        "exactDecimal": true,
+        "exactUnit": false,
+        "captions": 1,
+        "scopedHeaders": true,
+        "region": "مشتريات اليوم",
+        "regionTabIndex": true,
+        "regionScrollWidth": 1644,
+        "regionClientWidth": 309,
+        "activeElementIsRegion": true,
+        "bodyBackground": "rgb(245, 246, 243)",
+        "printChromeHidden": true
+      },
+      "bodyTextSha256": "321c7d7011920490dcc39f1372020f70a6d0d5e680ce5b99419890a93f3ad576",
+      "fontResponses": [
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/manifest.webmanifest",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/icons/icon-192.png",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/icons/icon-512.png",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/manifest.webmanifest",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/icons/icon-192.png",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/manifest.webmanifest",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/icons/icon-192.png",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "pageName": "reports-loaded-dark",
+      "viewportName": "phone",
+      "viewport": {
+        "width": 375,
+        "height": 900
+      },
+      "media": "screen",
+      "theme": "dark",
+      "file": "reports-loaded-dark-phone.png",
+      "assets": {
+        "fontStatus": "loaded",
+        "fontCheck": true,
+        "manifestStatus": 200,
+        "iconStatus": 200,
+        "fontEntries": [
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2"
+        ]
+      },
+      "checks": {
+        "documentNoOverflow": true,
+        "documentScrollWidth": 375,
+        "documentClientWidth": 375,
+        "bodyClientWidth": 375,
+        "bodyOverflowX": "visible",
+        "bodyOverflowY": "visible",
+        "appOverflowX": "clip",
+        "viewportWidth": 375,
+        "overflowElements": [
+          {
+            "tag": "DIV",
+            "className": "reports-table-wrap",
+            "left": 33,
+            "right": 342,
+            "width": 309,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TABLE",
+            "className": "reports-table",
+            "left": -1302,
+            "right": 342,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "THEAD",
+            "className": "",
+            "left": -1302,
+            "right": 342,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TR",
+            "className": "",
+            "left": -1302,
+            "right": 342,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -43,
+            "right": 38,
+            "width": 81,
+            "scrollWidth": 81
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -143,
+            "right": -43,
+            "width": 100,
+            "scrollWidth": 100
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -469,
+            "right": -143,
+            "width": 326,
+            "scrollWidth": 326
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -609,
+            "right": -469,
+            "width": 140,
+            "scrollWidth": 140
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -720,
+            "right": -609,
+            "width": 111,
+            "scrollWidth": 111
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -836,
+            "right": -720,
+            "width": 116,
+            "scrollWidth": 116
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -1176,
+            "right": -836,
+            "width": 340,
+            "scrollWidth": 340
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -1302,
+            "right": -1176,
+            "width": 126,
+            "scrollWidth": 126
+          }
+        ],
+        "tableFound": true,
+        "tableText": "مشتريات اليومidرقم الحركةالتاريخmaterial_nameالكميةprice_per_kgvalueparty_nameالمستخدمaaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa10242026-10-31مادة صناعية ذات اسم عربي طويل جداً لاختبار حدود الجدول1234567890.1200987654.32104500000.0000شركة تدوير المعادن والخامات الصناعية ذات الاسم الطويل جداًالمستخدم الاختباريbbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb10232026-10-30نحاس أحمر12.5000700.00008750.0000أحمد محمودالمستخدم الاختباري",
+        "exactDecimal": true,
+        "exactUnit": false,
+        "captions": 1,
+        "scopedHeaders": true,
+        "region": "مشتريات اليوم",
+        "regionTabIndex": true,
+        "regionScrollWidth": 1644,
+        "regionClientWidth": 309,
+        "activeElementIsRegion": true,
+        "bodyBackground": "rgb(16, 26, 23)",
+        "printChromeHidden": true
+      },
+      "bodyTextSha256": "321c7d7011920490dcc39f1372020f70a6d0d5e680ce5b99419890a93f3ad576",
+      "fontResponses": [
+        {
+          "url": "http://127.0.0.1:3137/manifest.webmanifest",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/icons/icon-192.png",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "pageName": "reports-loaded",
+      "viewportName": "tablet",
+      "viewport": {
+        "width": 768,
+        "height": 1000
+      },
+      "media": "screen",
+      "theme": "light",
+      "file": "reports-loaded-light-tablet.png",
+      "assets": {
+        "fontStatus": "loaded",
+        "fontCheck": true,
+        "manifestStatus": 200,
+        "iconStatus": 200,
+        "fontEntries": [
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2"
+        ]
+      },
+      "checks": {
+        "documentNoOverflow": true,
+        "documentScrollWidth": 768,
+        "documentClientWidth": 768,
+        "bodyClientWidth": 768,
+        "bodyOverflowX": "visible",
+        "bodyOverflowY": "visible",
+        "appOverflowX": "clip",
+        "viewportWidth": 768,
+        "overflowElements": [
+          {
+            "tag": "DIV",
+            "className": "reports-table-wrap",
+            "left": 41,
+            "right": 727,
+            "width": 686,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TABLE",
+            "className": "reports-table",
+            "left": -917,
+            "right": 727,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "THEAD",
+            "className": "",
+            "left": -917,
+            "right": 727,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TR",
+            "className": "",
+            "left": -917,
+            "right": 727,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -84,
+            "right": 242,
+            "width": 326,
+            "scrollWidth": 326
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -224,
+            "right": -84,
+            "width": 140,
+            "scrollWidth": 140
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -335,
+            "right": -224,
+            "width": 111,
+            "scrollWidth": 111
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -451,
+            "right": -335,
+            "width": 116,
+            "scrollWidth": 116
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -791,
+            "right": -451,
+            "width": 340,
+            "scrollWidth": 340
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -917,
+            "right": -791,
+            "width": 126,
+            "scrollWidth": 126
+          },
+          {
+            "tag": "TBODY",
+            "className": "",
+            "left": -917,
+            "right": 727,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TR",
+            "className": "",
+            "left": -917,
+            "right": 727,
+            "width": 1644,
+            "scrollWidth": 1644
+          }
+        ],
+        "tableFound": true,
+        "tableText": "مشتريات اليومidرقم الحركةالتاريخmaterial_nameالكميةprice_per_kgvalueparty_nameالمستخدمaaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa10242026-10-31مادة صناعية ذات اسم عربي طويل جداً لاختبار حدود الجدول1234567890.1200987654.32104500000.0000شركة تدوير المعادن والخامات الصناعية ذات الاسم الطويل جداًالمستخدم الاختباريbbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb10232026-10-30نحاس أحمر12.5000700.00008750.0000أحمد محمودالمستخدم الاختباري",
+        "exactDecimal": true,
+        "exactUnit": false,
+        "captions": 1,
+        "scopedHeaders": true,
+        "region": "مشتريات اليوم",
+        "regionTabIndex": true,
+        "regionScrollWidth": 1644,
+        "regionClientWidth": 686,
+        "activeElementIsRegion": true,
+        "bodyBackground": "rgb(245, 246, 243)",
+        "printChromeHidden": true
+      },
+      "bodyTextSha256": "321c7d7011920490dcc39f1372020f70a6d0d5e680ce5b99419890a93f3ad576",
+      "fontResponses": [
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/manifest.webmanifest",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/icons/icon-192.png",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "pageName": "reports-loaded-dark",
+      "viewportName": "tablet",
+      "viewport": {
+        "width": 768,
+        "height": 1000
+      },
+      "media": "screen",
+      "theme": "dark",
+      "file": "reports-loaded-dark-tablet.png",
+      "assets": {
+        "fontStatus": "loaded",
+        "fontCheck": true,
+        "manifestStatus": 200,
+        "iconStatus": 200,
+        "fontEntries": [
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2"
+        ]
+      },
+      "checks": {
+        "documentNoOverflow": true,
+        "documentScrollWidth": 768,
+        "documentClientWidth": 768,
+        "bodyClientWidth": 768,
+        "bodyOverflowX": "visible",
+        "bodyOverflowY": "visible",
+        "appOverflowX": "clip",
+        "viewportWidth": 768,
+        "overflowElements": [
+          {
+            "tag": "DIV",
+            "className": "reports-table-wrap",
+            "left": 41,
+            "right": 727,
+            "width": 686,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TABLE",
+            "className": "reports-table",
+            "left": -917,
+            "right": 727,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "THEAD",
+            "className": "",
+            "left": -917,
+            "right": 727,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TR",
+            "className": "",
+            "left": -917,
+            "right": 727,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -84,
+            "right": 242,
+            "width": 326,
+            "scrollWidth": 326
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -224,
+            "right": -84,
+            "width": 140,
+            "scrollWidth": 140
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -335,
+            "right": -224,
+            "width": 111,
+            "scrollWidth": 111
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -451,
+            "right": -335,
+            "width": 116,
+            "scrollWidth": 116
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -791,
+            "right": -451,
+            "width": 340,
+            "scrollWidth": 340
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -917,
+            "right": -791,
+            "width": 126,
+            "scrollWidth": 126
+          },
+          {
+            "tag": "TBODY",
+            "className": "",
+            "left": -917,
+            "right": 727,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TR",
+            "className": "",
+            "left": -917,
+            "right": 727,
+            "width": 1644,
+            "scrollWidth": 1644
+          }
+        ],
+        "tableFound": true,
+        "tableText": "مشتريات اليومidرقم الحركةالتاريخmaterial_nameالكميةprice_per_kgvalueparty_nameالمستخدمaaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa10242026-10-31مادة صناعية ذات اسم عربي طويل جداً لاختبار حدود الجدول1234567890.1200987654.32104500000.0000شركة تدوير المعادن والخامات الصناعية ذات الاسم الطويل جداًالمستخدم الاختباريbbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb10232026-10-30نحاس أحمر12.5000700.00008750.0000أحمد محمودالمستخدم الاختباري",
+        "exactDecimal": true,
+        "exactUnit": false,
+        "captions": 1,
+        "scopedHeaders": true,
+        "region": "مشتريات اليوم",
+        "regionTabIndex": true,
+        "regionScrollWidth": 1644,
+        "regionClientWidth": 686,
+        "activeElementIsRegion": true,
+        "bodyBackground": "rgb(16, 26, 23)",
+        "printChromeHidden": true
+      },
+      "bodyTextSha256": "321c7d7011920490dcc39f1372020f70a6d0d5e680ce5b99419890a93f3ad576",
+      "fontResponses": [
+        {
+          "url": "http://127.0.0.1:3137/manifest.webmanifest",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/icons/icon-192.png",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "pageName": "reports-loaded",
+      "viewportName": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 1100
+      },
+      "media": "screen",
+      "theme": "light",
+      "file": "reports-loaded-light-desktop.png",
+      "assets": {
+        "fontStatus": "loaded",
+        "fontCheck": true,
+        "manifestStatus": 200,
+        "iconStatus": 200,
+        "fontEntries": [
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2"
+        ]
+      },
+      "checks": {
+        "documentNoOverflow": true,
+        "documentScrollWidth": 1440,
+        "documentClientWidth": 1440,
+        "bodyClientWidth": 1440,
+        "bodyOverflowX": "visible",
+        "bodyOverflowY": "visible",
+        "appOverflowX": "clip",
+        "viewportWidth": 1440,
+        "overflowElements": [
+          {
+            "tag": "DIV",
+            "className": "reports-table-wrap",
+            "left": 57,
+            "right": 1143,
+            "width": 1086,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TABLE",
+            "className": "reports-table",
+            "left": -501,
+            "right": 1143,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "THEAD",
+            "className": "",
+            "left": -501,
+            "right": 1143,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TR",
+            "className": "",
+            "left": -501,
+            "right": 1143,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -35,
+            "right": 81,
+            "width": 116,
+            "scrollWidth": 116
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -375,
+            "right": -35,
+            "width": 340,
+            "scrollWidth": 340
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -501,
+            "right": -375,
+            "width": 126,
+            "scrollWidth": 126
+          },
+          {
+            "tag": "TBODY",
+            "className": "",
+            "left": -501,
+            "right": 1143,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TR",
+            "className": "",
+            "left": -501,
+            "right": 1143,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TD",
+            "className": "",
+            "left": -35,
+            "right": 81,
+            "width": 116,
+            "scrollWidth": 116
+          },
+          {
+            "tag": "BDI",
+            "className": "",
+            "left": -23,
+            "right": 69,
+            "width": 92,
+            "scrollWidth": 0
+          },
+          {
+            "tag": "TD",
+            "className": "",
+            "left": -375,
+            "right": -35,
+            "width": 340,
+            "scrollWidth": 340
+          }
+        ],
+        "tableFound": true,
+        "tableText": "مشتريات اليومidرقم الحركةالتاريخmaterial_nameالكميةprice_per_kgvalueparty_nameالمستخدمaaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa10242026-10-31مادة صناعية ذات اسم عربي طويل جداً لاختبار حدود الجدول1234567890.1200987654.32104500000.0000شركة تدوير المعادن والخامات الصناعية ذات الاسم الطويل جداًالمستخدم الاختباريbbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb10232026-10-30نحاس أحمر12.5000700.00008750.0000أحمد محمودالمستخدم الاختباري",
+        "exactDecimal": true,
+        "exactUnit": false,
+        "captions": 1,
+        "scopedHeaders": true,
+        "region": "مشتريات اليوم",
+        "regionTabIndex": true,
+        "regionScrollWidth": 1644,
+        "regionClientWidth": 1086,
+        "activeElementIsRegion": true,
+        "bodyBackground": "rgb(245, 246, 243)",
+        "printChromeHidden": true
+      },
+      "bodyTextSha256": "6695bf7940c028141693da4c61a461b3cd7d9b78bf5ceb3587130957fcfc2848",
+      "fontResponses": [
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/manifest.webmanifest",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/icons/icon-192.png",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "pageName": "reports-loaded-dark",
+      "viewportName": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 1100
+      },
+      "media": "screen",
+      "theme": "dark",
+      "file": "reports-loaded-dark-desktop.png",
+      "assets": {
+        "fontStatus": "loaded",
+        "fontCheck": true,
+        "manifestStatus": 200,
+        "iconStatus": 200,
+        "fontEntries": [
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2"
+        ]
+      },
+      "checks": {
+        "documentNoOverflow": true,
+        "documentScrollWidth": 1440,
+        "documentClientWidth": 1440,
+        "bodyClientWidth": 1440,
+        "bodyOverflowX": "visible",
+        "bodyOverflowY": "visible",
+        "appOverflowX": "clip",
+        "viewportWidth": 1440,
+        "overflowElements": [
+          {
+            "tag": "DIV",
+            "className": "reports-table-wrap",
+            "left": 57,
+            "right": 1143,
+            "width": 1086,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TABLE",
+            "className": "reports-table",
+            "left": -501,
+            "right": 1143,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "THEAD",
+            "className": "",
+            "left": -501,
+            "right": 1143,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TR",
+            "className": "",
+            "left": -501,
+            "right": 1143,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -35,
+            "right": 81,
+            "width": 116,
+            "scrollWidth": 116
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -375,
+            "right": -35,
+            "width": 340,
+            "scrollWidth": 340
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -501,
+            "right": -375,
+            "width": 126,
+            "scrollWidth": 126
+          },
+          {
+            "tag": "TBODY",
+            "className": "",
+            "left": -501,
+            "right": 1143,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TR",
+            "className": "",
+            "left": -501,
+            "right": 1143,
+            "width": 1644,
+            "scrollWidth": 1644
+          },
+          {
+            "tag": "TD",
+            "className": "",
+            "left": -35,
+            "right": 81,
+            "width": 116,
+            "scrollWidth": 116
+          },
+          {
+            "tag": "BDI",
+            "className": "",
+            "left": -23,
+            "right": 69,
+            "width": 92,
+            "scrollWidth": 0
+          },
+          {
+            "tag": "TD",
+            "className": "",
+            "left": -375,
+            "right": -35,
+            "width": 340,
+            "scrollWidth": 340
+          }
+        ],
+        "tableFound": true,
+        "tableText": "مشتريات اليومidرقم الحركةالتاريخmaterial_nameالكميةprice_per_kgvalueparty_nameالمستخدمaaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa10242026-10-31مادة صناعية ذات اسم عربي طويل جداً لاختبار حدود الجدول1234567890.1200987654.32104500000.0000شركة تدوير المعادن والخامات الصناعية ذات الاسم الطويل جداًالمستخدم الاختباريbbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb10232026-10-30نحاس أحمر12.5000700.00008750.0000أحمد محمودالمستخدم الاختباري",
+        "exactDecimal": true,
+        "exactUnit": false,
+        "captions": 1,
+        "scopedHeaders": true,
+        "region": "مشتريات اليوم",
+        "regionTabIndex": true,
+        "regionScrollWidth": 1644,
+        "regionClientWidth": 1086,
+        "activeElementIsRegion": true,
+        "bodyBackground": "rgb(16, 26, 23)",
+        "printChromeHidden": true
+      },
+      "bodyTextSha256": "6695bf7940c028141693da4c61a461b3cd7d9b78bf5ceb3587130957fcfc2848",
+      "fontResponses": [
+        {
+          "url": "http://127.0.0.1:3137/manifest.webmanifest",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/icons/icon-192.png",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "pageName": "regrade-detail",
+      "viewportName": "phone",
+      "viewport": {
+        "width": 375,
+        "height": 900
+      },
+      "media": "screen",
+      "theme": "light",
+      "file": "regrade-detail-light-phone.png",
+      "assets": {
+        "fontStatus": "loaded",
+        "fontCheck": true,
+        "manifestStatus": 200,
+        "iconStatus": 200,
+        "fontEntries": [
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2"
+        ]
+      },
+      "checks": {
+        "documentNoOverflow": true,
+        "documentScrollWidth": 375,
+        "documentClientWidth": 375,
+        "bodyClientWidth": 375,
+        "bodyOverflowX": "visible",
+        "bodyOverflowY": "visible",
+        "appOverflowX": "clip",
+        "viewportWidth": 375,
+        "overflowElements": [
+          {
+            "tag": "DIV",
+            "className": "app-shell",
+            "left": 0,
+            "right": 375,
+            "width": 375,
+            "scrollWidth": 377
+          },
+          {
+            "tag": "DIV",
+            "className": "app-shell__workspace",
+            "left": 0,
+            "right": 375,
+            "width": 375,
+            "scrollWidth": 377
+          },
+          {
+            "tag": "MAIN",
+            "className": "app-shell__content",
+            "left": 0,
+            "right": 375,
+            "width": 375,
+            "scrollWidth": 377
+          },
+          {
+            "tag": "DIV",
+            "className": "regrade-preview-table-wrap",
+            "left": 33,
+            "right": 342,
+            "width": 309,
+            "scrollWidth": 977
+          },
+          {
+            "tag": "TABLE",
+            "className": "regrade-preview-table",
+            "left": -635,
+            "right": 342,
+            "width": 977,
+            "scrollWidth": 977
+          },
+          {
+            "tag": "THEAD",
+            "className": "",
+            "left": -635,
+            "right": 342,
+            "width": 977,
+            "scrollWidth": 977
+          },
+          {
+            "tag": "TR",
+            "className": "",
+            "left": -635,
+            "right": 342,
+            "width": 977,
+            "scrollWidth": 977
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -26,
+            "right": 342,
+            "width": 368,
+            "scrollWidth": 368
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -157,
+            "right": -26,
+            "width": 131,
+            "scrollWidth": 131
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -300,
+            "right": -157,
+            "width": 143,
+            "scrollWidth": 143
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -438,
+            "right": -300,
+            "width": 138,
+            "scrollWidth": 138
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -635,
+            "right": -438,
+            "width": 197,
+            "scrollWidth": 197
+          }
+        ],
+        "tableFound": true,
+        "tableText": "المخرجاتالمخرجالكمية الأصليةالمباع حتى الحسمالمتبقي للمخزونالقيمة الداخلة للمخزون11111111-1111-4111-8111-111111111111120.0000 كجم20.0000 كجمتم حسم تكلفة الفرز100,000.0000 ج.متقريبي22222222-2222-4222-8222-2222222222220.5000 كجم———",
+        "exactDecimal": false,
+        "exactUnit": true,
+        "captions": 1,
+        "scopedHeaders": true,
+        "region": "المخرجات",
+        "regionTabIndex": true,
+        "regionScrollWidth": 977,
+        "regionClientWidth": 309,
+        "activeElementIsRegion": true,
+        "bodyBackground": "rgb(245, 246, 243)",
+        "printChromeHidden": true
+      },
+      "bodyTextSha256": "a146a1d4f958cfe0b3a800701f5930ebcba176333a629bad1d77dba1abab5bd9",
+      "fontResponses": [
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/manifest.webmanifest",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/icons/icon-192.png",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "pageName": "regrade-detail",
+      "viewportName": "tablet",
+      "viewport": {
+        "width": 768,
+        "height": 1000
+      },
+      "media": "screen",
+      "theme": "light",
+      "file": "regrade-detail-light-tablet.png",
+      "assets": {
+        "fontStatus": "loaded",
+        "fontCheck": true,
+        "manifestStatus": 200,
+        "iconStatus": 200,
+        "fontEntries": [
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2"
+        ]
+      },
+      "checks": {
+        "documentNoOverflow": true,
+        "documentScrollWidth": 768,
+        "documentClientWidth": 768,
+        "bodyClientWidth": 768,
+        "bodyOverflowX": "visible",
+        "bodyOverflowY": "visible",
+        "appOverflowX": "clip",
+        "viewportWidth": 768,
+        "overflowElements": [
+          {
+            "tag": "DIV",
+            "className": "regrade-preview-table-wrap",
+            "left": 41,
+            "right": 727,
+            "width": 686,
+            "scrollWidth": 977
+          },
+          {
+            "tag": "TABLE",
+            "className": "regrade-preview-table",
+            "left": -250,
+            "right": 727,
+            "width": 977,
+            "scrollWidth": 977
+          },
+          {
+            "tag": "THEAD",
+            "className": "",
+            "left": -250,
+            "right": 727,
+            "width": 977,
+            "scrollWidth": 977
+          },
+          {
+            "tag": "TR",
+            "className": "",
+            "left": -250,
+            "right": 727,
+            "width": 977,
+            "scrollWidth": 977
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -53,
+            "right": 85,
+            "width": 138,
+            "scrollWidth": 138
+          },
+          {
+            "tag": "TH",
+            "className": "",
+            "left": -250,
+            "right": -53,
+            "width": 197,
+            "scrollWidth": 197
+          },
+          {
+            "tag": "TBODY",
+            "className": "",
+            "left": -250,
+            "right": 727,
+            "width": 977,
+            "scrollWidth": 977
+          },
+          {
+            "tag": "TR",
+            "className": "",
+            "left": -250,
+            "right": 727,
+            "width": 977,
+            "scrollWidth": 977
+          },
+          {
+            "tag": "TD",
+            "className": "",
+            "left": -53,
+            "right": 85,
+            "width": 138,
+            "scrollWidth": 138
+          },
+          {
+            "tag": "TD",
+            "className": "",
+            "left": -250,
+            "right": -53,
+            "width": 197,
+            "scrollWidth": 197
+          },
+          {
+            "tag": "SPAN",
+            "className": "amount",
+            "left": -238,
+            "right": -65,
+            "width": 173,
+            "scrollWidth": 173
+          },
+          {
+            "tag": "BDI",
+            "className": "",
+            "left": -204,
+            "right": -65,
+            "width": 139,
+            "scrollWidth": 139
+          }
+        ],
+        "tableFound": true,
+        "tableText": "المخرجاتالمخرجالكمية الأصليةالمباع حتى الحسمالمتبقي للمخزونالقيمة الداخلة للمخزون11111111-1111-4111-8111-111111111111120.0000 كجم20.0000 كجمتم حسم تكلفة الفرز100,000.0000 ج.متقريبي22222222-2222-4222-8222-2222222222220.5000 كجم———",
+        "exactDecimal": false,
+        "exactUnit": true,
+        "captions": 1,
+        "scopedHeaders": true,
+        "region": "المخرجات",
+        "regionTabIndex": true,
+        "regionScrollWidth": 977,
+        "regionClientWidth": 686,
+        "activeElementIsRegion": true,
+        "bodyBackground": "rgb(245, 246, 243)",
+        "printChromeHidden": true
+      },
+      "bodyTextSha256": "a146a1d4f958cfe0b3a800701f5930ebcba176333a629bad1d77dba1abab5bd9",
+      "fontResponses": [
+        {
+          "url": "http://127.0.0.1:3137/manifest.webmanifest",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/icons/icon-192.png",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "pageName": "regrade-detail",
+      "viewportName": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 1100
+      },
+      "media": "screen",
+      "theme": "light",
+      "file": "regrade-detail-light-desktop.png",
+      "assets": {
+        "fontStatus": "loaded",
+        "fontCheck": true,
+        "manifestStatus": 200,
+        "iconStatus": 200,
+        "fontEntries": [
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2"
+        ]
+      },
+      "checks": {
+        "documentNoOverflow": true,
+        "documentScrollWidth": 1440,
+        "documentClientWidth": 1440,
+        "bodyClientWidth": 1440,
+        "bodyOverflowX": "visible",
+        "bodyOverflowY": "visible",
+        "appOverflowX": "clip",
+        "viewportWidth": 1440,
+        "overflowElements": [],
+        "tableFound": true,
+        "tableText": "المخرجاتالمخرجالكمية الأصليةالمباع حتى الحسمالمتبقي للمخزونالقيمة الداخلة للمخزون11111111-1111-4111-8111-111111111111120.0000 كجم20.0000 كجمتم حسم تكلفة الفرز100,000.0000 ج.متقريبي22222222-2222-4222-8222-2222222222220.5000 كجم———",
+        "exactDecimal": false,
+        "exactUnit": true,
+        "captions": 1,
+        "scopedHeaders": true,
+        "region": "المخرجات",
+        "regionTabIndex": true,
+        "regionScrollWidth": 1086,
+        "regionClientWidth": 1086,
+        "activeElementIsRegion": true,
+        "bodyBackground": "rgb(245, 246, 243)",
+        "printChromeHidden": true
+      },
+      "bodyTextSha256": "a6001e3f4a6efebe7812414047eb4d35c4bbab250567d830e60ec616f8938cd2",
+      "fontResponses": [
+        {
+          "url": "http://127.0.0.1:3137/manifest.webmanifest",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/icons/icon-192.png",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "pageName": "reports-empty",
+      "viewportName": "phone",
+      "viewport": {
+        "width": 375,
+        "height": 900
+      },
+      "media": "screen",
+      "theme": "light",
+      "file": "reports-empty-phone.png",
+      "assets": {
+        "fontStatus": "loaded",
+        "fontCheck": true,
+        "manifestStatus": 200,
+        "iconStatus": 200,
+        "fontEntries": [
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2"
+        ]
+      },
+      "checks": {
+        "documentNoOverflow": true,
+        "documentScrollWidth": 375,
+        "documentClientWidth": 375,
+        "bodyClientWidth": 375,
+        "bodyOverflowX": "visible",
+        "bodyOverflowY": "visible",
+        "appOverflowX": "clip",
+        "viewportWidth": 375,
+        "overflowElements": [
+          {
+            "tag": "SPAN",
+            "className": "",
+            "left": -1.796875,
+            "right": 13.203125,
+            "width": 15,
+            "scrollWidth": 15
+          }
+        ],
+        "tableFound": false,
+        "tableText": "",
+        "exactDecimal": false,
+        "exactUnit": false,
+        "captions": 0,
+        "scopedHeaders": false,
+        "region": false,
+        "regionTabIndex": false,
+        "regionScrollWidth": 0,
+        "regionClientWidth": 0,
+        "activeElementIsRegion": false,
+        "bodyBackground": "rgb(245, 246, 243)",
+        "printChromeHidden": true
+      },
+      "bodyTextSha256": "b2098e34f4ead7bc7e5c8b6931851ceb0170af2231adc37a06f10b69d5765e5b",
+      "fontResponses": [
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/manifest.webmanifest",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/icons/icon-192.png",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "pageName": "reports-error",
+      "viewportName": "phone",
+      "viewport": {
+        "width": 375,
+        "height": 900
+      },
+      "media": "screen",
+      "theme": "light",
+      "file": "reports-error-phone.png",
+      "assets": {
+        "fontStatus": "loaded",
+        "fontCheck": true,
+        "manifestStatus": 200,
+        "iconStatus": 200,
+        "fontEntries": [
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2"
+        ]
+      },
+      "checks": {
+        "documentNoOverflow": true,
+        "documentScrollWidth": 375,
+        "documentClientWidth": 375,
+        "bodyClientWidth": 375,
+        "bodyOverflowX": "visible",
+        "bodyOverflowY": "visible",
+        "appOverflowX": "clip",
+        "viewportWidth": 375,
+        "overflowElements": [
+          {
+            "tag": "SPAN",
+            "className": "",
+            "left": -1.796875,
+            "right": 13.203125,
+            "width": 15,
+            "scrollWidth": 15
+          }
+        ],
+        "tableFound": false,
+        "tableText": "",
+        "exactDecimal": false,
+        "exactUnit": false,
+        "captions": 0,
+        "scopedHeaders": false,
+        "region": false,
+        "regionTabIndex": false,
+        "regionScrollWidth": 0,
+        "regionClientWidth": 0,
+        "activeElementIsRegion": false,
+        "bodyBackground": "rgb(245, 246, 243)",
+        "printChromeHidden": true
+      },
+      "bodyTextSha256": "da873822a70e8c23308f42b06a217bb87af165832bd1de53019a102fdc68f0c4",
+      "fontResponses": [
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/manifest.webmanifest",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/icons/icon-192.png",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "pageName": "reports-loading",
+      "viewportName": "phone",
+      "viewport": {
+        "width": 375,
+        "height": 900
+      },
+      "media": "screen",
+      "theme": "light",
+      "file": "reports-loading-phone.png",
+      "assets": {
+        "fontStatus": "loaded",
+        "fontCheck": true,
+        "manifestStatus": 200,
+        "iconStatus": 200,
+        "fontEntries": [
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2"
+        ]
+      },
+      "checks": {
+        "documentNoOverflow": true,
+        "documentScrollWidth": 375,
+        "documentClientWidth": 375,
+        "bodyClientWidth": 375,
+        "bodyOverflowX": "visible",
+        "bodyOverflowY": "visible",
+        "appOverflowX": "clip",
+        "viewportWidth": 375,
+        "overflowElements": [
+          {
+            "tag": "SPAN",
+            "className": "",
+            "left": -1.796875,
+            "right": 13.203125,
+            "width": 15,
+            "scrollWidth": 15
+          }
+        ],
+        "tableFound": false,
+        "tableText": "",
+        "exactDecimal": false,
+        "exactUnit": false,
+        "captions": 0,
+        "scopedHeaders": false,
+        "region": false,
+        "regionTabIndex": false,
+        "regionScrollWidth": 0,
+        "regionClientWidth": 0,
+        "activeElementIsRegion": false,
+        "bodyBackground": "rgb(245, 246, 243)",
+        "printChromeHidden": true
+      },
+      "bodyTextSha256": "3f719ff37b4d9397c71723c88bf33d7d17161fa6f7c3db3db60f8d6021fe3e87",
+      "fontResponses": [
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/manifest.webmanifest",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/icons/icon-192.png",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "pageName": "reports-print",
+      "viewportName": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 1100
+      },
+      "media": "print",
+      "theme": "light",
+      "file": "reports-print-desktop.png",
+      "assets": {
+        "fontStatus": "loaded",
+        "fontCheck": false,
+        "manifestStatus": 200,
+        "iconStatus": 200,
+        "fontEntries": [
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2"
+        ]
+      },
+      "checks": {
+        "documentNoOverflow": true,
+        "documentScrollWidth": 1440,
+        "documentClientWidth": 1440,
+        "bodyClientWidth": 1440,
+        "bodyOverflowX": "visible",
+        "bodyOverflowY": "visible",
+        "appOverflowX": "visible",
+        "viewportWidth": 1440,
+        "overflowElements": [],
+        "tableFound": true,
+        "tableText": "مشتريات اليومidرقم الحركةالتاريخmaterial_nameالكميةprice_per_kgvalueparty_nameالمستخدمaaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa10242026-10-31مادة صناعية ذات اسم عربي طويل جداً لاختبار حدود الجدول1234567890.1200987654.32104500000.0000شركة تدوير المعادن والخامات الصناعية ذات الاسم الطويل جداًالمستخدم الاختباريbbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb10232026-10-30نحاس أحمر12.5000700.00008750.0000أحمد محمودالمستخدم الاختباري",
+        "exactDecimal": true,
+        "exactUnit": false,
+        "captions": 1,
+        "scopedHeaders": true,
+        "region": "مشتريات اليوم",
+        "regionTabIndex": true,
+        "regionScrollWidth": 1390,
+        "regionClientWidth": 1390,
+        "activeElementIsRegion": false,
+        "bodyBackground": "rgb(255, 255, 255)",
+        "printChromeHidden": true
+      },
+      "bodyTextSha256": "d841c9ecb25c01a2802cf781cf587cfedb76650d5fd53b583e2f8b78a46939d1",
+      "fontResponses": [
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/manifest.webmanifest",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:3137/icons/icon-192.png",
+          "status": 200
+        }
+      ]
+    }
+  ],
+  "assertionFailures": [],
+  "pageErrors": []
+}

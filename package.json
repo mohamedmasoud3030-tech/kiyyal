@@ -22,6 +22,7 @@
     "test:atomicity": "vitest run tests/services",
     "test:routes": "vitest run tests/routes",
     "test:e2e": "playwright test",
+    "evidence:production-visuals": "node scripts/capture-production-visuals.mjs",
     "test:watch": "vitest",
     "gate:staging": "node scripts/staging-gate.mjs"
   },
