@@ -37,15 +37,16 @@ describe('workspace usability', () => {
 
   it('retries a failed data request and explains the limited scope of the metrics', async () => {
     let requests = 0;
-    vi.stubGlobal('fetch', vi.fn(async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
       requests += 1;
-      return { ok: requests > 2, json: async () => ({ data: [] }) };
+      const isTodayEndpoint = String(input).includes('/api/today');
+      return { ok: requests > 3, json: async () => isTodayEndpoint ? { attention: [] } : { data: [] } };
     }));
     render(<TodayContent role="owner" />);
     fireEvent.click(await screen.findByRole('button', { name: ar.common.tryAgain }));
     await screen.findByText('الحركات المعروضة');
     expect(screen.getByText(/آخر ٨ حركات/)).toBeTruthy();
     expect(screen.queryByText('حركات اليوم')).toBeNull();
-    expect(requests).toBe(4);
+    expect(requests).toBe(6);
   });
 });

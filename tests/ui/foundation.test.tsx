@@ -90,7 +90,7 @@ describe('UI foundation', () => {
   });
 
   it('keeps role navigation intentionally different and marks the active page', () => {
-    expect(navigationFor('owner').map((item) => item.href)).toEqual(['/today', '/inventory', '/materials', '/parties', '/cash', '/history']);
+    expect(navigationFor('owner').map((item) => item.href)).toEqual(['/today', '/inventory', '/materials', '/parties', '/cash', '/history', '/reports', '/directory', '/users', '/settings', '/regrade']);
     expect(navigationFor('operator').map((item) => item.href)).toEqual(['/today', '/purchase', '/sale', '/history']);
 
     const operatorHtml = renderToStaticMarkup(

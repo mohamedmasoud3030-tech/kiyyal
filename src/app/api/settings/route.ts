@@ -38,8 +38,8 @@ export async function PATCH(request: Request): Promise<Response> {
     enforceRateLimit(`settings-write:${context.actorId}`, 20, 60 * 1000);
     const result = await updateYardSettings(db, context, {
       name: input.name,
-      phone: input.phone,
-      address: input.address,
+      phone: input.phone ?? null,
+      address: input.address ?? null,
       receiptHeader: input.receipt_header,
       numeralDisplay: input.numeral_display,
       expenseAlertThreshold: input.expense_alert_threshold,

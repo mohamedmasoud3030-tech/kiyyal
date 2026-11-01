@@ -316,3 +316,62 @@ export const postedTransactionOwnerOutputSchema = postedTransactionOperatorOutpu
     gross_profit: decimalStringSchema.nullable(),
   })),
 });
+
+// ---------------------------------------------------------------------------
+// Operations surfaces. These schemas intentionally keep all numeric values as
+// strings; the server read models remain the source of truth for money/weight.
+// ---------------------------------------------------------------------------
+const looseRowSchema = z.record(z.string(), z.unknown());
+export const reportOutputSchema = z.object({
+  report: z.string(),
+  rows: z.array(looseRowSchema),
+  summary: z.record(z.string(), z.string()),
+});
+
+const directoryBuyerSchema = z.object({
+  id: uuidSchema,
+  name: z.string(),
+  entity_type: z.string(),
+  governorates: z.array(z.string()),
+  phone: z.string().nullable(),
+  whatsapp: z.string().nullable(),
+  address: z.string().nullable(),
+  min_quantity_kg: decimalStringSchema.nullable(),
+  logistics: z.enum(['they_collect', 'deliver_to_them', 'both', 'unknown']),
+  last_verified_at: z.string().nullable(),
+  status: z.enum(['verified', 'unverified', 'stale']),
+  materials: z.array(looseRowSchema).optional(),
+});
+export const directoryBuyersOutputSchema = z.object({ data: z.array(directoryBuyerSchema) });
+export const directoryBuyerDetailOutputSchema = directoryBuyerSchema.extend({ relation: looseRowSchema.nullable().optional() });
+export const directoryRelationOutputSchema = z.object({
+  id: uuidSchema.nullable(), central_buyer_id: uuidSchema, party_id: uuidSchema.nullable(),
+  contact_person: z.string().nullable(), direct_phone: z.string().nullable(), last_contact_at: z.string().nullable(),
+  last_offered_price: decimalStringSchema.nullable(), last_offered_unit: z.enum(['kg', 'ton']).nullable(), last_offered_at: z.string().nullable(),
+  accepted_materials: z.array(uuidSchema), min_quantity_told_kg: decimalStringSchema.nullable(),
+  payment_method: z.string().nullable(), transport: z.string().nullable(), notes: z.string().nullable(),
+  flag: z.enum(['favourite', 'not_suitable', 'none']), has_dealt_before: z.boolean(),
+});
+export const directoryRelationMutationOutputSchema = z.object({ relation: directoryRelationOutputSchema, idempotent_replay: z.boolean() });
+export const directoryReportOutputSchema = z.object({ id: uuidSchema, idempotent_replay: z.boolean() });
+
+export const yardSettingsOutputSchema = z.object({
+  id: uuidSchema, name: z.string(), phone: z.string().nullable(), address: z.string().nullable(), currency: z.literal('EGP'), timezone: z.string(),
+  receipt_header: z.string().nullable(), numeral_display: z.enum(['western', 'arabic_indic']), expense_alert_threshold: decimalStringSchema,
+  plausibility_max_kg: decimalStringSchema, default_weighing_mode: z.enum(['direct', 'gross_tare']),
+});
+export const yardSettingsMutationOutputSchema = z.object({ settings: yardSettingsOutputSchema, idempotent_replay: z.boolean() });
+
+export const userOutputSchema = z.object({ id: uuidSchema, role: z.enum(['owner', 'operator']), display_name: z.string(), phone: z.string().nullable(), is_active: z.boolean(), created_at: z.string() });
+export const usersOutputSchema = z.object({ data: z.array(userOutputSchema) });
+export const operatorMutationOutputSchema = userOutputSchema.extend({ idempotent_replay: z.boolean() });
+
+export const todayOutputSchema = z.object({
+  business_date: dateSchema, role: z.enum(['owner', 'operator']), summary: z.record(z.string(), z.unknown()), attention: z.array(looseRowSchema), recent_transactions: z.array(looseRowSchema), stock: z.array(looseRowSchema),
+});
+export const regradePreviewOutputSchema = z.object({
+  deferred: z.boolean(), allocation_method: z.enum(['relative_sales_value', 'weight_fallback']), consumed_kg: decimalStringSchema, consumed_value: decimalStringSchema, unallocated_value: decimalStringSchema.nullable(), outputs: z.array(looseRowSchema),
+});
+export const regradeMutationOutputSchema = regradePreviewOutputSchema.extend({ id: uuidSchema, status: z.enum(['posted', 'pending_stock_resolution']), idempotent_replay: z.boolean() });
+export const regradeResolveOutputSchema = z.object({ id: uuidSchema, total_unattributed_value: decimalStringSchema, total_to_inventory_value: decimalStringSchema, idempotent_replay: z.boolean() });
+export const regradeDetailOutputSchema = z.record(z.string(), z.unknown());

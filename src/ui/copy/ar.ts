@@ -20,7 +20,7 @@ export const ar = {
     todayEyebrow: 'نظرة على ساحتك',
     quickActions: 'ابدأ حركة جديدة',
     quickActionsHint: 'اختار العملية، وكمّل تفاصيلها.',
-    recentScope: 'المؤشرات هنا من بيانات اليوم المصرّح بها على الخادم، وليست أرقامًا مخترعة من الجهاز.',
+    recentScope: 'مؤشرات الحركات تخص آخر ٨ حركات معروضة فقط، وليست إجمالي اليوم؛ وكلها من بيانات الخادم.',
     viewHistory: 'عرض السجل',
     viewStock: 'عرض المخزون',
     stockHint: 'الكميات المسجّلة في الساحة',
@@ -897,6 +897,7 @@ export const ar = {
       movements: 'سجل الحركة الكامل',
     },
     summaryLabels: {
+      row_count: 'عدد الصفوف المعروضة',
       transaction_count: 'عدد العمليات',
       truncated: 'النتيجة مقتصرة على الحد الأقصى للعرض',
       total_quantity_kg: 'إجمالي الكمية',
