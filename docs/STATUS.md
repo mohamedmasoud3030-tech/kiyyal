@@ -8,26 +8,27 @@
 - GitHub's canonical repository name is now `kiyyal` (the former
   `bug-free-garbanzo` slug redirects). `main` is `8e8c724a3b4c`; the current
   release candidate is `release/kayyal-stage1-offline-candidate-2026-11-01`
-  at `933f1b6`, sourced from `integration/kayyal-unified` at `ca527d72342f`.
+  at `aea77ff`, sourced from `integration/kayyal-unified` at `ca527d72342f`.
   It has **not** been merged to `main` or deployed by this candidate.
 - The candidate contains the Stage 1 Arabic RTL web slice, the ADR-0016
-  offline drafts/outbox work, the Round-3 session/offline hardening, and the
-  Next.js security patch to `16.4.3`. It is a release candidate, not a
-  production-readiness claim.
+  offline drafts/outbox work, the Round-3 session/offline hardening, the
+  Next.js security patch to `16.4.3`, and the dependency security refresh to
+  `zod 4.6.7` plus patched transitive packages. It is a release candidate,
+  not a production-readiness claim.
 - The local `release-readiness` skill is synchronized byte-for-byte from
   `command-center-` commit `07017ed028b7b9e9090c177a350fb0e8a499e871`
   (source blob `71641b6fc7f517012e7f451ed3ce45d84da268f5`; SHA-256
   `6b8d585a0c5491a89a64fccba66214452ed2c9c26ff1e18f386086671e60b427`).
 - The preceding candidate head `00679c1` had successful GitHub `verify` and
-  Vercel preview checks. The current performance-patch candidate has fresh
-  GitHub `verify` success on both push and pull-request runs, with Vercel
-  Preview Comments successful and `staging-gate` skipped as designed. On the
-  patched tree, `typecheck`, `guard:decimal`, and production build pass; the
-  real browser suite passed **21/21**; prior isolated offline resilience passed
-  **7/7** and isolated live-flow passed **15/15**. A strict local run was **not
-  called green** because the 2 GB sandbox's combined UI/HTTP run OOM-killed a
-  Next server. The existing strict PASS at `b584477445c5` is earlier evidence
-  only.
+  Vercel preview checks. The performance head `933f1b6` had fresh GitHub
+  `verify` success on both push and pull-request runs, with Vercel Preview
+  Comments successful and `staging-gate` skipped as designed. The current
+  dependency-security head is awaiting its fresh GitHub result. On the current
+  tree, `typecheck`, `guard:decimal`, production build, and full Vitest
+  **322/322** pass; the real browser suite after the dependency refresh passed
+  **21/21**. A strict local run was **not called green** because the 2 GB
+  sandbox's combined UI/HTTP run OOM-killed a Next server. The existing strict
+  PASS at `b584477445c5` is earlier evidence only.
 - Performance checkpoint (local production `next start` with a browser/API
   fixture, not a production-latency claim): the `/today` initial load dropped
   from **41 requests / 18 RSC prefetches / 5 API calls** to **23 requests / 0
@@ -37,10 +38,10 @@
   already verified shell while a fresh session probe runs, skips parked-work
   revalidation when no parked operation exists, and refreshes reference data
   at most once per five minutes per scope.
-- `npm audit` on the patched tree reports **0 critical, 4 high, and 2
-  moderate** findings remaining (including `zod` 3.x and transitive test/build
-  packages); this is recorded as a release risk and is not silently treated
-  as production-ready.
+- `npm audit` on the current tree reports **0 vulnerabilities** after the
+  explicit Zod 4 and transitive dependency refresh. Node 20 still emits the
+  existing Supabase engine deprecation warning; CI remains on Node 20 until a
+  separately reviewed Node 22 runtime change is made.
 - No merge, deployment, hosted migration, hosted-data mutation, or secret
   rotation is part of this checkpoint.
 
