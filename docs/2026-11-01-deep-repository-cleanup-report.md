@@ -95,7 +95,7 @@
 | `c01fbdc` | إزالة CSS rules مهجورة مؤكدة فقط. |
 | `36dd7e5` | إضافة production-page visual harness، إصلاح document overflow للقشرة، واختبار key collision. |
 | `427be69` | وسم provenance للـ production-component manifests وread-model fixture. |
-| _pending_ | إضافة full browser-e2e CI job وتحديث التقرير/المقارنة؛ لا merge أو deploy. |
+| `e832768` | إضافة full browser-e2e CI job وتحديث التقرير/المقارنة؛ لا merge أو deploy. |
 
 ### ملفات الحذف وإعادة التنظيم
 
