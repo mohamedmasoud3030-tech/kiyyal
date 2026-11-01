@@ -255,7 +255,7 @@ export function TransactionEntryContent({ type, scope = null }: { readonly type:
     return (
       <PageContainer>
         <StatePanel
-          action={<Link className="ui-button ui-button--primary ui-button--md" href="/materials">{ar.transactionEntry.setupMaterialsAction}</Link>}
+          action={<Link prefetch={false} className="ui-button ui-button--primary ui-button--md" href="/materials">{ar.transactionEntry.setupMaterialsAction}</Link>}
           description={ar.transactionEntry.noMaterialsDescription}
           title={ar.transactionEntry.noMaterialsTitle}
           tone="warning"
@@ -272,14 +272,14 @@ export function TransactionEntryContent({ type, scope = null }: { readonly type:
           action={(
             <div className="transaction-result__actions">
               {!pending && result.number ? (
-                <Link className="ui-button ui-button--primary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}/receipt`}>
+                <Link prefetch={false} className="ui-button ui-button--primary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}/receipt`}>
                   {ar.receipt.viewAction}
                 </Link>
               ) : null}
-              <Link className="ui-button ui-button--secondary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}`}>
+              <Link prefetch={false} className="ui-button ui-button--secondary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}`}>
                 {ar.transactionEntry.viewTransactionAction}
               </Link>
-              <Link className="ui-link" href="/today">{ar.transactionEntry.backToToday}</Link>
+              <Link prefetch={false} className="ui-link" href="/today">{ar.transactionEntry.backToToday}</Link>
             </div>
           )}
           description={ar.transactionEntry.savedDescription}
@@ -315,7 +315,7 @@ export function TransactionEntryContent({ type, scope = null }: { readonly type:
               <TextInput name="business_date" onChange={(event) => setBusinessDate(event.target.value)} required type="date" value={businessDate} />
             </FormField>
             <FormField
-              action={<Link className="ui-link" href="/parties">{ar.parties.addAction}</Link>}
+              action={<Link prefetch={false} className="ui-link" href="/parties">{ar.parties.addAction}</Link>}
               id="transaction-party"
               label={ar.transactionEntry.partyLabel}
             >

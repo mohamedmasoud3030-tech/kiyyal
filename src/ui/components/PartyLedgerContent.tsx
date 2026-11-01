@@ -153,12 +153,12 @@ export function PartyLedgerContent({ partyId, role: injectedRole }: { readonly p
   return (
     <PageContainer>
       <PageHeader
-        action={<Link className="ui-link" href="/parties">{ar.partyLedger.backToParties}</Link>}
+        action={<Link prefetch={false} className="ui-link" href="/parties">{ar.partyLedger.backToParties}</Link>}
         description={ar.partyLedger.description}
         eyebrow={kindLabel(party.kind)}
         title={party.name ?? party.phone ?? ar.partyLedger.title}
       />
-      <Section action={<Link className="ui-button ui-button--primary ui-button--md" href={`/payment?party=${encodeURIComponent(party.id)}`}>{ar.partyLedger.paymentAction}</Link>} title={ar.partyLedger.balanceTitle} tone="muted">
+      <Section action={<Link prefetch={false} className="ui-button ui-button--primary ui-button--md" href={`/payment?party=${encodeURIComponent(party.id)}`}>{ar.partyLedger.paymentAction}</Link>} title={ar.partyLedger.balanceTitle} tone="muted">
         <dl className="party-ledger__balance">
           <div>
             <dt>{balanceLabel(party.balance_direction)}</dt>
@@ -194,7 +194,7 @@ export function PartyLedgerContent({ partyId, role: injectedRole }: { readonly p
                       <dd><Amount value={absoluteAmount(event.balance_after)} /></dd>
                     </div>
                   </dl>
-                  <Link className="operational-list__detail-link" href={`/transactions/${encodeURIComponent(event.id)}`}>
+                  <Link prefetch={false} className="operational-list__detail-link" href={`/transactions/${encodeURIComponent(event.id)}`}>
                     {ar.history.detailAction}
                   </Link>
                 </li>

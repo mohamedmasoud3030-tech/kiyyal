@@ -48,7 +48,7 @@ export function AppShell({ activePath, children, connection, role, scope = null 
       <a className="skip-link" href="#main-content">{ar.navigation.skipToContent}</a>
       <aside className="app-shell__sidebar">
         <div className="app-shell__brand">
-          <Link aria-label={ar.app.name} className="brand" href="/today"><BrandMark /><span>{ar.app.name}<small>{ar.workspace.brandCaption}</small></span></Link>
+          <Link aria-label={ar.app.name} className="brand" href="/today" prefetch={false}><BrandMark /><span>{ar.app.name}<small>{ar.workspace.brandCaption}</small></span></Link>
         </div>
         <p className="app-shell__nav-caption">{ar.workspace.workspaceLabel}</p>
         <nav aria-label={ar.navigation.main} className="app-shell__nav">
@@ -61,6 +61,7 @@ export function AppShell({ activePath, children, connection, role, scope = null 
                     aria-current={current ? 'page' : undefined}
                     className={classNames('app-shell__nav-link', current && 'app-shell__nav-link--current')}
                     href={item.href}
+                    prefetch={false}
                   >
                     <WorkspaceIcon name={item.href.slice(1) as WorkspaceIconName} /><span>{item.label}</span>
                   </Link>
@@ -75,7 +76,7 @@ export function AppShell({ activePath, children, connection, role, scope = null 
         </div>
       </aside>
       <header className="app-shell__mobile-header">
-        <Link aria-label={ar.app.name} className="brand" href="/today"><BrandMark /><span>{ar.app.name}</span></Link>
+        <Link aria-label={ar.app.name} className="brand" href="/today" prefetch={false}><BrandMark /><span>{ar.app.name}</span></Link>
         <div className="app-shell__mobile-session">
           {connection ? <StatusBadge label={connection.label} tone={connection.tone} /> : null}
           <ConnectionChip onOpenOutbox={() => setOutboxOpen(true)} scope={scope} /><ThemeToggle />
@@ -102,6 +103,7 @@ export function AppShell({ activePath, children, connection, role, scope = null 
                   aria-current={current ? 'page' : undefined}
                   className={classNames('app-shell__mobile-nav-link', current && 'app-shell__mobile-nav-link--current')}
                   href={item.href}
+                  prefetch={false}
                 >
                   <WorkspaceIcon name={item.href.slice(1) as WorkspaceIconName} /><span>{item.label}</span>
                 </Link>
@@ -109,7 +111,7 @@ export function AppShell({ activePath, children, connection, role, scope = null 
             );
           })}
           {overflow.length ? <li><NavigationOverflow active={overflow.some(item => isCurrentPath(activePath, item.href))}>
-            {overflow.map(item => <Link key={item.href} href={item.href} aria-current={isCurrentPath(activePath, item.href) ? 'page' : undefined} className="app-shell__nav-link"><WorkspaceIcon name={item.href.slice(1) as WorkspaceIconName} /><span>{item.label}</span></Link>)}
+            {overflow.map(item => <Link key={item.href} href={item.href} prefetch={false} aria-current={isCurrentPath(activePath, item.href) ? 'page' : undefined} className="app-shell__nav-link"><WorkspaceIcon name={item.href.slice(1) as WorkspaceIconName} /><span>{item.label}</span></Link>)}
           </NavigationOverflow></li> : null}
         </ul>
       </nav>

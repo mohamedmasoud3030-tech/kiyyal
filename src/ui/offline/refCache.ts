@@ -26,18 +26,36 @@ export interface ReferenceSnapshot {
   }>;
 }
 
-/** تسخين المخبأ بعد هر دخول موثق — فشل الشبكة لا يوقف الواجهة (best effort). */
+const REFERENCE_TTL_MS = 5 * 60 * 1000;
+const warmInFlight = new Map<string, Promise<void>>();
+
+/** تسخين المخبأ بعد دخول موثق — فشل الشبكة لا يوقف الواجهة (best effort). */
 export async function warmReferenceCache(scope: string): Promise<void> {
   if (isLocalLogoutLocked()) return;
+  const existing = warmInFlight.get(scope);
+  if (existing) return existing;
+
+  const work = (async () => {
+    try {
+      const current = await readReferenceSnapshot(scope);
+      const fetchedAt = current ? Date.parse(current.fetched_at) : Number.NaN;
+      if (Number.isFinite(fetchedAt) && Date.now() - fetchedAt < REFERENCE_TTL_MS) return;
+
+      const response = await fetch('/api/reference/snapshot', { credentials: 'same-origin', cache: 'no-store' });
+      if (!response.ok) return;
+      const payload = await response.json() as { data?: ReferenceSnapshot };
+      const snapshot = payload.data;
+      if (!snapshot || snapshot.scope !== scope) return;
+      const store = offlineStore();
+      await store.putRef({ scope, kind: 'snapshot', savedAt: snapshot.fetched_at, payload: snapshot });
+    } catch { /* الشبكة منقطعة — اللقطة القديمة تظل متاحة */ }
+  })();
+  warmInFlight.set(scope, work);
   try {
-    const response = await fetch('/api/reference/snapshot', { credentials: 'same-origin', cache: 'no-store' });
-    if (!response.ok) return;
-    const payload = await response.json() as { data?: ReferenceSnapshot };
-    const snapshot = payload.data;
-    if (!snapshot || snapshot.scope !== scope) return;
-    const store = offlineStore();
-    await store.putRef({ scope, kind: 'snapshot', savedAt: snapshot.fetched_at, payload: snapshot });
-  } catch { /* الشبكة منقطعة — اللقطة القديمة تضل متاحة */ }
+    await work;
+  } finally {
+    if (warmInFlight.get(scope) === work) warmInFlight.delete(scope);
+  }
 }
 
 /** قراءة آخر لقطة محفوظة — تُستخدم في النماذج وقشرة عدم الاتصال. */

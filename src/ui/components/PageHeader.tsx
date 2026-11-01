@@ -24,7 +24,7 @@ export function PageHeader({
   return (
     <header className="page-header">
       <div className="page-header__identity">
-        {backHref && backLabel ? <Link className="page-header__back" href={backHref}>{backLabel}</Link> : null}
+        {backHref && backLabel ? <Link prefetch={false} className="page-header__back" href={backHref}>{backLabel}</Link> : null}
         {eyebrow ? <p className="page-header__eyebrow">{eyebrow}</p> : null}
         <h1 className="page-header__title">{title}</h1>
         {description ? <p className="page-header__description">{description}</p> : null}

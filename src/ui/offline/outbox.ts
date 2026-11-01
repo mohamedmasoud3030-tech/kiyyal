@@ -484,6 +484,13 @@ export async function sweepScope(scope: string, now = Date.now(), options: Sweep
  * focus/online/الموقت لا يفعلون ذلك، والحساب الآخر (نطاق مختلف) لا يفعله أبدًا.
  */
 export async function resumeParkedIfSessionValid(scope: string): Promise<boolean> {
+  // Most authenticated entries have no parked work. Read the local scope first
+  // so the normal navigation path does not pay for a second /api/session probe;
+  // the fresh server check remains mandatory when a parked operation exists.
+  const store = offlineStore();
+  const ops = await store.listOps(scope);
+  if (!ops.some((op) => op.status === 'parked')) return false;
+
   let response: Response;
   try {
     response = await fetch('/api/session', { credentials: 'same-origin', cache: 'no-store' });
@@ -491,8 +498,6 @@ export async function resumeParkedIfSessionValid(scope: string): Promise<boolean
   if (!response.ok) return false;
   const payload = await response.json().catch(() => null) as { data?: { scope?: unknown } } | null;
   if (payload?.data?.scope !== scope) return false;
-  const store = offlineStore();
-  const ops = await store.listOps(scope);
   let resumed = 0;
   for (const op of ops) {
     if (op.status === 'parked') {

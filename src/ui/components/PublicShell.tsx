@@ -15,7 +15,7 @@ export function PublicShell({ children }: PublicShellProps) {
     <div className="public-shell">
       <a className="skip-link" href="#main-content">{ar.navigation.skipToContent}</a>
       <header className="public-shell__header">
-        <Link aria-label={ar.app.name} className="brand" href="/"><BrandMark /><span>{ar.app.name}</span></Link>
+        <Link prefetch={false} aria-label={ar.app.name} className="brand" href="/"><BrandMark /><span>{ar.app.name}</span></Link>
         <p className="public-shell__description">{ar.app.description}</p>
         <ThemeToggle />
       </header>

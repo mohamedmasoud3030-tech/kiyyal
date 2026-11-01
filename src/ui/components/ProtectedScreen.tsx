@@ -42,6 +42,22 @@ export function ProtectedScreen({ activePath, children }: ProtectedScreenProps) 
   if (session.status === 'loading') {
     return <SessionGuardScreen />;
   }
+  if (session.status === 'refreshing') {
+    // Keep the already verified shell stable during navigation, but do not
+    // mount the route's data component until this route's fresh probe succeeds.
+    return (
+      <AppShell
+        activePath={activePath}
+        connection={{ label: ar.status.connected, tone: 'success' }}
+        role={session.role}
+        scope={session.scope}
+      >
+        <PageContainer>
+          <StatePanel description={ar.state.sessionCheckingDescription} headingLevel={1} title={ar.common.loading} />
+        </PageContainer>
+      </AppShell>
+    );
+  }
   if (session.status === 'unavailable') {
     return (
       <PageContainer>

@@ -242,7 +242,7 @@ export function CashContent({ role: injectedRole }: { readonly role?: AppRole })
   return (
     <PageContainer>
       <PageHeader
-        action={<div className="page-header__actions"><Link className="ui-button ui-button--secondary ui-button--md" href="/expense">{ar.expense.title}</Link><Link className="ui-button ui-button--secondary ui-button--md" href="/payment">{ar.payment.title}</Link></div>}
+        action={<div className="page-header__actions"><Link prefetch={false} className="ui-button ui-button--secondary ui-button--md" href="/expense">{ar.expense.title}</Link><Link prefetch={false} className="ui-button ui-button--secondary ui-button--md" href="/payment">{ar.payment.title}</Link></div>}
         description={ar.cash.description}
         title={ar.cash.title}
       />
@@ -316,7 +316,7 @@ export function CashContent({ role: injectedRole }: { readonly role?: AppRole })
                     </div>
                     <div className="cash-blockers__actions">
                       <StatusBadge label={blockerStatus(blocker.status)} tone="pending" />
-                      <Link className="operational-list__detail-link" href={`/transactions/${encodeURIComponent(blocker.id)}`}>
+                      <Link prefetch={false} className="operational-list__detail-link" href={`/transactions/${encodeURIComponent(blocker.id)}`}>
                         {ar.cash.viewTransactionAction}
                       </Link>
                     </div>
@@ -343,7 +343,7 @@ export function CashContent({ role: injectedRole }: { readonly role?: AppRole })
                       <Amount value={movement.amount} />
                       <StatusBadge label={movement.status === 'pending' ? ar.status.pending : ar.status.posted} tone={movement.status === 'pending' ? 'pending' : 'success'} />
                       {movement.transaction_id ? (
-                        <Link className="operational-list__detail-link" href={`/transactions/${encodeURIComponent(movement.transaction_id)}`}>
+                        <Link prefetch={false} className="operational-list__detail-link" href={`/transactions/${encodeURIComponent(movement.transaction_id)}`}>
                           {ar.cash.viewTransactionAction}
                         </Link>
                       ) : null}

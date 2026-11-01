@@ -159,13 +159,13 @@ export function ExpenseContent({ scope = null }: { readonly scope?: string | nul
         {replayNote ? <p className="offline-outcome" role="status">{ar.offline.replayedNote}</p> : null}
         <FormActions>
           <Button onClick={resetForNextExpense} type="button" variant="secondary">{ar.expense.newExpenseAction}</Button>
-          <Link className="ui-button ui-button--primary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}/receipt`}>
+          <Link prefetch={false} className="ui-button ui-button--primary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}/receipt`}>
             {ar.receipt.viewAction}
           </Link>
-          <Link className="ui-button ui-button--secondary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}`}>
+          <Link prefetch={false} className="ui-button ui-button--secondary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}`}>
             {ar.expense.viewTransactionAction}
           </Link>
-          <Link className="ui-link" href="/today">{ar.expense.backToToday}</Link>
+          <Link prefetch={false} className="ui-link" href="/today">{ar.expense.backToToday}</Link>
         </FormActions>
       </PageContainer>
     );
@@ -174,7 +174,7 @@ export function ExpenseContent({ scope = null }: { readonly scope?: string | nul
   return (
     <PageContainer width="form">
       <PageHeader
-        action={<Link className="ui-link" href="/today">{ar.expense.backToToday}</Link>}
+        action={<Link prefetch={false} className="ui-link" href="/today">{ar.expense.backToToday}</Link>}
         description={ar.expense.description}
         title={ar.expense.title}
       />

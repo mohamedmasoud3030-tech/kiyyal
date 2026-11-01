@@ -97,27 +97,27 @@ export function TodayContent({ role: injectedRole }: { readonly role?: AppRole }
       <PageHeader
         description={ar.today.description}
         eyebrow={ar.workspace.todayEyebrow}
-        action={<Link className="workspace-history-link" href="/history"><WorkspaceIcon name="history" />{ar.workspace.viewHistory}</Link>}
+        action={<Link className="workspace-history-link" href="/history" prefetch={false}><WorkspaceIcon name="history" />{ar.workspace.viewHistory}</Link>}
         title={ar.today.title}
       />
       <div className="workspace-actions-heading"><h2>{ar.workspace.quickActions}</h2><p>{ar.workspace.quickActionsHint}</p></div>
           <div aria-label={ar.workspace.quickActions} className="action-grid">
-            <Link className="action-tile action-tile--primary" href="/sale">
+            <Link className="action-tile action-tile--primary" href="/sale" prefetch={false}>
               <span className="action-tile__icon"><WorkspaceIcon name="sale" /></span>
               <span className="action-tile__title">{ar.today.saleAction}</span>
               <span className="action-tile__hint">{ar.today.saleTileHint}</span>
             </Link>
-            <Link className="action-tile" href="/purchase">
+            <Link className="action-tile" href="/purchase" prefetch={false}>
               <span className="action-tile__icon"><WorkspaceIcon name="purchase" /></span>
               <span className="action-tile__title">{ar.today.purchaseAction}</span>
               <span className="action-tile__hint">{ar.today.purchaseTileHint}</span>
             </Link>
-            <Link className="action-tile" href="/payment">
+            <Link className="action-tile" href="/payment" prefetch={false}>
               <span className="action-tile__icon"><WorkspaceIcon name="payment" /></span>
               <span className="action-tile__title">{ar.today.paymentAction}</span>
               <span className="action-tile__hint">{ar.today.paymentTileHint}</span>
             </Link>
-            <Link className="action-tile" href="/expense">
+            <Link className="action-tile" href="/expense" prefetch={false}>
               <span className="action-tile__icon"><WorkspaceIcon name="expense" /></span>
               <span className="action-tile__title">{ar.expense.title}</span>
               <span className="action-tile__hint">{ar.today.expenseTileHint}</span>
@@ -173,7 +173,7 @@ export function TodayContent({ role: injectedRole }: { readonly role?: AppRole }
                         <span><bdi dir="ltr">{transaction.business_date}</bdi></span>
                         {amountForTransaction(transaction, role)}
                         <StatusBadge label={status.label} tone={status.tone} />
-                        <Link className="operational-list__detail-link" href={`/transactions/${encodeURIComponent(transaction.id)}`}>
+                        <Link className="operational-list__detail-link" href={`/transactions/${encodeURIComponent(transaction.id)}`} prefetch={false}>
                           {ar.history.detailAction}
                         </Link>
                       </div>
@@ -183,7 +183,7 @@ export function TodayContent({ role: injectedRole }: { readonly role?: AppRole }
               </ul>
             )}
           </Section>
-          <Section className="today-stock" action={role === 'owner' ? <Link className="ui-link" href="/inventory">{ar.workspace.viewStock}</Link> : undefined} description={ar.workspace.stockHint} title={ar.today.stockTitle}>
+          <Section className="today-stock" action={role === 'owner' ? <Link className="ui-link" href="/inventory" prefetch={false}>{ar.workspace.viewStock}</Link> : undefined} description={ar.workspace.stockHint} title={ar.today.stockTitle}>
             {state.stock.length === 0 ? (
               <StatePanel description={ar.today.noStockDescription} title={ar.today.noStockTitle} />
             ) : (

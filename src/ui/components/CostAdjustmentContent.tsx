@@ -229,7 +229,7 @@ export function CostAdjustmentContent({ role: injectedRole, transactionId }: { r
   if (!isEligible(purchase)) {
     return (
       <PageContainer width="form">
-        <PageHeader action={<Link className="ui-link" href={`/transactions/${encodeURIComponent(transactionId)}`}>{ar.costAdjustment.backToTransaction}</Link>} title={ar.costAdjustment.title} />
+        <PageHeader action={<Link prefetch={false} className="ui-link" href={`/transactions/${encodeURIComponent(transactionId)}`}>{ar.costAdjustment.backToTransaction}</Link>} title={ar.costAdjustment.title} />
         <StatePanel description={ar.costAdjustment.notEligibleDescription} headingLevel={1} title={ar.costAdjustment.notEligibleTitle} tone="warning" />
       </PageContainer>
     );
@@ -250,8 +250,8 @@ export function CostAdjustmentContent({ role: injectedRole, transactionId }: { r
           </dl>
         </Section>
         <FormActions>
-          <Link className="ui-button ui-button--primary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}`}>{ar.costAdjustment.viewAdjustmentAction}</Link>
-          <Link className="ui-button ui-button--secondary ui-button--md" href={`/transactions/${encodeURIComponent(transactionId)}`}>{ar.costAdjustment.backToTransaction}</Link>
+          <Link prefetch={false} className="ui-button ui-button--primary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}`}>{ar.costAdjustment.viewAdjustmentAction}</Link>
+          <Link prefetch={false} className="ui-button ui-button--secondary ui-button--md" href={`/transactions/${encodeURIComponent(transactionId)}`}>{ar.costAdjustment.backToTransaction}</Link>
         </FormActions>
       </PageContainer>
     );
@@ -260,7 +260,7 @@ export function CostAdjustmentContent({ role: injectedRole, transactionId }: { r
   return (
     <PageContainer width="form">
       <PageHeader
-        action={<Link className="ui-link" href={`/transactions/${encodeURIComponent(transactionId)}`}>{ar.costAdjustment.backToTransaction}</Link>}
+        action={<Link prefetch={false} className="ui-link" href={`/transactions/${encodeURIComponent(transactionId)}`}>{ar.costAdjustment.backToTransaction}</Link>}
         description={ar.costAdjustment.description}
         eyebrow={purchase.number ?? purchase.business_date}
         title={ar.costAdjustment.title}

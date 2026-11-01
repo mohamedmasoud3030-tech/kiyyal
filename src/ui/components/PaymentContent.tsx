@@ -218,13 +218,13 @@ export function PaymentContent({ initialPartyId, role: injectedRole, scope = nul
         </Section>
         <FormActions>
           <Button onClick={resetForNextPayment} type="button" variant="secondary">{ar.payment.newPaymentAction}</Button>
-          <Link className="ui-button ui-button--primary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}/receipt`}>
+          <Link prefetch={false} className="ui-button ui-button--primary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}/receipt`}>
             {ar.receipt.viewAction}
           </Link>
-          <Link className="ui-button ui-button--secondary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}`}>
+          <Link prefetch={false} className="ui-button ui-button--secondary ui-button--md" href={`/transactions/${encodeURIComponent(result.id)}`}>
             {ar.payment.viewTransactionAction}
           </Link>
-          <Link className="ui-link" href="/today">{ar.payment.backToToday}</Link>
+          <Link prefetch={false} className="ui-link" href="/today">{ar.payment.backToToday}</Link>
         </FormActions>
       </PageContainer>
     );
@@ -233,7 +233,7 @@ export function PaymentContent({ initialPartyId, role: injectedRole, scope = nul
   return (
     <PageContainer width="form">
       <PageHeader
-        action={<Link className="ui-link" href="/today">{ar.payment.backToToday}</Link>}
+        action={<Link prefetch={false} className="ui-link" href="/today">{ar.payment.backToToday}</Link>}
         description={ar.payment.description}
         title={ar.payment.title}
       />
