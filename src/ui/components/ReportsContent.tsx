@@ -20,11 +20,46 @@ type FilterOption = { id: string; label: string };
 function isReportName(value: string): value is ReportName { return reportNames.includes(value as ReportName); }
 function safeText(value: unknown): string { return value == null ? ar.reports.emptyValue : String(value); }
 
+/**
+ * Clipboard access is deliberately best-effort. The app can be rendered inside
+ * an iframe whose Permissions-Policy blocks navigator.clipboard, and some
+ * browsers throw synchronously from writeText in that case. Never let a share
+ * action turn into an uncaught runtime error.
+ */
+async function copyTextSafely(text: string): Promise<boolean> {
+  try {
+    if (typeof navigator !== 'undefined' && typeof navigator.clipboard?.writeText === 'function') {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Fall through to the legacy selection path when policy blocks the API.
+  }
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.insetInlineStart = '-9999px';
+    textarea.style.opacity = '0';
+    textarea.style.pointerEvents = 'none';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const copied = document.execCommand('copy');
+    textarea.remove();
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
 export function ReportsContent({ role: injectedRole }: { readonly role?: AppRole }) {
   const role = requireInjectedRole(injectedRole);
   const [report, setReport] = useState<ReportName>('purchases');
   const [from, setFrom] = useState(''); const [to, setTo] = useState(''); const [materialId, setMaterialId] = useState(''); const [partyId, setPartyId] = useState(''); const [userId, setUserId] = useState('');
   const [state, setState] = useState<ReportState>({ status: 'idle' }); const [requestKey, setRequestKey] = useState(0);
+  const [shareState, setShareState] = useState<'idle' | 'done' | 'unavailable'>('idle');
   const [materials, setMaterials] = useState<FilterOption[]>([]); const [parties, setParties] = useState<FilterOption[]>([]); const [users, setUsers] = useState<FilterOption[]>([]);
   const invalidRange = Boolean(from && to && from > to);
   const query = useMemo(() => {
@@ -67,7 +102,19 @@ export function ReportsContent({ role: injectedRole }: { readonly role?: AppRole
       ? Object.entries(state.summary).map(([key, value]) => `${ar.reports.summaryLabels[key as keyof typeof ar.reports.summaryLabels] ?? key}: ${safeText(value)}`).join(ar.directory.listSeparator)
       : ar.reports.loadingTitle;
     const text = `${ar.reports.shareText}: ${ar.reports.reportLabels[report]}\n${summaryText}`;
-    if (navigator.share) await navigator.share({ title: text, text }).catch(() => undefined); else await navigator.clipboard?.writeText(text).catch(() => undefined);
+    setShareState('idle');
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: text, text });
+        setShareState('done');
+        return;
+      } catch (error: unknown) {
+        // Closing the native share sheet is not an error. Other policy or
+        // capability failures fall through to the guarded copy path.
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+      }
+    }
+    setShareState(await copyTextSafely(text) ? 'done' : 'unavailable');
   }
   const keys = state.status === 'loaded' && state.rows[0] ? Object.keys(state.rows[0]) : [];
   if (role !== 'owner') return <PageContainer><StatePanel title={ar.state.forbiddenTitle} description={ar.reports.unavailableDescription} tone="warning" /></PageContainer>;
@@ -85,6 +132,8 @@ export function ReportsContent({ role: injectedRole }: { readonly role?: AppRole
       </form>
     </Section>
     <div className="report-toolbar"><Button variant="secondary" onClick={print}>{ar.reports.printAction}</Button><Button variant="secondary" onClick={() => { window.location.href = `/api/export?format=csv&${query}`; }}>{ar.reports.exportAction}</Button><Button variant="secondary" onClick={() => void share()}>{ar.reports.shareAction}</Button></div>
+    {shareState === 'done' ? <p aria-live="polite" className="form-feedback">{ar.reports.shareReady}</p> : null}
+    {shareState === 'unavailable' ? <p aria-live="polite" className="form-feedback">{ar.reports.shareUnavailable}</p> : null}
     {state.status === 'loading' ? <StatePanel title={ar.reports.loadingTitle} description={ar.reports.description} /> : null}
     {state.status === 'error' ? <StatePanel title={ar.reports.unavailableTitle} description={state.message ?? ar.reports.unavailableDescription} tone="danger" /> : null}
     {state.status === 'loaded' && state.rows.length === 0 ? <StatePanel title={ar.reports.emptyTitle} description={ar.reports.emptyDescription} /> : null}
