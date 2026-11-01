@@ -4,9 +4,52 @@
 **Repository:** `kiyyal`
 **Branch:** `chore/kayyal-deep-repository-cleanup`
 **Baseline:** `cleanup-baseline-2026-11-01` → `1b3186d`
-**Cleanup head before this report:** `c01fbdc`
+**Cleanup code head before the closure addendum:** `ae9d41a`
 
 > هذا التقرير يسجل ما تم فحصه وما تم تغييره. لا يعني نجاح اختبار لم يُنفّذ بنجاح، ولا يغيّر أي migration أو بيانات مستضافة.
+
+## ملحق إغلاق المرحلة — 2026-11-01
+
+### القرار الصريح
+
+**PARTIAL/BLOCKED — لا يجوز اعتبار المرحلة VERIFIED ولا فتح merge من هذا الفرع.**
+
+تم إصلاح runtime الذي كان يمنع الاختبارات، وأُعيد تشغيل الاختبارات على Node/ICU/Chromium محددة. لكن بقي فشل route معروفاً موجوداً أيضاً على الـ baseline، وبقيت full E2E حساسة لبناء Next داخل صندوق 2 GB؛ لذلك لا أرفع الحكم إلى VERIFIED ولا أعيد تسمية أي فشل إلى نجاح.
+
+### بيئة قابلة لإعادة التكرار
+
+- **Node المختار:** `24.22.2`، مثبت في `.nvmrc` وفي وظيفتي CI (`setup-node` exact version). هذا متوافق مع Vercel project runtime المقروء read-only (`24.x`).
+- `package.json`/lock root ما زال يسمح `>=22`، ولم يحدث dependency refresh. الحزم المقفلة ذات العلاقة: Supabase `2.116.0` يطلب `>=22.0.0`، وVitest/jsdom يقبلان Node 24.
+- **Embedded Postgres:** حزمة `embedded-postgres@18.4.0-beta.17` تحتاج ICU 60. استُخدم نفس artifact المعتمد في CI: `libicu60_60.2-3ubuntu3.2_amd64.deb` مع SHA-256 `f01f61f57e63dc905e02e6441d10370fe0c79e43e70e6f5fe24b342fd2633209`، عبر `scripts/with-embedded-postgres-runtime.sh`. لم تُنشأ symlink ولم تُعدّل ABI مكتبات النظام.
+- **Chromium:** Playwright `1.63.0` browser `153.0.8010.12`، Chromium build `v1243`، ثُبّت عبر `npx playwright install --with-deps chromium`.
+- **npm ci:** Node `24.22.2` / npm `11.19.1`، `npm ci --ignore-scripts` نجح و`npm audit` أعاد 0 vulnerabilities. هذا ليس دليلاً على صحة الوظائف.
+
+### DataTable review
+
+- `DataTable` الآن يفرض `caption` و`getRowKey`، ويرندر `table/caption/thead/th scope="col"`، ويضع empty state داخل `tbody` مع `colSpan` كامل.
+- `ReportsContent` يستخدم key مشتقاً من `id`/`material_id`/`party_id` ثم stable row content؛ duplicate identities تُفصل محلياً بترتيب occurrence دون تغيير ترتيب البيانات. Regrade يستخدم `allocation.id`.
+- `safeText` في التقارير بقي pass-through لسلاسل read model؛ لم تتغير القيم المالية أو decimal formatting. `Weight`/`Amount` في regrade بقيتا صاحبي التنسيق، واختبار DataTable يثبت مرور `1234567890.1200 / كجم` كما هو.
+- scroll boundary محصور في wrapper (`max-inline-size:100%`, `overflow-x:auto`)، والwrapper أصبح `role="region"`, `tabIndex=0` لتصفح لوحة الجدول بالكيبورد، مع `:focus-visible` العام. `text-align:start` و`bdi dir="ltr"` يحافظان على RTL وحدود الأرقام.
+- targeted DataTable/foundation/workspace checks: **24/24**، وDataTable نفسه **3/3**.
+
+### Visual comparison
+
+استُخدم fixture حتمي واحد بنفس النصوص والقيم في baseline وبعد التنظيف، وليس بيانات مالية مزروعة داخل صفحات المنتج. التقطت المقارنة **16 لقطة**: baseline/current × light/dark × phone `375`, tablet `768`, desktop `1440`، مع print desktop لكل theme. لكل حالة تطابق body-text hash بين baseline/current، وظهرت القيم العشرية المطلوبة، ولم يحدث document-level horizontal overflow؛ بقي overflow داخل table regions على الهاتف والتابلت كما هو مقصود.
+
+- manifest: [`ci/browser-evidence/deep-cleanup-2026-11-01/manifest.json`](../ci/browser-evidence/deep-cleanup-2026-11-01/manifest.json)
+- screenshots: [`ci/browser-evidence/deep-cleanup-2026-11-01/`](../ci/browser-evidence/deep-cleanup-2026-11-01/)
+- selector evidence: [`2026-11-01-css-cleanup-evidence.md`](2026-11-01-css-cleanup-evidence.md)
+- command ledger: [`ci/browser-evidence/deep-cleanup-2026-11-01/test-runs.md`](../ci/browser-evidence/deep-cleanup-2026-11-01/test-runs.md)
+
+### بعد المقارنة مع baseline
+
+- `npm test` على cleanup: **25/27 files passed; 308 passed / 1 failed / 1 worker error من 325 tests**. الفشل هو `tests/routes/next-http.test.ts`، وworker error مرتبط بخروج worker أثناء نفس HTTP suite.
+- نفس `tests/routes/next-http.test.ts` على baseline وبنفس Node24/ICU/Chromium فشل أيضاً 1 من 2 بسبب `UND_ERR_SOCKET: other side closed`. لذلك لا يُنسب إلى cleanup.
+- full Vitest على baseline كان **23/26 files passed; 299 passed / 22 skipped من 322**، مع فشلين إضافيين في Next build داخل `offline-resilience` و`operator-live-flow`. هذان يمران على cleanup بعد إصلاح البيئة.
+- E2E cleanup في آخر full retry: **20/21 passed**؛ 12/12 offline journey و8/8 storage-contract مرّت، وoperator journey مرّت منفردة **1/1** لكن full run تعرض لفشل intermittent في `next build` قبلها. baseline full E2E تعرض بدوره لفشل build في C1 وتوقف بعد **9 passed / 1 failed / 11 did not run**. هذا يثبت أن الباقي runtime/resource-sensitive وليس regression مثبتاً من CSS/DataTable، لكنه يمنع VERIFIED.
+- `npm run lint`, `npm run test:unit` (**36/36**), `npm run build`, decimal/RTL guard، وCSS evidence guard كلها **PASS**.
+
+الملفات واللقطات والمحاضر أعلاه هي سجل هذه النتيجة؛ لا يوجد merge أو deploy أو hosted-data mutation.
 
 ## النطاق والقرارات المحمية
 
@@ -62,7 +105,9 @@
 - توحّدت جداول Reports وRegrade على primitive واحد، مع scroll container وresponsive breakpoints بدلاً من نسخ table markup.
 - أُبقيت navigation وrole visibility وowner/operator boundaries دون تعديل.
 
-## التحقق المنفذ
+## التحقق الأولي قبل إصلاح البيئة — محفوظ كسجل تاريخي
+
+> هذا القسم يخص التشغيل الأول قبل تثبيت ICU/Chromium/Node24، وقد استُبدل حكمه العددي بملحق الإغلاق أعلاه.
 
 | الأمر | النتيجة |
 |---|---|
@@ -82,14 +127,14 @@
 - `npm run test:e2e`: 21 اختباراً؛ 10 failed و11 لم تُشغّل. الأسباب المسجلة هي Embedded Postgres نفسه، وغياب Playwright Chromium executable (`chrome-headless-shell`).
 - توجد تحذيرات بيئية منفصلة: Node `20.20.2` مقابل متطلبات Supabase الحالية (`>=22`)، وتحذيرات React `act(...)` و`prefetch` attribute. لم تمنع build أو targeted tests.
 
-لذلك verdict هذا الفرع هو: **code/build/static checks green؛ full database-backed وbrowser gate غير قابلين للحكم في هذه البيئة**، وليس “all tests passed”.
+هذا verdict تاريخي قبل إصلاح البيئة، وليس verdict الإغلاق. الحكم الحالي الصريح موجود في ملحق الإغلاق: **PARTIAL/BLOCKED**.
 
 ## المخاطر والمتابعة المطلوبة قبل PR/merge
 
-1. إعادة تشغيل full Vitest وroute/UI database-backed suites على Node/Postgres runtime متوافق يوفر ICU ABI المطلوب، من دون symlink لمكتبة ICU مختلفة ABI.
-2. تثبيت Playwright Chromium ثم إعادة `npm run test:e2e`.
-3. مراجعة diff والـ report في PR منفصل؛ لا merge أو close أو deploy تلقائي من هذا الفرع.
-4. عند توفر بيئة Node 22/CI، إعادة التحقق من status والـ production build قبل أي قرار دمج.
+1. معالجة/تثبيت `tests/routes/next-http.test.ts` قبل اعتبار full Vitest أخضر؛ baseline reproduces the same socket failure، لكن ذلك لا يلغي الحاجة إلى إصلاحه أو توثيق قرار مالك واضح.
+2. تثبيت full E2E child-build resource behavior في CI/runner أكبر من 2 GB أو بجمع محاضر build كافية؛ لا يجوز إخفاء intermittent failure عبر retries فقط.
+3. إعادة تنفيذ CI على Node `24.22.2` وICU artifact pinned قبل أي قرار merge.
+4. مراجعة Draft PR والـ report؛ لا merge أو close أو deploy تلقائي من هذا الفرع.
 
 ## الحالة النهائية
 
