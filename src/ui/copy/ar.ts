@@ -954,6 +954,7 @@ export const ar = {
     balanceOwedToParty: 'للساحة على الطرف',
     balanceSettled: 'متوازن',
     shareReady: 'تم تجهيز الملخص للمشاركة.',
+    shareUnavailable: 'تعذر الوصول إلى المشاركة أو الحافظة في هذا السياق.',
     reportTypeLabel: 'نوع التقرير',
     yes: 'نعم',
     shareText: 'ملخص تقرير كيّال',
