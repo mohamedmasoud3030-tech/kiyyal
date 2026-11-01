@@ -8,7 +8,7 @@
 - GitHub's canonical repository name is now `kiyyal` (the former
   `bug-free-garbanzo` slug redirects). `main` is `8e8c724a3b4c`; the current
   release candidate is `release/kayyal-stage1-offline-candidate-2026-11-01`
-  at `aea77ff`, sourced from `integration/kayyal-unified` at `ca527d72342f`.
+  at `9014c0d`, sourced from `integration/kayyal-unified` at `ca527d72342f`.
   It has **not** been merged to `main` or deployed by this candidate.
 - The candidate contains the Stage 1 Arabic RTL web slice, the ADR-0016
   offline drafts/outbox work, the Round-3 session/offline hardening, the
@@ -22,11 +22,13 @@
 - The preceding candidate head `00679c1` had successful GitHub `verify` and
   Vercel preview checks. The performance head `933f1b6` had fresh GitHub
   `verify` success on both push and pull-request runs, with Vercel Preview
-  Comments successful and `staging-gate` skipped as designed. The current
-  dependency-security head is awaiting its fresh GitHub result. On the current
-  tree, `typecheck`, `guard:decimal`, production build, and full Vitest
-  **322/322** pass; the real browser suite after the dependency refresh passed
-  **21/21**. A strict local run was **not called green** because the 2 GB
+  Comments successful and `staging-gate` skipped as designed. The
+  dependency-security head `b9eb135` passed fresh GitHub `verify` and Vercel
+  Preview Comments checks. The current Node 22 runtime head is awaiting its
+  fresh GitHub result. On the current tree, `typecheck`, `guard:decimal`,
+  production build, and full Vitest **322/322** pass; the real browser suite
+  after the dependency refresh passed **21/21** under Node 22. A strict local
+  run was **not called green** because the 2 GB
   sandbox's combined UI/HTTP run OOM-killed a Next server. The existing strict
   PASS at `b584477445c5` is earlier evidence only.
 - Performance checkpoint (local production `next start` with a browser/API
@@ -39,9 +41,9 @@
   revalidation when no parked operation exists, and refreshes reference data
   at most once per five minutes per scope.
 - `npm audit` on the current tree reports **0 vulnerabilities** after the
-  explicit Zod 4 and transitive dependency refresh. Node 20 still emits the
-  existing Supabase engine deprecation warning; CI remains on Node 20 until a
-  separately reviewed Node 22 runtime change is made.
+  explicit Zod 4 and transitive dependency refresh. The release runtime and
+  both CI jobs now target Node 22, matching the Supabase 2.116 engine
+  requirement; local Node 22 validation passed.
 - No merge, deployment, hosted migration, hosted-data mutation, or secret
   rotation is part of this checkpoint.
 
