@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: 'npm' }
+        with: { node-version: '24.22.2', cache: 'npm' }
       - run: npm ci
       - run: mkdir -p /tmp/kayyal-logs
 
@@ -93,7 +93,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: 'npm' }
+        with: { node-version: '24.22.2', cache: 'npm' }
       - run: npm ci
       - name: Supabase staging gate (STG-1..STG-9)
         env:
