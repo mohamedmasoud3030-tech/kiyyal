@@ -4,7 +4,7 @@
 **Repository:** `kiyyal`
 **Branch:** `chore/kayyal-deep-repository-cleanup`
 **Baseline:** `cleanup-baseline-2026-11-01` → `1b3186d`
-**Cleanup code head before the closure addendum:** `ae9d41a`
+**Cleanup code head:** `427be699494347e7b23aa11231ebf5430374f58b`
 
 > هذا التقرير يسجل ما تم فحصه وما تم تغييره. لا يعني نجاح اختبار لم يُنفّذ بنجاح، ولا يغيّر أي migration أو بيانات مستضافة.
 
@@ -27,19 +27,35 @@
 ### DataTable review
 
 - `DataTable` الآن يفرض `caption` و`getRowKey`، ويرندر `table/caption/thead/th scope="col"`، ويضع empty state داخل `tbody` مع `colSpan` كامل.
-- `ReportsContent` يستخدم key مشتقاً من `id`/`material_id`/`party_id` ثم stable row content؛ duplicate identities تُفصل محلياً بترتيب occurrence دون تغيير ترتيب البيانات. Regrade يستخدم `allocation.id`.
+- `ReportsContent` يستخدم هوية `id`/`material_id`/`party_id`، وRegrade يستخدم `allocation.id`. عند تكرار الهوية تُركّب مفاتيح الصفوف الآن كزوج JSON غير ملتبس `[baseIdentity, occurrence]`؛ لذلك لا تتصادم المدخلات `['a', 'a', 'a:1']` (كان suffix النصي `a:1` قابلاً للتصادم).
 - `safeText` في التقارير بقي pass-through لسلاسل read model؛ لم تتغير القيم المالية أو decimal formatting. `Weight`/`Amount` في regrade بقيتا صاحبي التنسيق، واختبار DataTable يثبت مرور `1234567890.1200 / كجم` كما هو.
-- scroll boundary محصور في wrapper (`max-inline-size:100%`, `overflow-x:auto`)، والwrapper أصبح `role="region"`, `tabIndex=0` لتصفح لوحة الجدول بالكيبورد، مع `:focus-visible` العام. `text-align:start` و`bdi dir="ltr"` يحافظان على RTL وحدود الأرقام.
-- targeted DataTable/foundation/workspace checks: **24/24**، وDataTable نفسه **3/3**.
+- scroll boundary محصور في wrapper (`max-inline-size:100%`, `overflow-x:auto`)، والwrapper أصبح `role="region"`, `aria-label`, `tabIndex=0` لتصفح لوحة الجدول بالكيبورد، مع `:focus-visible` العام. أضيف `overflow-x: clip` للقشرة المشتركة حتى لا يتسرب overflow الجدول RTL إلى document؛ بقي التمرير داخل wrapper. `text-align:start` و`bdi dir="ltr"` يحافظان على RTL وحدود الأرقام.
+- targeted DataTable/foundation/workspace checks: **25/25**، وDataTable نفسه **4/4**؛ آخر حالة تغطي collision regression صراحةً.
 
-### Visual comparison
+### Visual comparison — production pages/components
 
-استُخدم fixture حتمي واحد بنفس النصوص والقيم في baseline وبعد التنظيف، وليس بيانات مالية مزروعة داخل صفحات المنتج. التقطت المقارنة **16 لقطة**: baseline/current × light/dark × phone `375`, tablet `768`, desktop `1440`، مع print desktop لكل theme. لكل حالة تطابق body-text hash بين baseline/current، وظهرت القيم العشرية المطلوبة، ولم يحدث document-level horizontal overflow؛ بقي overflow داخل table regions على الهاتف والتابلت كما هو مقصود.
+تمت إضافة دليل منفصل من صفحات Next الحقيقية، وليس من HTML يعيد كتابة الجداول. شغّل `scripts/capture-production-visuals.mjs` المتصفح على `/reports` و`/regrade` و`/regrade/fixture-regrade`، وانتظر React production components نفسها، ثم اعترض فقط read-model HTTP responses المعزولة داخل Playwright. لم تُكتب بيانات إلى Supabase أو إلى أي hosted data، والـ fixture معلّم صراحة في الـ manifests بأنه read-model fixture لا بيانات إنتاجية.
 
-- manifest: [`ci/browser-evidence/deep-cleanup-2026-11-01/manifest.json`](../ci/browser-evidence/deep-cleanup-2026-11-01/manifest.json)
-- screenshots: [`ci/browser-evidence/deep-cleanup-2026-11-01/`](../ci/browser-evidence/deep-cleanup-2026-11-01/)
-- selector evidence: [`2026-11-01-css-cleanup-evidence.md`](2026-11-01-css-cleanup-evidence.md)
-- command ledger: [`ci/browser-evidence/deep-cleanup-2026-11-01/test-runs.md`](../ci/browser-evidence/deep-cleanup-2026-11-01/test-runs.md)
+لكل من baseline وcurrent **13 لقطة**: Reports loaded على phone/tablet/desktop في light/dark (6)، Regrade detail على phone/tablet/desktop (3)، Reports empty/error/loading على phone (3)، وReports print على desktop (1). التغطية الفعلية تشمل:
+
+- phone `375×900`، tablet `768×1000`، desktop `1440×1100`؛ light/dark؛ print؛ النصوص العربية الطويلة والقيم العشرية؛ loaded/empty/error/loading.
+- `document.documentElement.scrollWidth <= innerWidth`، وقياس `scrollWidth/clientWidth` داخل wrapper؛ في current نجحت كل assertions ولم يتسرب جدول Regrade RTL إلى document بعد إضافة `overflow-x: clip` للقشرة.
+- `caption`، `th scope="col"`، `role="region"`، اسم `aria-label`، `tabindex="0"`، وتركيز لوحة الجدول واختبار ArrowRight؛ القيم `1234567890.1200` و`كجم` تتحقق حيث يعرضها المكوّن الإنتاجي دون إعادة كتابة للجدول.
+- تحميل الخطوط المحلية: `document.fonts.status=loaded` و`document.fonts.check('16px "Kayyal Arabic"')`، مع entries لملفات `.woff2` المحلية؛ و`manifest.webmanifest` و`icons/icon-192.png` أعادا HTTP 200. لم تسجل الصفحات أخطاء runtime.
+
+**النتيجة المسجلة، دون إخفاء فشل baseline:**
+
+| المرجع | SHA | اللقطات | page errors | assertions | النتيجة الدلالية |
+|---|---|---:|---:|---:|---|
+| baseline `cleanup-baseline-2026-11-01` | `1b3186defe699d5eedb1432add70781452b66ed7` | 13 | 0 | **35 failures** | لا caption في الجداول، لا named/focusable scroll region، وRegrade baseline يفتقد `scope` للرؤوس |
+| current | `427be699494347e7b23aa11231ebf5430374f58b` | 13 | 0 | **0 failures** | كل assertions الصارمة نجحت |
+
+- المقارنة التفصيلية والـ checks لكل viewport/theme/media: [`ci/browser-evidence/deep-cleanup-2026-11-01/production-component-comparison.json`](../ci/browser-evidence/deep-cleanup-2026-11-01/production-component-comparison.json).
+- current production manifest واللقطات: [`ci/browser-evidence/production-components-current-2026-11-01/manifest.json`](../ci/browser-evidence/production-components-current-2026-11-01/manifest.json) و[`ci/browser-evidence/production-components-current-2026-11-01/`](../ci/browser-evidence/production-components-current-2026-11-01/).
+- baseline production manifest واللقطات: [`ci/browser-evidence/production-components-baseline-2026-11-01/manifest.json`](../ci/browser-evidence/production-components-baseline-2026-11-01/).
+- الـ fixture القديم بقي موجوداً كمساعد CSS فقط؛ manifestه الآن يصرح بحدوده: [`ci/browser-evidence/deep-cleanup-2026-11-01/manifest.json`](../ci/browser-evidence/deep-cleanup-2026-11-01/).
+- دليل CSS السابق: [`2026-11-01-css-cleanup-evidence.md`](2026-11-01-css-cleanup-evidence.md).
+- command ledger: [`ci/browser-evidence/deep-cleanup-2026-11-01/test-runs.md`](../ci/browser-evidence/deep-cleanup-2026-11-01/test-runs.md).
 
 ### بعد المقارنة مع baseline
 
@@ -47,7 +63,10 @@
 - نفس `tests/routes/next-http.test.ts` على baseline وبنفس Node24/ICU/Chromium فشل أيضاً 1 من 2 بسبب `UND_ERR_SOCKET: other side closed`. لذلك لا يُنسب إلى cleanup.
 - full Vitest على baseline كان **23/26 files passed; 299 passed / 22 skipped من 322**، مع فشلين إضافيين في Next build داخل `offline-resilience` و`operator-live-flow`. هذان يمران على cleanup بعد إصلاح البيئة.
 - E2E cleanup في آخر full retry: **20/21 passed**؛ 12/12 offline journey و8/8 storage-contract مرّت، وoperator journey مرّت منفردة **1/1** لكن full run تعرض لفشل intermittent في `next build` قبلها. baseline full E2E تعرض بدوره لفشل build في C1 وتوقف بعد **9 passed / 1 failed / 11 did not run**. هذا يثبت أن الباقي runtime/resource-sensitive وليس regression مثبتاً من CSS/DataTable، لكنه يمنع VERIFIED.
-- `npm run lint`, `npm run test:unit` (**36/36**), `npm run build`, decimal/RTL guard، وCSS evidence guard كلها **PASS**.
+- أحدث targeted run بعد key regression: DataTable/foundation/workspace **25/25**، منها DataTable **4/4**. `npm run build` و`npm run typecheck` نجحا بعد التغيير؛ لم تُعتبر تحذيرات `prefetch`/React `act` نجاحاً وظيفياً.
+- آخر full Vitest المسجل قبل closure addendum بقي **25/27 files passed; 308 passed / 1 failed / 1 worker error من 325**؛ إضافة regression رفعت targeted coverage فقط، ولا أسمّي full suite أخضر من دون إعادة تشغيل كاملة ناجحة. route failure هو `tests/routes/next-http.test.ts`، والـ worker exit غير مشخص.
+- full Playwright المحلي الأخير بقي **20/21 passed**، وbaseline **9 passed / 1 failed / 11 did not run**؛ لا يُسمّى full pass. أضيف job `browser-e2e` مستقل إلى `.github/workflows/ci.yml` على runner أكبر، مع ICU/Chromium pinned ورفع diagnostics، لكن نتيجة job البعيدة يجب قراءتها مستقلة عن `verify`.
+- Remote CI الموثق سابقاً على SHA `97e9f041...` (`41359199732` push و`41359222201` pull_request) كان `success` لخطوات verify فقط؛ لا يثبت full E2E. بعد دفع HEAD الجديد يجب قراءة runي push وPR على SHA نفسه وتسجيل job `browser-e2e` كما انتهى، دون تجميع نجاحات منفردة.
 
 الملفات واللقطات والمحاضر أعلاه هي سجل هذه النتيجة؛ لا يوجد merge أو deploy أو hosted-data mutation.
 
@@ -74,6 +93,9 @@
 | `eafc5cf` | إضافة `DataTable` عام type-safe واستخدامه في تقارير المالك وتفاصيل regrade مع اختبار المكوّن. |
 | `8df9c88` | مواءمة responsive surfaces النشطة وإضافة styling للقواعد التي كانت بلا styling فعّال. |
 | `c01fbdc` | إزالة CSS rules مهجورة مؤكدة فقط. |
+| `36dd7e5` | إضافة production-page visual harness، إصلاح document overflow للقشرة، واختبار key collision. |
+| `427be69` | وسم provenance للـ production-component manifests وread-model fixture. |
+| _pending_ | إضافة full browser-e2e CI job وتحديث التقرير/المقارنة؛ لا merge أو deploy. |
 
 ### ملفات الحذف وإعادة التنظيم
 

@@ -1,0 +1,960 @@
+{
+  "evidenceVersion": "production-components-v1",
+  "generatedAt": "2026-11-01T23:21:48.486Z",
+  "status": "PARTIAL/BLOCKED",
+  "repository": "mohamedmasoud3030-tech/kiyyal",
+  "branch": "chore/kayyal-deep-repository-cleanup",
+  "baseline": {
+    "reference": "baseline",
+    "sourceSha": "1b3186defe699d5eedb1432add70781452b66ed7",
+    "manifest": "production-components-baseline-2026-11-01/manifest.json",
+    "strict": false,
+    "browser": "153.0.8010.12",
+    "screenshots": 13,
+    "pageErrors": 0,
+    "assertionFailures": 35,
+    "assertionFailureCounts": {
+      "caption": 9,
+      "scrollRegionName": 9,
+      "scrollRegionKeyboard": 9,
+      "focusedRegion": 5,
+      "scopedHeaders": 3
+    },
+    "cases": [
+      {
+        "page": "reports-loaded",
+        "viewport": "phone",
+        "viewportSize": {
+          "width": 375,
+          "height": 900
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-baseline-2026-11-01/reports-loaded-light-phone.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 375,
+          "viewportWidth": 375,
+          "tableFound": true,
+          "exactDecimal": true,
+          "exactUnit": false,
+          "captionCount": 0,
+          "scopedHeaders": true,
+          "scrollRegionName": false,
+          "scrollRegionTabIndex": false,
+          "focusedRegion": true,
+          "tableClientWidth": 309,
+          "tableScrollWidth": 916
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "reports-loaded-dark",
+        "viewport": "phone",
+        "viewportSize": {
+          "width": 375,
+          "height": 900
+        },
+        "media": "screen",
+        "theme": "dark",
+        "screenshot": "production-components-baseline-2026-11-01/reports-loaded-dark-phone.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 375,
+          "viewportWidth": 375,
+          "tableFound": true,
+          "exactDecimal": true,
+          "exactUnit": false,
+          "captionCount": 0,
+          "scopedHeaders": true,
+          "scrollRegionName": false,
+          "scrollRegionTabIndex": false,
+          "focusedRegion": true,
+          "tableClientWidth": 309,
+          "tableScrollWidth": 916
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "reports-loaded",
+        "viewport": "tablet",
+        "viewportSize": {
+          "width": 768,
+          "height": 1000
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-baseline-2026-11-01/reports-loaded-light-tablet.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 768,
+          "viewportWidth": 768,
+          "tableFound": true,
+          "exactDecimal": true,
+          "exactUnit": false,
+          "captionCount": 0,
+          "scopedHeaders": true,
+          "scrollRegionName": false,
+          "scrollRegionTabIndex": false,
+          "focusedRegion": true,
+          "tableClientWidth": 666,
+          "tableScrollWidth": 916
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 5
+        }
+      },
+      {
+        "page": "reports-loaded-dark",
+        "viewport": "tablet",
+        "viewportSize": {
+          "width": 768,
+          "height": 1000
+        },
+        "media": "screen",
+        "theme": "dark",
+        "screenshot": "production-components-baseline-2026-11-01/reports-loaded-dark-tablet.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 768,
+          "viewportWidth": 768,
+          "tableFound": true,
+          "exactDecimal": true,
+          "exactUnit": false,
+          "captionCount": 0,
+          "scopedHeaders": true,
+          "scrollRegionName": false,
+          "scrollRegionTabIndex": false,
+          "focusedRegion": true,
+          "tableClientWidth": 666,
+          "tableScrollWidth": 916
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "reports-loaded",
+        "viewport": "desktop",
+        "viewportSize": {
+          "width": 1440,
+          "height": 1100
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-baseline-2026-11-01/reports-loaded-light-desktop.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 1440,
+          "viewportWidth": 1440,
+          "tableFound": true,
+          "exactDecimal": true,
+          "exactUnit": false,
+          "captionCount": 0,
+          "scopedHeaders": true,
+          "scrollRegionName": false,
+          "scrollRegionTabIndex": false,
+          "focusedRegion": false,
+          "tableClientWidth": 1010,
+          "tableScrollWidth": 1010
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "reports-loaded-dark",
+        "viewport": "desktop",
+        "viewportSize": {
+          "width": 1440,
+          "height": 1100
+        },
+        "media": "screen",
+        "theme": "dark",
+        "screenshot": "production-components-baseline-2026-11-01/reports-loaded-dark-desktop.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 1440,
+          "viewportWidth": 1440,
+          "tableFound": true,
+          "exactDecimal": true,
+          "exactUnit": false,
+          "captionCount": 0,
+          "scopedHeaders": true,
+          "scrollRegionName": false,
+          "scrollRegionTabIndex": false,
+          "focusedRegion": false,
+          "tableClientWidth": 1010,
+          "tableScrollWidth": 1010
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "regrade-detail",
+        "viewport": "phone",
+        "viewportSize": {
+          "width": 375,
+          "height": 900
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-baseline-2026-11-01/regrade-detail-light-phone.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 375,
+          "viewportWidth": 375,
+          "tableFound": true,
+          "exactDecimal": false,
+          "exactUnit": true,
+          "captionCount": 0,
+          "scopedHeaders": false,
+          "scrollRegionName": false,
+          "scrollRegionTabIndex": false,
+          "focusedRegion": false,
+          "tableClientWidth": 309,
+          "tableScrollWidth": 672
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "regrade-detail",
+        "viewport": "tablet",
+        "viewportSize": {
+          "width": 768,
+          "height": 1000
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-baseline-2026-11-01/regrade-detail-light-tablet.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 768,
+          "viewportWidth": 768,
+          "tableFound": true,
+          "exactDecimal": false,
+          "exactUnit": true,
+          "captionCount": 0,
+          "scopedHeaders": false,
+          "scrollRegionName": false,
+          "scrollRegionTabIndex": false,
+          "focusedRegion": false,
+          "tableClientWidth": 666,
+          "tableScrollWidth": 672
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "regrade-detail",
+        "viewport": "desktop",
+        "viewportSize": {
+          "width": 1440,
+          "height": 1100
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-baseline-2026-11-01/regrade-detail-light-desktop.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 1440,
+          "viewportWidth": 1440,
+          "tableFound": true,
+          "exactDecimal": false,
+          "exactUnit": true,
+          "captionCount": 0,
+          "scopedHeaders": false,
+          "scrollRegionName": false,
+          "scrollRegionTabIndex": false,
+          "focusedRegion": false,
+          "tableClientWidth": 1010,
+          "tableScrollWidth": 1010
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "reports-empty",
+        "viewport": "phone",
+        "viewportSize": {
+          "width": 375,
+          "height": 900
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-baseline-2026-11-01/reports-empty-phone.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 375,
+          "viewportWidth": 375,
+          "tableFound": false,
+          "exactDecimal": false,
+          "exactUnit": false,
+          "captionCount": 0,
+          "scopedHeaders": false,
+          "scrollRegionName": false,
+          "scrollRegionTabIndex": false,
+          "focusedRegion": false,
+          "tableClientWidth": 0,
+          "tableScrollWidth": 0
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 5
+        }
+      },
+      {
+        "page": "reports-error",
+        "viewport": "phone",
+        "viewportSize": {
+          "width": 375,
+          "height": 900
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-baseline-2026-11-01/reports-error-phone.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 375,
+          "viewportWidth": 375,
+          "tableFound": false,
+          "exactDecimal": false,
+          "exactUnit": false,
+          "captionCount": 0,
+          "scopedHeaders": false,
+          "scrollRegionName": false,
+          "scrollRegionTabIndex": false,
+          "focusedRegion": false,
+          "tableClientWidth": 0,
+          "tableScrollWidth": 0
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 5
+        }
+      },
+      {
+        "page": "reports-loading",
+        "viewport": "phone",
+        "viewportSize": {
+          "width": 375,
+          "height": 900
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-baseline-2026-11-01/reports-loading-phone.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 375,
+          "viewportWidth": 375,
+          "tableFound": false,
+          "exactDecimal": false,
+          "exactUnit": false,
+          "captionCount": 0,
+          "scopedHeaders": false,
+          "scrollRegionName": false,
+          "scrollRegionTabIndex": false,
+          "focusedRegion": false,
+          "tableClientWidth": 0,
+          "tableScrollWidth": 0
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 5
+        }
+      },
+      {
+        "page": "reports-print",
+        "viewport": "desktop",
+        "viewportSize": {
+          "width": 1440,
+          "height": 1100
+        },
+        "media": "print",
+        "theme": "light",
+        "screenshot": "production-components-baseline-2026-11-01/reports-print-desktop.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 1440,
+          "viewportWidth": 1440,
+          "tableFound": true,
+          "exactDecimal": true,
+          "exactUnit": false,
+          "captionCount": 0,
+          "scopedHeaders": true,
+          "scrollRegionName": false,
+          "scrollRegionTabIndex": false,
+          "focusedRegion": false,
+          "tableClientWidth": 1390,
+          "tableScrollWidth": 1390
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": false,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 5
+        }
+      }
+    ]
+  },
+  "current": {
+    "reference": "current",
+    "sourceSha": "427be699494347e7b23aa11231ebf5430374f58b",
+    "manifest": "production-components-current-2026-11-01/manifest.json",
+    "strict": true,
+    "browser": "153.0.8010.12",
+    "screenshots": 13,
+    "pageErrors": 0,
+    "assertionFailures": 0,
+    "assertionFailureCounts": {},
+    "cases": [
+      {
+        "page": "reports-loaded",
+        "viewport": "phone",
+        "viewportSize": {
+          "width": 375,
+          "height": 900
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-current-2026-11-01/reports-loaded-light-phone.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 375,
+          "viewportWidth": 375,
+          "tableFound": true,
+          "exactDecimal": true,
+          "exactUnit": false,
+          "captionCount": 1,
+          "scopedHeaders": true,
+          "scrollRegionName": true,
+          "scrollRegionTabIndex": true,
+          "focusedRegion": true,
+          "tableClientWidth": 309,
+          "tableScrollWidth": 1644
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "reports-loaded-dark",
+        "viewport": "phone",
+        "viewportSize": {
+          "width": 375,
+          "height": 900
+        },
+        "media": "screen",
+        "theme": "dark",
+        "screenshot": "production-components-current-2026-11-01/reports-loaded-dark-phone.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 375,
+          "viewportWidth": 375,
+          "tableFound": true,
+          "exactDecimal": true,
+          "exactUnit": false,
+          "captionCount": 1,
+          "scopedHeaders": true,
+          "scrollRegionName": true,
+          "scrollRegionTabIndex": true,
+          "focusedRegion": true,
+          "tableClientWidth": 309,
+          "tableScrollWidth": 1644
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "reports-loaded",
+        "viewport": "tablet",
+        "viewportSize": {
+          "width": 768,
+          "height": 1000
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-current-2026-11-01/reports-loaded-light-tablet.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 768,
+          "viewportWidth": 768,
+          "tableFound": true,
+          "exactDecimal": true,
+          "exactUnit": false,
+          "captionCount": 1,
+          "scopedHeaders": true,
+          "scrollRegionName": true,
+          "scrollRegionTabIndex": true,
+          "focusedRegion": true,
+          "tableClientWidth": 686,
+          "tableScrollWidth": 1644
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "reports-loaded-dark",
+        "viewport": "tablet",
+        "viewportSize": {
+          "width": 768,
+          "height": 1000
+        },
+        "media": "screen",
+        "theme": "dark",
+        "screenshot": "production-components-current-2026-11-01/reports-loaded-dark-tablet.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 768,
+          "viewportWidth": 768,
+          "tableFound": true,
+          "exactDecimal": true,
+          "exactUnit": false,
+          "captionCount": 1,
+          "scopedHeaders": true,
+          "scrollRegionName": true,
+          "scrollRegionTabIndex": true,
+          "focusedRegion": true,
+          "tableClientWidth": 686,
+          "tableScrollWidth": 1644
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "reports-loaded",
+        "viewport": "desktop",
+        "viewportSize": {
+          "width": 1440,
+          "height": 1100
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-current-2026-11-01/reports-loaded-light-desktop.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 1440,
+          "viewportWidth": 1440,
+          "tableFound": true,
+          "exactDecimal": true,
+          "exactUnit": false,
+          "captionCount": 1,
+          "scopedHeaders": true,
+          "scrollRegionName": true,
+          "scrollRegionTabIndex": true,
+          "focusedRegion": true,
+          "tableClientWidth": 1086,
+          "tableScrollWidth": 1644
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "reports-loaded-dark",
+        "viewport": "desktop",
+        "viewportSize": {
+          "width": 1440,
+          "height": 1100
+        },
+        "media": "screen",
+        "theme": "dark",
+        "screenshot": "production-components-current-2026-11-01/reports-loaded-dark-desktop.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 1440,
+          "viewportWidth": 1440,
+          "tableFound": true,
+          "exactDecimal": true,
+          "exactUnit": false,
+          "captionCount": 1,
+          "scopedHeaders": true,
+          "scrollRegionName": true,
+          "scrollRegionTabIndex": true,
+          "focusedRegion": true,
+          "tableClientWidth": 1086,
+          "tableScrollWidth": 1644
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "regrade-detail",
+        "viewport": "phone",
+        "viewportSize": {
+          "width": 375,
+          "height": 900
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-current-2026-11-01/regrade-detail-light-phone.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 375,
+          "viewportWidth": 375,
+          "tableFound": true,
+          "exactDecimal": false,
+          "exactUnit": true,
+          "captionCount": 1,
+          "scopedHeaders": true,
+          "scrollRegionName": true,
+          "scrollRegionTabIndex": true,
+          "focusedRegion": true,
+          "tableClientWidth": 309,
+          "tableScrollWidth": 977
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "regrade-detail",
+        "viewport": "tablet",
+        "viewportSize": {
+          "width": 768,
+          "height": 1000
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-current-2026-11-01/regrade-detail-light-tablet.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 768,
+          "viewportWidth": 768,
+          "tableFound": true,
+          "exactDecimal": false,
+          "exactUnit": true,
+          "captionCount": 1,
+          "scopedHeaders": true,
+          "scrollRegionName": true,
+          "scrollRegionTabIndex": true,
+          "focusedRegion": true,
+          "tableClientWidth": 686,
+          "tableScrollWidth": 977
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "regrade-detail",
+        "viewport": "desktop",
+        "viewportSize": {
+          "width": 1440,
+          "height": 1100
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-current-2026-11-01/regrade-detail-light-desktop.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 1440,
+          "viewportWidth": 1440,
+          "tableFound": true,
+          "exactDecimal": false,
+          "exactUnit": true,
+          "captionCount": 1,
+          "scopedHeaders": true,
+          "scrollRegionName": true,
+          "scrollRegionTabIndex": true,
+          "focusedRegion": true,
+          "tableClientWidth": 1086,
+          "tableScrollWidth": 1086
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "reports-empty",
+        "viewport": "phone",
+        "viewportSize": {
+          "width": 375,
+          "height": 900
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-current-2026-11-01/reports-empty-phone.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 375,
+          "viewportWidth": 375,
+          "tableFound": false,
+          "exactDecimal": false,
+          "exactUnit": false,
+          "captionCount": 0,
+          "scopedHeaders": false,
+          "scrollRegionName": false,
+          "scrollRegionTabIndex": false,
+          "focusedRegion": false,
+          "tableClientWidth": 0,
+          "tableScrollWidth": 0
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "reports-error",
+        "viewport": "phone",
+        "viewportSize": {
+          "width": 375,
+          "height": 900
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-current-2026-11-01/reports-error-phone.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 375,
+          "viewportWidth": 375,
+          "tableFound": false,
+          "exactDecimal": false,
+          "exactUnit": false,
+          "captionCount": 0,
+          "scopedHeaders": false,
+          "scrollRegionName": false,
+          "scrollRegionTabIndex": false,
+          "focusedRegion": false,
+          "tableClientWidth": 0,
+          "tableScrollWidth": 0
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "reports-loading",
+        "viewport": "phone",
+        "viewportSize": {
+          "width": 375,
+          "height": 900
+        },
+        "media": "screen",
+        "theme": "light",
+        "screenshot": "production-components-current-2026-11-01/reports-loading-phone.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 375,
+          "viewportWidth": 375,
+          "tableFound": false,
+          "exactDecimal": false,
+          "exactUnit": false,
+          "captionCount": 0,
+          "scopedHeaders": false,
+          "scrollRegionName": false,
+          "scrollRegionTabIndex": false,
+          "focusedRegion": false,
+          "tableClientWidth": 0,
+          "tableScrollWidth": 0
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": true,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      },
+      {
+        "page": "reports-print",
+        "viewport": "desktop",
+        "viewportSize": {
+          "width": 1440,
+          "height": 1100
+        },
+        "media": "print",
+        "theme": "light",
+        "screenshot": "production-components-current-2026-11-01/reports-print-desktop.png",
+        "checks": {
+          "documentNoOverflow": true,
+          "documentScrollWidth": 1440,
+          "viewportWidth": 1440,
+          "tableFound": true,
+          "exactDecimal": true,
+          "exactUnit": false,
+          "captionCount": 1,
+          "scopedHeaders": true,
+          "scrollRegionName": true,
+          "scrollRegionTabIndex": true,
+          "focusedRegion": false,
+          "tableClientWidth": 1390,
+          "tableScrollWidth": 1390
+        },
+        "assets": {
+          "fontStatus": "loaded",
+          "fontCheck": false,
+          "manifestStatus": 200,
+          "iconStatus": 200,
+          "fontEntries": 6
+        }
+      }
+    ]
+  },
+  "method": {
+    "script": "scripts/capture-production-visuals.mjs",
+    "productionRendering": true,
+    "sourceRoutes": [
+      "/reports",
+      "/regrade",
+      "/regrade/fixture-regrade"
+    ],
+    "sourceComponents": [
+      "src/ui/components/ReportsContent.tsx",
+      "src/ui/components/RegradeDetailContent.tsx",
+      "src/ui/components/AppShell.tsx",
+      "src/ui/components/DataTable.tsx"
+    ],
+    "dataMode": "read-model fixture intercepted at HTTP boundaries; real Next routes and React pages are rendered; no hosted-data mutation",
+    "cssFixture": "scripts/capture-cleanup-visuals.mjs",
+    "cssFixtureLimitation": "CSS-only helper fixture; not evidence of React production rendering and retained only as a CSS regression aid."
+  },
+  "coverage": {
+    "viewports": {
+      "phone": [
+        375,
+        900
+      ],
+      "tablet": [
+        768,
+        1000
+      ],
+      "desktop": [
+        1440,
+        1100
+      ]
+    },
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "media": [
+      "screen",
+      "print"
+    ],
+    "states": [
+      "loaded",
+      "empty",
+      "error",
+      "loading"
+    ],
+    "assertions": [
+      "document scroll width",
+      "scroll remains inside table wrapper",
+      "exact decimal strings",
+      "unit strings where production component renders them",
+      "table/caption/scope semantics",
+      "named keyboard-focusable scroll region",
+      "local fonts/manifest/icon assets",
+      "no page errors"
+    ]
+  },
+  "interpretation": {
+    "baseline": "Expected semantic regressions are retained as failures: no caption, no named/focusable scroll region, and missing scoped headers on the baseline regrade table.",
+    "current": "All strict assertions passed on the current production pages; 13 screenshots and 0 page errors.",
+    "limits": "This proves browser rendering of the selected pages/components with isolated read-model fixtures. It does not prove authenticated hosted-data behavior or full E2E."
+  }
+}

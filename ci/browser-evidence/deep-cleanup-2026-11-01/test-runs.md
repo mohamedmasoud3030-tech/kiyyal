@@ -98,3 +98,39 @@ Command: `node scripts/capture-cleanup-visuals.mjs`
 - Baseline/current body-text hashes match for every same viewport/theme/media case.
 - Document scroll width equals viewport width in all cases; table scroll regions retain their intended internal overflow on narrow viewports.
 - Exact decimal/unit strings were present in all cases.
+
+## Production-component visual comparison — closure addendum
+
+Command (cleanup source):
+
+```text
+WORKSPACE_BASE_URL=http://127.0.0.1:3137 \
+PRODUCTION_VISUAL_OUTPUT=ci/browser-evidence/production-components-current-2026-11-01 \
+node scripts/capture-production-visuals.mjs
+```
+
+- Source pages/components: `/reports`, `/regrade`, `/regrade/fixture-regrade`, `ReportsContent`, `RegradeDetailContent`, `AppShell`, and `DataTable`.
+- Current source SHA used by the production-page manifest: `427be699494347e7b23aa11231ebf5430374f58b`.
+- Browser: Chromium `153.0.8010.12`; 13 screenshots; 0 page errors; **0 assertion failures**.
+- Assertions covered document overflow, internal table scrolling, exact read-model strings, table semantics, named/focusable scroll regions, keyboard focus, empty/error/loading/print, light/dark, local `.woff2` font loading, manifest/icon HTTP 200, and long Arabic text.
+
+The same script ran against a temporary checkout of `cleanup-baseline-2026-11-01` using the same isolated read-model route fixtures. Baseline: **13 screenshots, 0 page errors, 35 retained semantic assertion failures** (caption, named/focusable region, and baseline Regrade header scope). The failure list is preserved in `ci/browser-evidence/production-components-baseline-2026-11-01/manifest.json`; it is not converted to a pass.
+
+The original `capture-cleanup-visuals.mjs` fixture remains a CSS-only helper. Its evidence is not used as proof that React rendered the production tables.
+
+## DataTable regression closure
+
+```text
+npx vitest run tests/ui/data-table.test.tsx
+```
+
+```text
+Test Files  1 passed (1)
+Tests       4 passed (4)
+```
+
+The added case exercises `['a', 'a', 'a:1']` and verifies three distinct composed row keys. The combined DataTable/foundation/workspace targeted run is **25/25**.
+
+## CI browser job change
+
+`.github/workflows/ci.yml` now contains an independent `browser-e2e` job. It installs the pinned Node/ICU/Chromium runtime, runs `npm run test:e2e` on `ubuntu-latest` with a 60-minute timeout, and uploads traces/results on failure. This job is intentionally not treated as a substitute for a passing run; its result must be read separately from `verify`.
