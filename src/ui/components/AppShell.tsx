@@ -49,6 +49,7 @@ export function AppShell({ activePath, children, connection, role, scope = null 
       <aside className="app-shell__sidebar">
         <div className="app-shell__brand">
           <Link aria-label={ar.app.name} className="brand" href="/today" prefetch={false}><BrandMark /><span>{ar.app.name}<small>{ar.workspace.brandCaption}</small></span></Link>
+          <span className="app-shell__brand-kicker">{ar.workspace.workspaceLabel}</span>
         </div>
         <p className="app-shell__nav-caption">{ar.workspace.workspaceLabel}</p>
         <nav aria-label={ar.navigation.main} className="app-shell__nav">
@@ -70,9 +71,13 @@ export function AppShell({ activePath, children, connection, role, scope = null 
             })}
           </ul>
         </nav>
-        <div className="app-shell__account">
-          <span className="app-shell__avatar" aria-hidden="true"><WorkspaceIcon name="parties" /></span>
-          <div><strong>{ar.roles[role]}</strong><p>{ar.workspace.workspaceLabel}</p></div>
+        <div className="app-shell__sidebar-footer">
+          <div className="app-shell__account">
+            <span className="app-shell__avatar" aria-hidden="true"><WorkspaceIcon name="parties" /></span>
+            <div><strong>{ar.roles[role]}</strong><p>{ar.workspace.workspaceLabel}</p></div>
+            <span className="app-shell__role-tag">{ar.roles[role]}</span>
+          </div>
+          {connection ? <div className="app-shell__sidebar-status"><span aria-hidden="true" />{connection.label}</div> : null}
         </div>
       </aside>
       <header className="app-shell__mobile-header">
@@ -85,7 +90,10 @@ export function AppShell({ activePath, children, connection, role, scope = null 
       </header>
       <div className="app-shell__workspace">
         <header className="app-shell__desktop-header">
-          <p>{ar.workspace.workspaceLabel}<span aria-hidden="true"> / </span><strong>{currentLabel}</strong></p>
+          <div className="app-shell__breadcrumb">
+            <span>{ar.workspace.workspaceLabel}</span>
+            <p><span aria-hidden="true">/</span><strong>{currentLabel}</strong></p>
+          </div>
           <div className="app-shell__toolbar">{connection ? <StatusBadge label={connection.label} tone={connection.tone} /> : null}<ConnectionChip onOpenOutbox={() => setOutboxOpen(true)} scope={scope} /><ThemeToggle /><SignOutButton scope={scope} /></div>
         </header>
       <main className="app-shell__content" id="main-content" tabIndex={-1}>
