@@ -261,6 +261,106 @@
    never on the page, so wide owner read models remain usable in RTL and on
    narrow screens without changing their server-derived values. */
 @media screen {
+  .app-shell__nav {
+    min-inline-size: 0;
+  }
+
+  .app-shell__brand-kicker {
+    color: var(--workspace-gold);
+    display: block;
+    font-size: .6875rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    margin-block-start: .75rem;
+    padding-inline-start: 3.5rem;
+  }
+
+  .app-shell__sidebar-footer {
+    border-block-start: 1px solid var(--workspace-rule);
+    margin-block-start: auto;
+    padding-block-start: 1rem;
+  }
+
+  .app-shell__role-tag {
+    color: var(--workspace-on-forest);
+    font-size: .7rem;
+    font-weight: 700;
+    margin-inline-start: auto;
+    white-space: nowrap;
+  }
+
+  .app-shell__sidebar-status {
+    align-items: center;
+    color: var(--workspace-soft-forest);
+    display: flex;
+    gap: .45rem;
+    font-size: .75rem;
+    margin-block-start: .75rem;
+    padding-inline: .5rem;
+  }
+
+  .app-shell__sidebar-status > span {
+    background: var(--color-success);
+    border-radius: 50%;
+    block-size: .45rem;
+    inline-size: .45rem;
+  }
+
+  .app-shell__breadcrumb {
+    display: grid;
+    gap: .125rem;
+    min-inline-size: 0;
+  }
+
+  .app-shell__breadcrumb > span {
+    color: var(--color-muted);
+    font-size: .75rem;
+  }
+
+  .app-shell__breadcrumb p {
+    color: var(--color-ink);
+    font-size: .9375rem;
+    margin: 0;
+  }
+
+  .app-shell__breadcrumb p > span {
+    color: var(--color-muted);
+    margin-inline: .5rem;
+  }
+
+  .form-field--error .text-input,
+  .form-field--error .numeric-input__control {
+    border-color: var(--color-danger);
+  }
+
+  .inventory-list__name {
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .user-list {
+    display: grid;
+    gap: .75rem;
+  }
+
+  .today-attention {
+    margin-block-end: 1.25rem;
+  }
+
+  .outbox-panel__item-main {
+    display: grid;
+    gap: .2rem;
+    min-inline-size: 0;
+  }
+
+  .outbox-panel__discard {
+    flex: none;
+  }
+
+  .receipt-screen__print {
+    flex: none;
+  }
+
   .operations-form,
   .regrade-form {
     display: grid;
