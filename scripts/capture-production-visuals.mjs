@@ -87,7 +87,21 @@ await context.route('**/api/transactions/regrade/fixture-regrade*', (route) => r
 await context.route('**/api/auth/csrf', (route) => route.fulfill({ status: 200, headers: { 'set-cookie': 'kayyal_csrf=visual-production-fixture; Path=/' }, json: { data: { csrf: 'visual-production-fixture' } } }));
 await context.route('https://example.supabase.co/**', (route) => route.abort());
 
-const manifest = { reference, sourceSha, origin, browser: browser.version(), strict, cases: [], assertionFailures: [] };
+const manifest = {
+  evidenceVersion: 'production-components-v1',
+  generatedAt: new Date().toISOString(),
+  reference,
+  sourceSha,
+  origin,
+  browser: browser.version(),
+  strict,
+  script: 'scripts/capture-production-visuals.mjs',
+  dataMode: 'read-model fixture intercepted at HTTP boundaries; real Next routes and React pages are rendered; no hosted-data mutation',
+  sourceRoutes: ['/reports', '/regrade', '/regrade/fixture-regrade'],
+  sourceComponents: ['src/ui/components/ReportsContent.tsx', 'src/ui/components/RegradeDetailContent.tsx', 'src/ui/components/AppShell.tsx', 'src/ui/components/DataTable.tsx'],
+  cases: [],
+  assertionFailures: [],
+};
 const page = await context.newPage();
 const pageErrors = [];
 page.on('pageerror', (error) => pageErrors.push(error.message));
