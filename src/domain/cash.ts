@@ -2,7 +2,7 @@
  * Cash box arithmetic, including pending cash.
  * Contract: docs/FINANCIAL_RULES.md §5, docs/adr/0009-cash-reconciliation.md. Golden G-10, G-11, G-14.
  */
-import { Decimal, type EGP, roundMoney } from './decimal.js';
+import { Decimal, type EGP, roundMoney } from './decimal';
 
 export type CashStatus = 'pending' | 'posted';
 export type CashDirection = 'in' | 'out';

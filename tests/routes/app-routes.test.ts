@@ -26,6 +26,20 @@ import { POST as ownerSessionPost } from '../../src/app/api/auth/owner/session/r
 import { DELETE as sessionDelete } from '../../src/app/api/auth/session/route.js';
 import { POST as cashClosePost } from '../../src/app/api/cash/close/route.js';
 import { GET as cashDayGet } from '../../src/app/api/cash/day/route.js';
+import { POST as regradePost } from '../../src/app/api/transactions/regrade/route.js';
+import { POST as regradePreviewPost } from '../../src/app/api/transactions/regrade/preview/route.js';
+import { POST as regradeResolvePost } from '../../src/app/api/transactions/regrade/[transactionId]/resolve/route.js';
+import { GET as reportsGet } from '../../src/app/api/reports/route.js';
+import { GET as todayGet } from '../../src/app/api/today/route.js';
+import { GET as exportGet } from '../../src/app/api/export/route.js';
+import { GET as directoryBuyersGet } from '../../src/app/api/directory/buyers/route.js';
+import { GET as directoryBuyerGet } from '../../src/app/api/directory/buyers/[buyerId]/route.js';
+import { POST as directoryReportPost } from '../../src/app/api/directory/buyers/[buyerId]/report/route.js';
+import { GET as directoryRelationGet, PUT as directoryRelationPut } from '../../src/app/api/directory/relations/[buyerId]/route.js';
+import { GET as settingsGet, PATCH as settingsPatch } from '../../src/app/api/settings/route.js';
+import { GET as usersGet, POST as usersPost } from '../../src/app/api/users/route.js';
+import { POST as userPinPost } from '../../src/app/api/users/[userId]/pin/route.js';
+import { POST as userStatusPost } from '../../src/app/api/users/[userId]/status/route.js';
 import { PATCH as materialPatch } from '../../src/app/api/materials/[materialId]/route.js';
 import { GET as materialsGet, POST as materialsPost } from '../../src/app/api/materials/route.js';
 import { GET as partyLedgerGet } from '../../src/app/api/parties/[partyId]/route.js';
@@ -107,6 +121,14 @@ function materialRouteContext(value: string): { params: Promise<{ materialId: st
 
 function partyRouteContext(value: string): { params: Promise<{ partyId: string }> } {
   return { params: Promise.resolve({ partyId: value }) };
+}
+
+function buyerRouteContext(value: string): { params: Promise<{ buyerId: string }> } {
+  return { params: Promise.resolve({ buyerId: value }) };
+}
+
+function userRouteContext(value: string): { params: Promise<{ userId: string }> } {
+  return { params: Promise.resolve({ userId: value }) };
 }
 
 async function currentDate(): Promise<string> {
@@ -247,6 +269,13 @@ describe('all implemented API route modules', () => {
     expect((await ownerMaterials.json() as { data: Array<{ id: string; is_active: boolean }> }).data)
       .toContainEqual(expect.objectContaining({ id: material.id, is_active: false }));
 
+    const reactivate = await materialPatch(new Request(`${ORIGIN}/api/materials/${material.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', 'idempotency-key': randomUUID(), authorization: `Bearer ${OWNER_TOKEN}` },
+      body: JSON.stringify({ is_active: true, ref_sell_price: null }),
+    }), materialRouteContext(material.id));
+    expect(reactivate.status).toBe(200);
+
     const opening = await stockMovementsPost(mutationRequest('/api/stock/movements', {
       kind: 'opening', material_id: A.copperId, quantity_kg: '100.00', cost_per_kg: '10.000000', note: 'رصيد افتتاح اختبار المسار',
     }, 'owner'));
@@ -262,6 +291,56 @@ describe('all implemented API route modules', () => {
     const ownerStockDetail = await stockDetailGet(ownerRead(`/api/stock/${A.copperId}`), materialRouteContext(A.copperId));
     expect(ownerStockDetail.status).toBe(200);
     expect(await ownerStockDetail.json()).toMatchObject({ id: A.copperId, can_create_opening: false, quantity_kg: '100.00' });
+
+    const deferredInput = {
+      source_material_id: A.copperId,
+      consumed_kg: '20.00',
+      loss_kg: '0.00',
+      outputs: [{ material_id: material.id, quantity_kg: '20.00' }],
+      defer_allocation: true,
+    };
+    const deferredPreview = await regradePreviewPost(mutationRequest('/api/transactions/regrade/preview', deferredInput, 'owner'));
+    expect(deferredPreview.status).toBe(200);
+    expect(await deferredPreview.json()).toMatchObject({ deferred: true, unallocated_value: '200.00' });
+    const deferredPost = await regradePost(mutationRequest('/api/transactions/regrade', deferredInput, 'owner'));
+    expect(deferredPost.status).toBe(201);
+    const deferredBody = await deferredPost.json() as { id: string; deferred: boolean };
+    expect(deferredBody).toMatchObject({ deferred: true });
+
+    const deferredSale = await salePost(mutationRequest('/api/transactions/sale', {
+      business_date: await currentDate(),
+      party_id: party.id,
+      lines: [{ material_id: material.id, gross_kg: '5.00', deduction_type: 'none', deduction_value: '0', unit_price: '20.0000', price_unit: 'kg' }],
+      amount_cash: '0.00', note: 'بيع مخرج تكلفة مؤجلة', device_created_at: new Date().toISOString(),
+    }, 'owner'));
+    expect(deferredSale.status).toBe(201);
+    const deferredSaleBody = await deferredSale.json() as { id: string; lines: Array<{ gross_profit?: unknown }> };
+    expect(deferredSaleBody.lines[0]).toMatchObject({ gross_profit: null });
+    const deferredResolution = await regradeResolvePost(mutationRequest(`/api/transactions/regrade/${deferredBody.id}/resolve`, {
+      prices: [{ material_id: material.id, reference_sell_price_per_kg: '12.0000' }],
+    }, 'owner'), routeContext(deferredBody.id));
+    expect(deferredResolution.status).toBe(201);
+    expect(await deferredResolution.json()).toMatchObject({ id: deferredBody.id, total_unattributed_value: '50.00', total_to_inventory_value: '150.00' });
+
+    const regradeInput = {
+      source_material_id: A.copperId,
+      consumed_kg: '20.00',
+      loss_kg: '0.00',
+      outputs: [
+        { material_id: A.copperId, quantity_kg: '10.00' },
+        { material_id: A.ironId, quantity_kg: '10.00' },
+      ],
+      defer_allocation: false,
+      note: 'فرز اختبار المسار',
+    };
+    const regradePreview = await regradePreviewPost(mutationRequest('/api/transactions/regrade/preview', regradeInput, 'owner'));
+    expect(regradePreview.status).toBe(200);
+    expect(await regradePreview.json()).toMatchObject({ deferred: false, allocation_method: 'relative_sales_value', consumed_kg: '20.00', outputs: expect.any(Array) });
+    const regrade = await regradePost(mutationRequest('/api/transactions/regrade', regradeInput, 'owner'));
+    expect(regrade.status).toBe(201);
+    const regradeBody = await regrade.json() as { id: string; status: string; deferred: boolean; outputs: unknown[] };
+    expect(regradeBody).toMatchObject({ status: 'posted', deferred: false });
+    expect(regradeBody.outputs).toHaveLength(2);
 
     const today = await currentDate();
     const purchase = await purchasePost(mutationRequest('/api/transactions/purchase', {
@@ -296,6 +375,13 @@ describe('all implemented API route modules', () => {
     expect((await history.json() as { data: Array<{ id: string }> }).data.map((item) => item.id))
       .toEqual(expect.arrayContaining([purchaseBody.id, saleBody.id]));
 
+    const ownerToday = await todayGet(ownerRead('/api/today'));
+    expect(ownerToday.status).toBe(200);
+    expect(await ownerToday.json()).toMatchObject({ role: 'owner', summary: { sale_count: expect.any(Number), approximate_profit: expect.any(String) }, attention: expect.any(Array) });
+    const operatorToday = await todayGet(operatorRead('/api/today'));
+    expect(operatorToday.status).toBe(200);
+    expect(await operatorToday.json()).toMatchObject({ role: 'operator', summary: { purchase_value: null, approximate_profit: null, expected_drawer: null } });
+
     const expense = await expensePost(mutationRequest('/api/transactions/expense', {
       category: 'transport', amount: '15.00', note: 'نقل اختبار المسار',
     }, 'operator'));
@@ -322,7 +408,7 @@ describe('all implemented API route modules', () => {
     expect(pendingSaleBody.status).toBe('pending_stock_resolution');
 
     const resolved = await resolveStockPost(mutationRequest(`/api/transactions/${pendingSaleBody.id}/resolve-stock`, {
-      adjustment: { material_id: A.copperId, kg: '889.00', cost_per_kg: '12.000000', reason: 'physical_count', note: 'فارق وزن مثبت' },
+      adjustment: { material_id: A.copperId, kg: '919.00', cost_per_kg: '12.000000', reason: 'physical_count', note: 'فارق وزن مثبت' },
     }, 'owner'), routeContext(pendingSaleBody.id));
     expect(resolved.status).toBe(201);
     expect(await resolved.json()).toMatchObject({ id: pendingSaleBody.id, status: 'posted', idempotent_replay: false });
@@ -349,6 +435,74 @@ describe('all implemented API route modules', () => {
     }, 'owner'), routeContext(historicPurchaseBody.id));
     expect(adjustment.status).toBe(201);
     expect(await adjustment.json()).toMatchObject({ original_transaction_id: historicPurchaseBody.id, original_line_id: historicLineId, delta_value: '10.00' });
+
+    const users = await usersGet(ownerRead('/api/users'));
+    expect(users.status).toBe(200);
+    expect(await users.json()).toMatchObject({ data: expect.arrayContaining([expect.objectContaining({ id: A.ownerId, role: 'owner' })]) });
+
+    const newOperator = await usersPost(mutationRequest('/api/users', { display_name: 'مشغل اختبار جديد', pin: '5831' }, 'owner'));
+    expect(newOperator.status).toBe(201);
+    const newOperatorBody = await newOperator.json() as { id: string; role: string; is_active: boolean };
+    expect(newOperatorBody).toMatchObject({ role: 'operator', is_active: true });
+    const resetPin = await userPinPost(mutationRequest(`/api/users/${newOperatorBody.id}/pin`, { pin: '5832' }, 'owner'), userRouteContext(newOperatorBody.id));
+    expect(resetPin.status).toBe(200);
+    expect(await resetPin.json()).toMatchObject({ id: newOperatorBody.id, role: 'operator' });
+    const disabledOperator = await userStatusPost(mutationRequest(`/api/users/${newOperatorBody.id}/status`, { is_active: false }, 'owner'), userRouteContext(newOperatorBody.id));
+    expect(disabledOperator.status).toBe(200);
+    expect(await disabledOperator.json()).toMatchObject({ id: newOperatorBody.id, is_active: false });
+
+    const settingsBefore = await settingsGet(ownerRead('/api/settings'));
+    expect(settingsBefore.status).toBe(200);
+    expect(await settingsBefore.json()).toMatchObject({ id: A.yardId, currency: 'EGP' });
+    const settingsUpdate = await settingsPatch(new Request(`${ORIGIN}/api/settings`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', 'idempotency-key': randomUUID(), authorization: `Bearer ${OWNER_TOKEN}` },
+      body: JSON.stringify({ name: 'مسار أ بعد الإعداد', phone: '01000000000', address: 'عنوان الاختبار', receipt_header: 'رأس إيصال الاختبار', numeral_display: 'western', expense_alert_threshold: '100.00', plausibility_max_kg: '60000.00', default_weighing_mode: 'gross_tare' }),
+    }));
+    expect(settingsUpdate.status).toBe(200);
+    expect(await settingsUpdate.json()).toMatchObject({ settings: { name: 'مسار أ بعد الإعداد', receipt_header: 'رأس إيصال الاختبار', default_weighing_mode: 'gross_tare' } });
+
+    const centralBuyerId = 'cccccccc-0000-4000-8000-00000000000d';
+    await t.admin.query(
+      `INSERT INTO app.central_buyers (id, name, entity_type, governorates, phone, whatsapp, status, is_published)
+       VALUES ($1,'مصنع اختبار الدليل','factory',ARRAY['القاهرة'],'0222222222','201022222222','unverified',true)`, [centralBuyerId],
+    );
+    await t.admin.query(
+      `INSERT INTO app.central_buyer_materials (central_buyer_id, material_type, material_grade)
+       VALUES ($1,'نحاس','أحمر')`, [centralBuyerId],
+    );
+    const directory = await directoryBuyersGet(ownerRead('/api/directory/buyers?material=نحاس&governorate=القاهرة'));
+    expect(directory.status).toBe(200);
+    expect(await directory.json()).toMatchObject({ data: expect.arrayContaining([expect.objectContaining({ id: centralBuyerId, name: 'مصنع اختبار الدليل' })]) });
+    const directoryDetail = await directoryBuyerGet(ownerRead(`/api/directory/buyers/${centralBuyerId}`), buyerRouteContext(centralBuyerId));
+    expect(directoryDetail.status).toBe(200);
+    expect(JSON.stringify(await directoryDetail.json())).not.toContain('source_internal');
+    const relationBefore = await directoryRelationGet(ownerRead(`/api/directory/relations/${centralBuyerId}`), buyerRouteContext(centralBuyerId));
+    expect(relationBefore.status).toBe(200);
+    expect(await relationBefore.json()).toMatchObject({ central_buyer_id: centralBuyerId, id: null, accepted_materials: [] });
+    const relationUpdate = await directoryRelationPut(new Request(`${ORIGIN}/api/directory/relations/${centralBuyerId}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', 'idempotency-key': randomUUID(), authorization: `Bearer ${OWNER_TOKEN}` },
+      body: JSON.stringify({ party_id: party.id, contact_person: 'مسؤول الاختبار', direct_phone: '01111111111', last_offered_price: '22.0000', last_offered_unit: 'kg', last_offered_at: new Date().toISOString(), accepted_materials: [A.copperId], min_quantity_told_kg: '100.00', payment_method: 'كاش', transport: 'يستلم', notes: 'ملاحظة خاصة بالساحة', flag: 'favourite', has_dealt_before: true }),
+    }), buyerRouteContext(centralBuyerId));
+    expect(relationUpdate.status).toBe(200);
+    expect(await relationUpdate.json()).toMatchObject({ relation: { party_id: party.id, flag: 'favourite', notes: 'ملاحظة خاصة بالساحة' } });
+    const directoryReport = await directoryReportPost(mutationRequest(`/api/directory/buyers/${centralBuyerId}/report`, { reason: 'wrong_number', note: 'اختبار بلاغ' }, 'owner'), buyerRouteContext(centralBuyerId));
+    expect(directoryReport.status).toBe(201);
+
+    const exportResponse = await exportGet(ownerRead('/api/export?format=csv'));
+    expect(exportResponse.status).toBe(200);
+    expect(exportResponse.headers.get('content-type')).toContain('text/csv');
+    expect(await exportResponse.text()).toContain('transactions');
+
+    for (const report of ['purchases', 'sales', 'cash', 'inventory', 'inventory_value', 'supplier_balances', 'customer_balances', 'profit', 'movements'] as const) {
+      const reportResponse = await reportsGet(ownerRead(`/api/reports?report=${report}&from=${today}&to=${today}&material_id=${A.copperId}&party_id=${party.id}&user_id=${A.operatorId}&limit=100`));
+      expect(reportResponse.status, report).toBe(200);
+      const reportBody = await reportResponse.json() as { report: string; rows: unknown[]; summary: Record<string, string> };
+      expect(reportBody.report, report).toBe(report);
+      expect(Array.isArray(reportBody.rows), report).toBe(true);
+      expect(reportBody.summary, report).toBeTypeOf('object');
+    }
 
     const cashDay = await cashDayGet(ownerRead('/api/cash/day'));
     const cashDayBody = await cashDay.json() as { status: string; total_expected_amount: string; blockers: unknown[] };

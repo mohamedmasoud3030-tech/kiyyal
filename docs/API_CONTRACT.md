@@ -17,7 +17,7 @@
 
 `Cap` = required capability · `Tx` = opens a database transaction · `Idem` = requires an idempotency key.
 
-**Current implementation note (2026-09-15):** Auth/session, materials (GET/POST/PATCH), parties (GET/POST plus owner ledger detail), stock list/detail plus opening/adjustment mutation, transaction list/detail, purchase, sale, categorised expense, party payment/advance, pending-stock resolution, owner-only cash-day read/close, and the owner-only closed-purchase cost-adjustment handler exist. The guarded receipt page reuses the already-scoped transaction-detail response; it adds no broader receipt API. Remaining rows are contract targets and must not be mistaken for deployed handlers. All current route handlers remain `IMPLEMENTED BUT NOT VERIFIED` at browser/provider level; real-PostgreSQL service/RLS evidence is separate.
+**Current implementation note (2026-11-01):** The handlers listed below are implemented in this branch and covered by route, real-PostgreSQL, UI, or end-to-end evidence as noted in the repository test suite. Auth/session, materials, parties, stock, immutable ledger transactions, regrade, cash-day read/close, reports, CSV export, central buyer directory/private relations, owner user management, yard settings, and the server-derived today workspace are all present. The guarded receipt page reuses the already-scoped transaction-detail response; it adds no broader receipt API. Hosted deployment and hosted-data migration remain separate release steps.
 
 ### Auth
 | Method | Path | Cap | Tx | Idem | Notes |
@@ -62,9 +62,18 @@
 | GET | `/api/stock` | owner: full list including active zero-balance materials; operator: **quantity only** |
 | GET | `/api/stock/:materialId` | `stock.adjust` (owner) — **implemented**; scoped material stock, opening eligibility/unknown-cost state, and latest 50 posted stock movements |
 | POST | `/api/stock/movements` | owner-only (see Ledger) — **implemented**; CSRF + idempotency protected |
-| GET | `/api/reports/:name` | `report.view` (owner). The nine reports of D16 |
-| GET | `/api/export` | `export.data` (owner). CSV |
+| GET | `/api/today` | `today.view` (owner/operator) — server-derived current-day counts, attention queue, recent transactions, and quantity-only stock; owner financial summary is explicitly omitted for operators |
+| GET | `/api/reports?report=:name` | `audit.view` (owner). The nine reports of D16; date/material/party/user filters are validated server-side |
+| GET | `/api/export?format=csv` | `export.data` (owner). Tenant-scoped CSV export with formula-injection-safe cells |
 | GET | `/api/audit` | `audit.view` (owner) |
+
+### Owner administration
+| Method | Path | Cap | Notes |
+|---|---|---|---|
+| GET/POST | `/api/users` | `user.manage` | List operators or add one; PIN never leaves the server |
+| POST | `/api/users/:userId/pin` | `user.manage` | Owner-only PIN reset |
+| POST | `/api/users/:userId/status` | `user.manage` | Owner-only activation/deactivation |
+| GET/PATCH | `/api/settings` | `settings.manage` | Yard name, receipt header, thresholds, numerals and weighing defaults; receipt header is read-only to operators |
 
 ### Directory
 | Method | Path | Cap |

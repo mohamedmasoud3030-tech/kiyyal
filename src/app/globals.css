@@ -348,3 +348,54 @@
 .connection-chip__label{max-inline-size:9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* ADR-0016: عنق الرقاقة الصادقة في صف الجلسة المحمول — يلتف بدل تجاوز العرض */
 .app-shell__mobile-session{flex-wrap:wrap;justify-content:center}
+
+/* Reports: wide owner tables remain readable and scroll safely on a phone. */
+.reports-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}
+.reports-filters__actions{display:flex;align-items:flex-end;gap:.625rem;flex-wrap:wrap}
+.reports-filters__actions .ui-button{min-inline-size:9rem}
+.reports-actions{display:flex;gap:.5rem;flex-wrap:wrap}
+.reports-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin:0}
+.reports-summary>div{display:grid;gap:.25rem;border:1px solid var(--color-border);border-radius:.875rem;padding:.875rem;background:var(--color-surface)}
+.reports-summary dt{color:var(--color-muted);font-size:.8125rem}
+.reports-summary dd{margin:0;font-size:1.25rem;font-weight:850;font-variant-numeric:tabular-nums}
+.reports-table-wrap{overflow-x:auto;max-inline-size:100%}
+.reports-table{inline-size:100%;min-inline-size:56rem;border-collapse:collapse;font-size:.9rem}
+.reports-table th,.reports-table td{border-block-end:1px solid var(--color-border);padding:.75rem;text-align:start;vertical-align:middle;white-space:nowrap}
+.reports-table th{background:var(--color-primary-soft);color:var(--color-primary-strong);font-weight:850}
+.reports-table tbody tr:hover{background:color-mix(in srgb,var(--color-primary-soft) 38%,transparent)}
+.reports-notice{border-inline-start:.25rem solid var(--color-success);color:var(--color-success);margin-block:1rem;padding-inline-start:.75rem;font-weight:700}
+.reports-filter-hint{color:var(--color-muted);font-size:.85rem;grid-column:1/-1;margin:0}
+.regrade-approximate-notice{background:var(--color-warning-soft);border-inline-start:.25rem solid var(--color-warning);border-radius:.5rem;color:var(--color-ink);margin-block:1rem;padding:.75rem 1rem}
+.regrade-form{display:grid;gap:1rem}
+.regrade-fields{display:grid;gap:1rem;grid-template-columns:repeat(3,minmax(0,1fr))}
+.regrade-output-list{display:grid;gap:1rem}
+.regrade-output-row{align-items:end;border-block-end:1px solid var(--color-border);display:grid;gap:.75rem;grid-template-columns:1.2fr 1fr 1.2fr auto;padding-block-end:1rem}
+.regrade-output-row:last-child{border-block-end:0;padding-block-end:0}
+.regrade-defer-option{align-items:flex-start;display:flex;gap:.65rem;margin-block-start:1rem}
+.regrade-defer-option input{accent-color:var(--color-primary);block-size:1.1rem;inline-size:1.1rem;margin-block-start:.2rem}
+.regrade-defer-option span{display:grid;gap:.2rem}.regrade-defer-option small{color:var(--color-muted);font-size:.85rem}
+.regrade-summary{display:grid;gap:.75rem;grid-template-columns:repeat(4,minmax(0,1fr));margin:0}.regrade-summary>div{background:var(--color-surface);border:1px solid var(--color-border);border-radius:.875rem;display:grid;gap:.25rem;padding:.85rem}.regrade-summary dt{color:var(--color-muted);font-size:.8rem}.regrade-summary dd{font-weight:800;margin:0}
+.regrade-preview-table-wrap{overflow-x:auto}.regrade-preview-table{border-collapse:collapse;inline-size:100%;min-inline-size:52rem}.regrade-preview-table th,.regrade-preview-table td{border-block-end:1px solid var(--color-border);padding:.75rem;text-align:start;white-space:nowrap}.regrade-preview-table th{background:var(--color-primary-soft);color:var(--color-primary-strong)}
+.regrade-deferred-note{align-items:center;background:var(--color-warning-soft);border-radius:.75rem;display:flex;gap:.5rem;margin-block:1rem;padding:.75rem}.regrade-resolve-fields{display:grid;gap:1rem;grid-template-columns:repeat(2,minmax(0,1fr))}.regrade-result-actions{align-items:center;display:flex;flex-wrap:wrap;gap:.75rem}
+@media (max-width:48rem){.regrade-fields,.regrade-resolve-fields{grid-template-columns:1fr}.regrade-output-row{grid-template-columns:1fr 1fr}.regrade-output-row .form-field:nth-child(3){grid-column:1/-1}.regrade-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:37.4375rem){.regrade-output-row{grid-template-columns:1fr}.regrade-summary{grid-template-columns:1fr}.regrade-output-row .form-field:nth-child(3){grid-column:auto}}
+@media (max-width:62rem){.reports-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.reports-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:37.4375rem){.reports-filters,.reports-summary{grid-template-columns:1fr}.reports-filters__actions,.reports-filters__actions .ui-button,.reports-actions,.reports-actions .ui-button{inline-size:100%}.reports-actions{display:grid}.reports-table{min-inline-size:48rem}}
+@media print{.reports-filters,.reports-actions,.app-shell__sidebar,.app-shell__mobile-header,.app-shell__mobile-nav,.skip-link{display:none!important}.app-shell__content{padding:0!important}.reports-table{min-inline-size:0;font-size:8pt}.reports-table th,.reports-table td{padding:4pt}.reports-summary{grid-template-columns:repeat(4,1fr)}}
+
+/* Central buyer directory and tenant-private relationship notes. */
+.directory-central-notice{background:var(--color-warning-soft);border-inline-start:.25rem solid var(--color-warning);border-radius:.5rem;color:var(--color-ink);margin-block:1rem;padding:.75rem 1rem}
+.directory-filters{display:grid;gap:1rem;grid-template-columns:repeat(4,minmax(0,1fr))}.directory-filters .form-actions{align-items:end;display:flex;gap:.625rem;grid-column:1/-1;flex-wrap:wrap}
+.directory-grid{display:grid;gap:1rem;grid-template-columns:repeat(2,minmax(0,1fr))}.directory-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:.875rem;display:grid;gap:.75rem;padding:1rem}.directory-card__header{align-items:flex-start;display:flex;gap:.75rem;justify-content:space-between}.directory-card h3{font-size:1.05rem;margin:0}.directory-card p{margin:0}.directory-card__header p,.directory-card__meta{color:var(--color-muted);font-size:.875rem}.directory-card__meta{line-height:1.7}.directory-card__meta b{color:var(--color-ink)}.directory-card__actions{align-items:center;display:flex;flex-wrap:wrap;gap:.5rem}.directory-card__actions .ui-button{min-block-size:2.75rem;text-decoration:none}.directory-card__muted{color:var(--color-muted);font-size:.85rem}.directory-detail-grid{display:grid;gap:1rem;grid-template-columns:repeat(4,minmax(0,1fr));margin-block-end:1rem}.directory-detail-grid>div{display:grid;gap:.3rem;min-inline-size:0}.directory-label{color:var(--color-muted);font-size:.8rem}.directory-detail-grid strong{overflow-wrap:anywhere}.directory-relation-form{display:grid;gap:1rem;grid-template-columns:repeat(3,minmax(0,1fr))}.directory-relation-form .form-actions,.directory-relation-form> .form-field__error,.directory-relation-form> .reports-notice{grid-column:1/-1}.directory-relation-form textarea{min-block-size:6rem;resize:vertical}.directory-material-checks{border:1px solid var(--color-border);border-radius:.75rem;display:grid;gap:.5rem;grid-column:1/-1;margin:0;padding:1rem}.directory-material-checks legend{color:var(--color-muted);font-size:.85rem;font-weight:700;padding-inline:.35rem}.directory-private-note{color:var(--color-muted);font-size:.85rem}.directory-card__actions .ui-button{display:inline-flex;align-items:center;justify-content:center}
+@media (max-width:62rem){.directory-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.directory-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.directory-relation-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:37.4375rem){.directory-filters,.directory-grid,.directory-detail-grid,.directory-relation-form{grid-template-columns:1fr}.directory-filters .form-actions,.directory-filters .form-actions .ui-button,.directory-card__actions,.directory-card__actions .ui-button{inline-size:100%}.directory-card__actions{display:grid}.directory-card__header{display:grid;gap:.5rem}.directory-relation-form .form-actions .form-actions__controls{inline-size:100%}}
+
+/* Server-derived today summary and attention queue. */
+.today-summary{display:grid;gap:.75rem;grid-template-columns:repeat(4,minmax(0,1fr));margin:0}.today-summary>div{background:var(--color-surface);border:1px solid var(--color-border);border-radius:.75rem;display:grid;gap:.25rem;padding:.75rem}.today-summary dt{color:var(--color-muted);font-size:.8rem}.today-summary dd{font-weight:800;margin:0}
+@media (max-width:62rem){.today-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:37.4375rem){.today-summary{grid-template-columns:1fr}}
+
+/* Owner access and settings surfaces. */
+.users-create-form,.settings-form{display:grid;gap:1rem}.users-create-form{grid-template-columns:repeat(2,minmax(0,1fr))}.users-create-form .form-actions{grid-column:1/-1}.users-list{display:grid;gap:.75rem}.user-card{align-items:center;background:var(--color-surface);border:1px solid var(--color-border);border-radius:.875rem;display:grid;gap:.75rem;grid-template-columns:minmax(0,1fr) auto auto;padding:1rem}.user-card h3{margin:0}.user-card p{color:var(--color-muted);margin:.25rem 0 0}.user-card__actions{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end}.settings-fields{display:grid;gap:1rem;grid-template-columns:repeat(2,minmax(0,1fr))}.settings-form>.ui-section:last-child .form-actions{margin-block-start:1rem}.settings-form .text-input{max-inline-size:100%}
+@media (max-width:48rem){.user-card{align-items:flex-start;grid-template-columns:minmax(0,1fr) auto}.user-card__actions{grid-column:1/-1;justify-content:flex-start}.settings-fields,.users-create-form{grid-template-columns:1fr}}
+@media (max-width:37.4375rem){.user-card__actions,.user-card__actions .ui-button{inline-size:100%}.user-card__actions{display:grid}}

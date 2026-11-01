@@ -6,8 +6,8 @@
 import {
   Decimal, type EGP, type EGPPerKg, type Kg,
   isZero, roundCost, roundMoney, SCALE,
-} from './decimal.js';
-import { DomainError } from './line.js';
+} from './decimal';
+import { DomainError } from './line';
 
 export type AllocationMethod = 'relative_sales_value' | 'weight_fallback';
 
