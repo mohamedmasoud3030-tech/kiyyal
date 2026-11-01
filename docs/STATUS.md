@@ -20,11 +20,12 @@
   run on 2026-11-01 was **not a pass**: typecheck, decimal guard, domain,
   database, RLS, auth, atomicity, operating-day, and production build passed;
   UI/routes/live-flow suites were blocked by the 2 GB sandbox's OOM killing a
-  Next server. The browser suite initially lacked Chromium; after installing
-  it, isolated offline resilience passed 7/7 and isolated live-flow passed
-  15/15, while the combined HTTP-route run still reproduced the OOM. The
-  existing strict PASS at `b584477445c5` is earlier evidence; `ca527d7` adds
-  only its later gate manifest, not source code.
+  Next server. After installing Chromium and its OS dependencies, the real
+  browser suite passed **21/21**; isolated offline resilience passed **7/7**
+  and isolated live-flow passed **15/15**, while the combined HTTP-route run
+  still reproduced the OOM. The existing strict PASS at `b584477445c5` is
+  earlier evidence; `ca527d7` adds only its later gate manifest, not source
+  code.
 - No merge, deployment, hosted migration, hosted-data mutation, or secret
   rotation is part of this checkpoint.
 
