@@ -12,7 +12,11 @@ const ownerNavigation: readonly NavigationItem[] = [
   { href: '/parties', label: ar.navigation.parties },
   { href: '/cash', label: ar.navigation.cash },
   { href: '/history', label: ar.navigation.history },
-  // This route is present only after an owner-scoped reconciliation API exists.
+  { href: '/reports', label: ar.navigation.reports },
+  { href: '/directory', label: ar.navigation.directory },
+  { href: '/users', label: ar.navigation.users },
+  { href: '/settings', label: ar.navigation.settings },
+  { href: '/regrade', label: ar.navigation.regrade },
 ];
 
 const operatorNavigation: readonly NavigationItem[] = [

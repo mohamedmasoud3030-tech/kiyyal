@@ -34,9 +34,17 @@ interface StockItem {
   readonly quantity_kg: string;
 }
 
+interface AttentionSummary {
+  readonly id: string;
+  readonly type: TransactionSummary['type'];
+  readonly status: TransactionSummary['status'];
+  readonly party_name: string | null;
+  readonly party_phone: string | null;
+}
+
 type ContentState =
   | { readonly status: 'loading' }
-  | { readonly status: 'loaded'; readonly transactions: readonly TransactionSummary[]; readonly stock: readonly StockItem[] }
+  | { readonly status: 'loaded'; readonly transactions: readonly TransactionSummary[]; readonly attention: readonly AttentionSummary[]; readonly stock: readonly StockItem[] }
   | { readonly status: 'error' };
 
 function typeLabel(type: TransactionSummary['type']): string {
@@ -50,7 +58,7 @@ function amountForTransaction(transaction: TransactionSummary, role: AppRole) {
   return <Amount value={transaction.total_amount} />;
 }
 
-function statusFor(transaction: TransactionSummary): { label: string; tone: 'success' | 'warning' | 'pending' | 'neutral' | 'danger' } {
+function statusFor(transaction: Pick<TransactionSummary, 'status'>): { label: string; tone: 'success' | 'warning' | 'pending' | 'neutral' | 'danger' } {
   if (transaction.status === 'posted') return { label: ar.status.posted, tone: 'success' };
   if (transaction.status === 'pending_stock_resolution') return { label: ar.status.pendingStock, tone: 'pending' };
   if (transaction.status === 'pending_tare') return { label: ar.status.pendingTare, tone: 'pending' };
@@ -71,17 +79,20 @@ export function TodayContent({ role: injectedRole }: { readonly role?: AppRole }
     void Promise.all([
       fetch('/api/transactions?scope=today&limit=8', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal }),
       fetch('/api/stock', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal }),
+      fetch('/api/today', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal }),
     ])
-      .then(async ([transactionsResponse, stockResponse]) => {
-        if (!transactionsResponse.ok || !stockResponse.ok) throw new Error('today_data_unavailable');
+      .then(async ([transactionsResponse, stockResponse, todayResponse]) => {
+        if (!transactionsResponse.ok || !stockResponse.ok || !todayResponse.ok) throw new Error('today_data_unavailable');
         const transactionsPayload = await transactionsResponse.json() as { data?: unknown };
         const stockPayload = await stockResponse.json() as { data?: unknown };
-        if (!Array.isArray(transactionsPayload.data) || !Array.isArray(stockPayload.data)) {
+        const todayPayload = await todayResponse.json() as { attention?: unknown };
+        if (!Array.isArray(transactionsPayload.data) || !Array.isArray(stockPayload.data) || !Array.isArray(todayPayload.attention)) {
           throw new Error('today_data_shape');
         }
         setState({
           status: 'loaded',
           transactions: transactionsPayload.data as TransactionSummary[],
+          attention: todayPayload.attention as AttentionSummary[],
           stock: stockPayload.data as StockItem[],
         });
       })
@@ -143,13 +154,22 @@ export function TodayContent({ role: injectedRole }: { readonly role?: AppRole }
             </div>
             <div className="kpi-card">
               <p className="kpi-card__label">{ar.today.kpiPendingLabel}</p>
-              <p className="kpi-card__value">{state.transactions.filter((t) => t.status === 'pending_tare' || t.status === 'pending_stock_resolution').length}</p>
+              <p className="kpi-card__value">{state.attention.length}</p>
             </div>
             <div className="kpi-card">
               <p className="kpi-card__label">{ar.today.kpiStockLabel}</p>
               <p className="kpi-card__value">{state.stock.length}</p>
             </div>
           </div>
+          <Section className="today-attention" description={ar.today.attentionDescription} title={ar.today.attentionTitle}>
+            {state.attention.length === 0 ? (
+              <StatePanel description={ar.today.noAttentionDescription} title={ar.today.noAttentionTitle} />
+            ) : (
+              <ul className="operational-list">
+                {state.attention.map((transaction) => <li className="operational-list__item" key={`attention-${transaction.id}`}><div className="operational-list__primary"><strong>{typeLabel(transaction.type)}</strong><span>{transaction.party_name ?? transaction.party_phone ?? ar.today.noTransactionNumber}</span></div><div className="operational-list__meta"><StatusBadge label={statusFor(transaction).label} tone="pending" /><Link className="ui-link" href={`/transactions/${encodeURIComponent(transaction.id)}`} prefetch={false}>{ar.history.detailAction}</Link></div></li>)}
+              </ul>
+            )}
+          </Section>
           <div className="today-columns">
           <Section className="today-transactions" description={ar.today.recentTransactionsDescription} title={ar.today.recentTransactionsTitle}>
             {state.transactions.length === 0 ? (

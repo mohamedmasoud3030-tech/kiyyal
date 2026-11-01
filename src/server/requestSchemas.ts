@@ -195,3 +195,106 @@ export const paymentInputSchema = z.object({
   note: nullableShortText,
   confirm_duplicate: z.boolean().optional(),
 });
+
+// ---------------------------------------------------------------------------
+// Owner operations surfaces
+// ---------------------------------------------------------------------------
+const reportNames = ['purchases', 'sales', 'cash', 'inventory', 'inventory_value', 'supplier_balances', 'customer_balances', 'profit', 'movements'] as const;
+export const reportsQuerySchema = z.object({
+  report: z.enum(reportNames),
+  from: dateSchema.optional(),
+  to: dateSchema.optional(),
+  material_id: uuidSchema.optional(),
+  party_id: uuidSchema.optional(),
+  user_id: uuidSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+}).superRefine((value, context) => {
+  if (value.from && value.to && value.from > value.to) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'invalid_date_range', path: ['to'] });
+  }
+});
+
+export const directoryQuerySchema = z.object({
+  material: z.string().trim().min(1).max(60).optional(),
+  governorate: z.string().trim().min(1).max(60).optional(),
+  entity_type: z.enum(['factory', 'foundry', 'recycler', 'wholesaler', 'specialist']).optional(),
+  status: z.enum(['verified', 'unverified', 'stale']).optional(),
+});
+
+export const directoryReportInputSchema = z.object({
+  reason: z.enum(['wrong_number', 'closed', 'no_longer_buys', 'wrong_materials', 'other']),
+  note: nullableShortText,
+}).superRefine((value, context) => {
+  if (value.reason === 'other' && !value.note) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'note_required_for_other', path: ['note'] });
+  }
+});
+
+export const directoryRelationInputSchema = z.object({
+  party_id: uuidSchema.nullable().optional(),
+  contact_person: nullableShortText,
+  direct_phone: nullableShortText,
+  last_contact_at: z.string().datetime({ offset: true }).nullable().optional(),
+  last_offered_price: z.string().regex(/^\d+(?:\.\d{1,4})?$/).nullable().optional(),
+  last_offered_unit: z.enum(['kg', 'ton']).nullable().optional(),
+  last_offered_at: z.string().datetime({ offset: true }).nullable().optional(),
+  accepted_materials: z.array(uuidSchema).max(100).default([]).superRefine((values, context) => {
+    if (new Set(values).size !== values.length) context.addIssue({ code: z.ZodIssueCode.custom, message: 'duplicate_accepted_material' });
+  }),
+  min_quantity_told_kg: z.string().regex(/^\d+(?:\.\d{1,2})?$/).nullable().optional(),
+  payment_method: nullableShortText,
+  transport: nullableShortText,
+  notes: nullableShortText,
+  flag: z.enum(['favourite', 'not_suitable', 'none']).default('none'),
+  has_dealt_before: z.boolean().default(false),
+}).superRefine((value, context) => {
+  if (value.last_offered_price != null && (value.last_offered_unit == null || value.last_offered_at == null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'price_snapshot_requires_unit_and_date', path: ['last_offered_price'] });
+  }
+});
+
+export const yardSettingsUpdateInputSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  phone: nullableShortText,
+  address: nullableShortText,
+  receipt_header: z.string().trim().min(1).max(200).nullable(),
+  numeral_display: z.enum(['western', 'arabic_indic']),
+  expense_alert_threshold: z.string().regex(/^\d+(?:\.\d{1,2})?$/),
+  plausibility_max_kg: z.string().regex(/^\d+(?:\.\d{1,2})?$/),
+  default_weighing_mode: z.enum(['direct', 'gross_tare']),
+});
+
+export const operatorCreateInputSchema = z.object({
+  display_name: z.string().trim().min(1).max(60),
+  pin: z.string().regex(/^\d{4,6}$/),
+});
+export const operatorPinResetInputSchema = z.object({ pin: z.string().regex(/^\d{4,6}$/) });
+export const operatorStatusInputSchema = z.object({ is_active: z.boolean() });
+
+const positiveWeightInputSchema = z.string().regex(/^\d+(?:\.\d{1,2})?$/).refine((value) => !/^0+(?:\.0+)?$/.test(value), 'يجب أن تكون الكمية أكبر من صفر');
+const regradeOutputInputSchema = z.object({
+  material_id: uuidSchema,
+  quantity_kg: positiveWeightInputSchema,
+  reference_sell_price_per_kg: z.string().regex(/^\d+(?:\.\d{1,6})?$/).nullable().optional(),
+});
+export const regradeInputSchema = z.object({
+  source_material_id: uuidSchema,
+  consumed_kg: positiveWeightInputSchema,
+  loss_kg: z.string().regex(/^\d+(?:\.\d{1,2})?$/),
+  outputs: z.array(regradeOutputInputSchema).min(1).max(50),
+  defer_allocation: z.boolean().default(false),
+  note: nullableShortText,
+}).superRefine((value, context) => {
+  const ids = value.outputs.map((output) => output.material_id);
+  if (new Set(ids).size !== ids.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'duplicate_regrade_output_material', path: ['outputs'] });
+  }
+});
+export const regradeResolveInputSchema = z.object({
+  prices: z.array(z.object({ material_id: uuidSchema, reference_sell_price_per_kg: z.string().regex(/^\d+(?:\.\d{1,6})?$/) })).min(1).max(50),
+}).superRefine((value, context) => {
+  const ids = value.prices.map((price) => price.material_id);
+  if (new Set(ids).size !== ids.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'duplicate_regrade_price_material', path: ['prices'] });
+  }
+});

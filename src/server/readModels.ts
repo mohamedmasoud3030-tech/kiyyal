@@ -788,3 +788,20 @@ export async function getTransaction(
     return { ...mapTransactionHeader(header), lines: lines.rows };
   });
 }
+
+export async function listUsers(db: Database, context: AuthContext): Promise<import('./users').UserRecord[]> {
+  requireCapability(context, 'user.manage');
+  const yardId = resolveYardId(context);
+  return db.transaction(async (tx) => {
+    await applyContext(tx, context);
+    const result = await tx.query<import('./users').UserRecord>(
+      `SELECT id::text, role, display_name, phone, is_active,
+              to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at
+         FROM app.users
+        WHERE yard_id = $1::uuid
+        ORDER BY role DESC, lower(display_name), id`,
+      [yardId],
+    );
+    return result.rows;
+  });
+}
