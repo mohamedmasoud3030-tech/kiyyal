@@ -1,13 +1,39 @@
 # Kayyal (كيّال) — Status
 
-> Canonical state file (2026-10-22). Product: `PRD.md`. Contracts win over
-> code (see `README.md` hierarchy). Stage reports are in Git history.
+> Canonical state file. Product: `PRD.md`. Contracts win over code (see
+> `README.md` hierarchy). Dated reports are evidence, not live state.
 
-## PR #19 — 2026-10-31 independent verification
+## Current checkpoint — 2026-11-01
 
-**BLOCKED** on branch `feat/offline-drafts-queue`. Runtime repairs are published through `c6947962c2d206ffe32153330828ea1085fb6dad`; no merge or production deploy. Strict gate: 5/14 commands passed, 9 failed. Full Vitest: 142 passed, 164 skipped after native PostgreSQL setup failed under root. New real-browser storage/SW contracts: 7/7 passed. Vercel status succeeded; GitHub Actions failed without runner/steps and its logs returned 404. Full offline operation and safe no-Web-Locks recovery/session ordering remain open; no owner deferral is assumed.
+- GitHub's canonical repository name is now `kiyyal` (the former
+  `bug-free-garbanzo` slug redirects). `main` is `8e8c724a3b4c`; the current
+  release candidate is `integration/kayyal-unified` at `ca527d72342f`, and it
+  has **not** been merged to `main` or deployed by this candidate.
+- The candidate contains the Stage 1 Arabic RTL web slice, the ADR-0016
+  offline drafts/outbox work, and the Round-3 session/offline hardening. It is
+  a release candidate, not a production-readiness claim.
+- The local `release-readiness` skill is synchronized byte-for-byte from
+  `command-center-` commit `07017ed028b7b9e9090c177a350fb0e8a499e871`
+  (source blob `71641b6fc7f517012e7f451ed3ce45d84da268f5`; SHA-256
+  `6b8d585a0c5491a89a64fccba66214452ed2c9c26ff1e18f386086671e60b427`).
+- Remote GitHub `verify` on `ca527d72342f` is successful. A fresh strict local
+  run on 2026-11-01 was **not a pass**: typecheck, decimal guard, domain,
+  database, RLS, auth, atomicity, operating-day, and production build passed;
+  UI/routes/live-flow suites were blocked by the 2 GB sandbox's OOM killing a
+  Next server. The browser suite initially lacked Chromium; after installing
+  it, isolated offline resilience passed 7/7 and isolated live-flow passed
+  15/15, while the combined HTTP-route run still reproduced the OOM. The
+  existing strict PASS at `b584477445c5` is earlier evidence; `ca527d7` adds
+  only its later gate manifest, not source code.
+- No merge, deployment, hosted migration, hosted-data mutation, or secret
+  rotation is part of this checkpoint.
 
-See [the complete repair and evidence report](2026-10-31-pr19-independent-verification.md) for exact paths, commands, limitations and remote links. Earlier historical readiness figures below do not certify PR #19.
+## PR #19 — historical independent verification (2026-10-31)
+
+The original branch `feat/offline-drafts-queue` remains a Draft and is not the
+release candidate. Its independent report is retained as dated evidence in
+[2026-10-31-pr19-independent-verification.md](2026-10-31-pr19-independent-verification.md);
+it must not be used as the current verdict for the later integration branch.
 
 ## Product
 
@@ -24,19 +50,21 @@ history — the finance source asset behind the Nile engines.
 
 ## Portfolio position
 
-Source asset (not a selling surface). One PR is frozen pending a security
-review (portfolio register 1.2). Any resumption starts from `PRD.md` +
-`PROJECT_RULES.md` and the contract set, not from the frozen PR.
+Source asset behind the Nile engines, with Stage 1 resumed under the owner-approved
+Kayyal scope. The current integration candidate remains review-only until its
+checks are fresh and it is merged through a PR. Any further work starts from
+`PRD.md` + `PROJECT_RULES.md` and the contract set, not from a stale report.
 
 ---
 
 ## قرار المالك — استئناف رسمي (2026-10-21 · مركز القيادة)
 
-قرر المالك **استئناف** هذا المشروع (وليس تجميده). الخطوات المعتمدة بالترتيب:
+قرر المالك **استئناف** هذا المشروع (وليس تجميده). وقد نُفذت الخطوات التأسيسية التالية:
 
-1. فتح **Stage 1** رسمياً بقرار من المالك — النطاق المقترح: أول واجهة مشغّل (شاشة وزن/استلام يومية) وفق `docs/PRD.md`.
-2. إضافة **GitHub Actions CI** (typecheck + lint + test) قبل أي كود جديد — المستودع حالياً بلا CI.
-3. بند مؤجل بقرار المالك: إعادة تسمية المستودع `bug-free-garbanzo` → `kayyal`.
+1. فُتحت Stage 1 ودُمجت واجهة المشغل العربية RTL في PR #2 بتاريخ 2026-10-23.
+2. أضيف GitHub Actions CI، وبوابة محلية صارمة في `ci/local-gate.mjs`.
+3. أُعيدت تسمية المستودع إلى `kiyyal`، مع بقاء slug القديم يعيد التوجيه.
+4. المرشح الحالي للتكامل هو `integration/kayyal-unified`; لا يُعد مدموجًا أو منشورًا حتى يمر عبر PR مستقل إلى `main`.
 
 > مصدر هذا القرار: مستودع `command-center-` (جلسة إدارة المحفظة 2026-10-21). يُكمل حملة «canonical documentation set» المدموجة في 2026-10-22 ولا يعارضها.
 

@@ -8,14 +8,17 @@
 
 **Kayyal — كيّال**: recycling-yard (MRF) warehouse management: buy by weight, sort/re-grade,
 sell, cash reconciliation — with **exact decimal** money & weight math and per-tenant RLS isolation.
-Stage 0 (foundations) is complete; **there is no UI yet** — backend/domain only. Contracts and ADRs
-were written BEFORE code and are the governing source.
+Stage 0 (foundations) is complete. Stage 1 includes the Arabic RTL Next.js interface merged in
+PR #2 (2026-10-23); the current tree contains `src/app` routes and the Next.js/React dependencies.
+Contracts and ADRs were written BEFORE code and remain the governing source. See `docs/STATUS.md`
+for dated evidence; an existing interface is not proof of live-user or production readiness.
 
 ## 2) Tech stack (exact)
 
 - TypeScript on Node >= 20 (ESM); PostgreSQL (`pg`) with RLS
 - `decimal.js` for all money/weight; `hash-wasm` (audit chain); tests: vitest + `@electric-sql/pglite`
-- Package manager: npm. **No frontend exists yet.**
+- Frontend: Next.js 16.3.4 + React 19.3.0 (declared in `package.json`); Arabic RTL.
+- Package manager: npm.
 
 ## 3) Commands (copy-paste)
 
@@ -29,6 +32,9 @@ npm run test:rls       # isolation + real-postgres security
 npm run test:auth
 npm run test:atomicity
 npm run gate:staging   # staging gate script
+npm run build          # Next.js production build
+npm run test:ui        # UI unit and resilience tests
+GATE_RELEASE=1 node ci/local-gate.mjs  # strict release gate; no skips
 ```
 
 ## 4) Canonical documents (read in this order)
@@ -45,7 +51,9 @@ npm run gate:staging   # staging gate script
 - ✅ New behaviour starts from the relevant contract/ADR; if the contract is wrong, amend it FIRST (owner approval), then code.
 - ❌ Never weaken RLS policies or bypass them from services.
 - ❌ Never commit secrets or real `.env` files.
-- ❌ Don't build UI/screens before Stage 1 is formally opened by the owner.
+- ✅ Stage 1 opening and merge are recorded in `docs/STATUS.md`; keep further UI work within the owner-approved scope.
+- ✅ Read `.agents/skills/frontend-rtl-design/SKILL.md` for UI work and `.agents/skills/release-readiness/SKILL.md` before merge or release claims.
+- ✅ Work from a task branch and reviewable PR; do not delete documents, branches, history, or hosted data.
 
 ## 6) Definition of done
 
