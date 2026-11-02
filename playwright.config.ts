@@ -8,6 +8,11 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false,
+  // All E2E specs currently share the embedded PostgreSQL port/directory and
+  // the Next.js .next build output. Playwright workers are separate processes,
+  // so serial test declarations alone do not prevent races across spec files.
+  // Keep one worker until both resources are isolated per worker.
+  workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
   reporter: 'list',
