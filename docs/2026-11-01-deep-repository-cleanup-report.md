@@ -1,4 +1,4 @@
-# Deep Repository Cleanup — Kayyal
+# Deep Repository Cleanup — kiyyal (كيّال)
 
 **Date:** 2026-11-01
 **Repository:** `kiyyal`
@@ -7,6 +7,32 @@
 **Cleanup code head:** `427be699494347e7b23aa11231ebf5430374f58b`
 
 > هذا التقرير يسجل ما تم فحصه وما تم تغييره. لا يعني نجاح اختبار لم يُنفّذ بنجاح، ولا يغيّر أي migration أو بيانات مستضافة.
+
+## متابعة إصلاح تزامن CI — 2026-11-02
+
+**نطاق القرار:** هذا ملحق أحدث من ملحق إغلاق 2026-11-01 أدناه؛ لا يلغي الأدلة التاريخية على الفشل. المستودع الرسمي هو `kiyyal`، وPR #26 ما زال **Draft / غير مدموج**.
+
+### المشكلة التي أثبتتها سجلات GitHub
+
+- [Push run 41362736118](https://github.com/mohamedmasoud3030-tech/kiyyal/actions/runs/41362736118): تعارض `initdb` عند كتابة `/tmp/kayyal-pg-55433`، مع اختفاء ملفات أثناء الإنشاء.
+- [PR run 41362740338](https://github.com/mohamedmasoud3030-tech/kiyyal/actions/runs/41362740338): فشل `operator-journey` لأن المجلد نفسه موجود وغير فارغ؛ 20/21 اختباراً نجح.
+- السبب الموثق بالكود: `pg-harness.ts` يربط كل عمال Playwright بنفس PORT ومجلد `/tmp`، وملفات E2E تبني إلى مجلد Next `.next` نفسه. `fullyParallel: false` لا يسلسل ملفات spec المنفصلة بين العمال. لا تظهر الأدلة الحالية نفاد ذاكرة في هذين التشغيلين، وإن كانت تقارير سابقة قد سجلت حالات resource-sensitive.
+
+### الإصلاح والتحقق
+
+- أُضيف `tests/ci/playwright-isolation.test.ts` لمنع رجوع العمال المتوازيين و`retries` التي قد تخفي الفشل.
+- أُضيف `workers: 1` في `playwright.config.ts` مع تعليق يشرح القيد المؤقت. هذا لا يغيّر عقود API أو الحسابات أو migrations أو بيانات مستضافة.
+- [CI run 41426833894](https://github.com/mohamedmasoud3030-tech/kiyyal/actions/runs/41426833894) على `f2ad9d695827b228cbbe0d227869f75094d6716a`:
+  - `verify`: **success**؛ Full Vitest **28/28 files — 327/327 tests**، بالإضافة إلى نجاح خطوات typecheck/lint/build وبوابات الاختبار المدرجة.
+  - `browser-e2e`: **success**؛ Full Playwright **21/21 passed using 1 worker**.
+  - `staging-gate`: **skipped** على هذا الفرع؛ ليس نجاح staging.
+- تم تصحيح `AGENTS.md` إلى canonical repository `kiyyal` ونسخ الأدوات الفعلية.
+
+### الحكم بعد هذا التشغيل
+
+**CI verification on the cited SHA: PASS. Merge/release readiness: NOT YET APPROVED.** يلزم التأكد من الفحوص على آخر HEAD بعد أي تغييرات توثيق لاحقة، واستكمال مراجعة diff والحماية المطلوبة لفرع `main` وتحقق staging/الإنتاج وفق سياسة الإصدار. لا يوجد merge أو production deploy في هذه الجولة.
+
+---
 
 ## ملحق إغلاق المرحلة — 2026-11-01
 
