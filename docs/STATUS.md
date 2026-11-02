@@ -3,6 +3,15 @@
 > Canonical state file. Product: `PRD.md`. Contracts win over code (see
 > `README.md` hierarchy). Dated reports are evidence, not live state.
 
+## PR #26 — CI isolation follow-up (2026-11-02; unmerged)
+
+- The canonical GitHub repository is `kiyyal`. PR [#26](https://github.com/mohamedmasoud3030-tech/kiyyal/pull/26) remains **OPEN / DRAFT**, based on `main@1b3186defe699d5eedb1432add70781452b66ed7`; no merge, production deploy or hosted-data mutation was performed in this review.
+- The Nov 1 browser failures were traced to competing Playwright worker processes sharing `/tmp/kayyal-pg-55433` and the `.next` output: both prior GitHub runs showed PostgreSQL `initdb` directory conflicts in `operator-journey`.
+- Added a configuration regression test and constrained Playwright to **1 worker**, without retries or skipping any E2E cases. Corrected `AGENTS.md` repository/toolchain references.
+- [GitHub CI 41426833894](https://github.com/mohamedmasoud3030-tech/kiyyal/actions/runs/41426833894) at `f2ad9d695827b228cbbe0d227869f75094d6716a`: `verify=success` (full Vitest **327/327**, 28 test files), `browser-e2e=success` (**21/21**, 1 worker). This is **verified CI evidence for that exact SHA**, not evidence for later commits.
+- `staging-gate=skipped` on the PR, and GitHub branch rules / Vercel production safety settings were not modified or asserted verified. PR stays Draft pending review and explicit release decision.
+- Detailed [Nov 2 evidence addendum](2026-11-01-deep-repository-cleanup-report.md) preserves the original failed baseline/CI history separately.
+
 ## Current checkpoint — 2026-11-01
 
 - GitHub's canonical repository name is now `kiyyal` (the former
