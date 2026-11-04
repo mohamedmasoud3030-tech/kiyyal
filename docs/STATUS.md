@@ -3,24 +3,21 @@
 > Canonical state file. Product: `PRD.md`. Contracts win over code (see
 > `README.md` hierarchy). Dated reports are evidence, not live state.
 
-## Independent architecture review — 2026-11-04 (read-only, unmerged)
+## 2026-11-04 — Architectural review integration (snapshot with corrections)
 
-- [2026-11-04-architecture-review.md](reviews/2026-11-04-architecture-review.md) records an
-  independent as-is/to-be architecture review of `main@1b3186d` on branch
-  `arena/2584e0f8-kiyyal`. It changed **no product code, no contract, no migration and no
-  hosted data**, and did **not** merge, approve or deploy PR #26.
-- Fresh local evidence gathered on `1b3186d` in that session: `typecheck` and `guard:decimal`
-  clean, **322/322** Vitest across 26 files, production build exit 0, `npm ci` 0
-  vulnerabilities. **Not run** there: `npx playwright test` and the strict
-  `GATE_RELEASE=1 node ci/local-gate.mjs` — the only strict-PASS manifest on record stays
-  `ci/gate-results/2026-10-31T15-05-44Z-b5844774-release/` at an **earlier** SHA.
-- Highest-severity finding: `src/domain/cash.ts` has **no consumer in `src/`** — its
-  golden-tested drawer formula (FINANCIAL_RULES §5) is duplicated in SQL at
-  `src/server/readModels.ts` and `src/services/closeCashDay.ts` with no equivalence test,
-  and the two disagree on whether pending cash enters the close comparison.
-- The review lists 15 verified documentation contradictions and a 14-PR staged plan. It is
-  **evidence and a proposal only**; decisions D-01…D-08 require the owner. PR #26 remains
-  OPEN / DRAFT / UNSTABLE and unmerged.
+- [مراجعة المعمارية](reviews/2026-11-04-architecture-review.md) is a **historical, read-only snapshot** of `main@1b3186d`, not a current PR/production-status claim. Its 14 follow-up tasks and proposed ADR decisions are **not automatically authorized** by integrating the report.
+- **Financial correction:** `tests/services/posting.test.ts` already tested `pending_day_close_blocker` before the review. No current erroneous cash close was proven. What was missing was a real SQL-to-domain parity assertion; this was added and tested in merged [PR #29](https://github.com/mohamedmasoud3030-tech/kiyyal/pull/29) at `6257593f0bed79ee290b6ad27353329dd2a6cc04`.
+- [PR #27](https://github.com/mohamedmasoud3030-tech/kiyyal/pull/27) (UI skill path fix) was merged as `bf7466d510196a4b91e33238972c4fa23efdf418`. [PR #26](https://github.com/mohamedmasoud3030-tech/kiyyal/pull/26) (deep cleanup/E2E gate) was merged as `9ec860a192c1f8473547b62dc1c13fda3927fc08`. Their previous Draft/OPEN references in dated notes below are **historical**.
+- GitHub CI on each PR head was successful when inspected; staging remains **not verified** and no field-user or financial production release is claimed. Check the new `main` head's own Actions results before declaring repository integration verified.
+
+## PR #26 — CI isolation follow-up (2026-11-02; historical; merged 2026-11-04)
+
+- The canonical GitHub repository is `kiyyal`. PR [#26](https://github.com/mohamedmasoud3030-tech/kiyyal/pull/26) was **OPEN / DRAFT** at the time, based on `main@1b3186defe699d5eedb1432add70781452b66ed7`; no merge, production deploy or hosted-data mutation was performed in this review.
+- The Nov 1 browser failures were traced to competing Playwright worker processes sharing `/tmp/kayyal-pg-55433` and the `.next` output: both prior GitHub runs showed PostgreSQL `initdb` directory conflicts in `operator-journey`.
+- Added a configuration regression test and constrained Playwright to **1 worker**, without retries or skipping any E2E cases. Corrected `AGENTS.md` repository/toolchain references.
+- [GitHub CI 41426833894](https://github.com/mohamedmasoud3030-tech/kiyyal/actions/runs/41426833894) at `f2ad9d695827b228cbbe0d227869f75094d6716a`: `verify=success` (full Vitest **327/327**, 28 test files), `browser-e2e=success` (**21/21**, 1 worker). This is **verified CI evidence for that exact SHA**, not evidence for later commits.
+- `staging-gate=skipped` on the PR, and GitHub branch rules / Vercel production safety settings were not modified or asserted verified. PR was Draft at this checkpoint; it was subsequently merged as documented above. Staging and production readiness remain separate.
+- Detailed [Nov 2 evidence addendum](2026-11-01-deep-repository-cleanup-report.md) preserves the original failed baseline/CI history separately.
 
 ## Current checkpoint — 2026-11-01
 

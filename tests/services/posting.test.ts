@@ -9,6 +9,8 @@ import { freshRealDatabase, seedYard, stopServer, type Seed, type TestDb } from 
 import { hashPin } from '../../src/auth/hash.js';
 import { postTransaction, resolvePendingSale, type PostingStep } from '../../src/services/postTransaction.js';
 import { closeCashDay } from '../../src/services/closeCashDay.js';
+import { computeDrawer, closeDifference } from '../../src/domain/cash.js';
+import { egp, outMoney } from '../../src/domain/decimal.js';
 import { postExpense } from '../../src/services/postExpense.js';
 import { postPayment } from '../../src/services/postPayment.js';
 import { postStockMovement } from '../../src/services/postStockMovement.js';
@@ -931,6 +933,91 @@ describe('party payment — atomic settlement and advance', () => {
 });
 
 describe('daily cash close — atomic final reconciliation', () => {
+  // Characterization check (FINANCIAL_RULES section 5, ADR-0009): actual SQL read
+  // must match the pure domain formula applied to persisted cash movements.
+  // beforeEach resets every ledger row, so no prior-day opening exists.
+  const drawerFromPersistedMovements = async () => {
+    const movements = await t.admin.query<{
+      id: string; direction: 'in' | 'out'; amount: string; status: 'pending' | 'posted';
+    }>(
+      `SELECT id::text, direction, amount::text, status FROM app.cash_movements
+         WHERE yard_id = $1 ORDER BY created_at, id`, [A.yardId],
+    );
+    return computeDrawer(egp('0.00'), movements.rows.map((m) => ({
+      ...m, amount: egp(m.amount),
+    })));
+  };
+
+  it('checks live SQL cash-day totals against domain arithmetic including pending cash', async () => {
+    const day = await currentBusinessDate();
+    await postTransaction(t.runtime, owner, {
+      ...purchase(A.copperId, '10.00', '20.0000', 'kg', '40.00'),
+      businessDate: day,
+    });
+    const held = await postTransaction(t.runtime, operator, {
+      type: 'sale', businessDate: day,
+      lines: [{ materialId: A.copperId, grossKg: '20.00', deductionType: 'none',
+        deductionValue: '0', unitPrice: '25.0000', priceUnit: 'kg' }],
+      amountCash: '500.00', idempotencyKey: randomUUID(),
+    });
+    expect(held.status).toBe('pending_stock_resolution');
+
+    const expected = await drawerFromPersistedMovements();
+    const view = await getCashDay(t.runtime, owner);
+    expect(view).toMatchObject({
+      status: 'open', opening_amount: '0.00',
+      posted_expected_amount: outMoney(expected.expectedPosted),
+      pending_received_amount: outMoney(expected.pendingCash),
+      total_expected_amount: outMoney(expected.expectedInDrawer),
+    });
+    expect(view).toMatchObject({
+      posted_expected_amount: '-40.00',
+      pending_received_amount: '500.00',
+      total_expected_amount: '460.00',
+    });
+  });
+
+  it('keeps cash view and posted-only closing in parity with the domain formula', async () => {
+    const day = await currentBusinessDate();
+    await postTransaction(t.runtime, owner, {
+      ...purchase(A.copperId, '10.00', '20.0000', 'kg', '40.00'),
+      businessDate: day,
+    });
+    await postTransaction(t.runtime, owner, {
+      type: 'sale', businessDate: day,
+      lines: [{ materialId: A.copperId, grossKg: '4.00', deductionType: 'none',
+        deductionValue: '0', unitPrice: '40.0000', priceUnit: 'kg' }],
+      amountCash: '80.00', idempotencyKey: randomUUID(),
+    });
+    await postExpense(t.runtime, owner, {
+      category: 'fuel', amount: '10.50', idempotencyKey: randomUUID(),
+    });
+
+    const expected = await drawerFromPersistedMovements();
+    const before = await getCashDay(t.runtime, owner);
+    expect(before).toMatchObject({
+      status: 'open', posted_expected_amount: outMoney(expected.expectedPosted),
+      pending_received_amount: outMoney(expected.pendingCash),
+      total_expected_amount: outMoney(expected.expectedInDrawer),
+    });
+    expect(before.total_expected_amount).toBe('29.50');
+    expect(before.pending_received_amount).toBe('0.00');
+
+    const close = await closeCashDay(t.runtime, owner, {
+      countedAmount: '30.00', idempotencyKey: randomUUID(),
+    });
+    expect(close.expectedAmount).toBe(outMoney(expected.expectedInDrawer));
+    expect(close.difference).toBe(outMoney(closeDifference(egp('30.00'), expected.expectedInDrawer)));
+    expect(close.difference).toBe('0.50');
+
+    const after = await getCashDay(t.runtime, owner);
+    expect(after).toMatchObject({
+      status: 'closed', posted_expected_amount: close.expectedAmount,
+      pending_received_amount: '0.00', total_expected_amount: close.expectedAmount,
+      close: { counted_amount: '30.00', difference: '0.50' },
+    });
+  });
+
   it('snapshots server-derived posted cash, audits it, and replays safely', async () => {
     const currentBusinessDay = await currentBusinessDate();
     await postTransaction(t.runtime, owner, {
