@@ -1,4 +1,4 @@
-# AGENTS.md — Kayyal (repo: bug-free-garbanzo — provisional name)
+# AGENTS.md — كيّال (canonical repository: kiyyal)
 
 > Instruction file for AI coding agents in this repository (AGENTS.md open standard).
 > Portfolio rules: the [`command-center-`](https://github.com/mohamedmasoud3030-tech/command-center-) repository `AGENTS.md` takes precedence on governance.
@@ -15,9 +15,9 @@ for dated evidence; an existing interface is not proof of live-user or productio
 
 ## 2) Tech stack (exact)
 
-- TypeScript on Node >= 20 (ESM); PostgreSQL (`pg`) with RLS
+- TypeScript on Node >= 22 (ESM; CI pinned to 24.22.2); PostgreSQL (`pg`) with RLS
 - `decimal.js` for all money/weight; `hash-wasm` (audit chain); tests: vitest + `@electric-sql/pglite`
-- Frontend: Next.js 16.3.4 + React 19.3.0 (declared in `package.json`); Arabic RTL.
+- Frontend: Next.js 16.4.3 + React 19.3.0 (declared in `package.json`); Arabic RTL.
 - Package manager: npm.
 
 ## 3) Commands (copy-paste)
@@ -33,6 +33,7 @@ npm run test:auth
 npm run test:atomicity
 npm run gate:staging   # staging gate script
 npm run build          # Next.js production build
+npm run test:e2e       # Playwright: one worker until PostgreSQL / Next output is per-worker
 npm run test:ui        # UI unit and resilience tests
 GATE_RELEASE=1 node ci/local-gate.mjs  # strict release gate; no skips
 ```

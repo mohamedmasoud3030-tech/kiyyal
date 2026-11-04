@@ -5,6 +5,7 @@ import { ar, type AppRole } from '../copy/ar';
 import { requireInjectedRole } from '../requiredRole';
 import { apiErrorMessage } from '../clientSecurity';
 import { Button } from './Button';
+import { DataTable, type DataTableColumn } from './DataTable';
 import { FormField } from './FormField';
 import { PageContainer } from './PageContainer';
 import { PageHeader } from './PageHeader';
@@ -19,6 +20,12 @@ type FilterOption = { id: string; label: string };
 
 function isReportName(value: string): value is ReportName { return reportNames.includes(value as ReportName); }
 function safeText(value: unknown): string { return value == null ? ar.reports.emptyValue : String(value); }
+function reportRowKey(row: Record<string, unknown>): string {
+  for (const field of ['id', 'material_id', 'party_id']) {
+    if (row[field] != null) return String(row[field]);
+  }
+  return Object.entries(row).sort(([left], [right]) => left.localeCompare(right)).map(([key, value]) => `${key}=${String(value)}`).join('|');
+}
 
 /**
  * Clipboard access is deliberately best-effort. The app can be rendered inside
@@ -117,29 +124,34 @@ export function ReportsContent({ role: injectedRole }: { readonly role?: AppRole
     setShareState(await copyTextSafely(text) ? 'done' : 'unavailable');
   }
   const keys = state.status === 'loaded' && state.rows[0] ? Object.keys(state.rows[0]) : [];
+  const columns: readonly DataTableColumn<Record<string, unknown>>[] = keys.map((key) => ({
+    key,
+    header: ar.reports.columns[key as keyof typeof ar.reports.columns] ?? key,
+    cell: (row) => <bdi dir="ltr">{safeText(row[key])}</bdi>,
+  }));
   if (role !== 'owner') return <PageContainer><StatePanel title={ar.state.forbiddenTitle} description={ar.reports.unavailableDescription} tone="warning" /></PageContainer>;
   return <PageContainer width="wide">
     <PageHeader title={ar.reports.title} description={ar.reports.description} />
     <Section title={ar.reports.filtersTitle} description={ar.reports.snapshotHint} tone="muted">
-      <form className="operations-form" onSubmit={apply}>
+      <form className="reports-filters" onSubmit={apply}>
         <FormField id="report-kind" label={ar.reports.reportTypeLabel}><select className="text-input" value={report} onChange={(event) => { const value = event.target.value; if (isReportName(value)) setReport(value); }}><option value="purchases">{ar.reports.reportLabels.purchases}</option>{reportNames.slice(1).map((name) => <option key={name} value={name}>{ar.reports.reportLabels[name]}</option>)}</select></FormField>
         <FormField id="report-from" label={ar.reports.fromLabel}><TextInput type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></FormField>
         <FormField {...(invalidRange ? { error: ar.history.invalidDateRange } : {})} id="report-to" label={ar.reports.toLabel}><TextInput type="date" value={to} onChange={(event) => setTo(event.target.value)} /></FormField>
         <FormField id="report-material" label={ar.reports.materialLabel}><select className="text-input" value={materialId} onChange={(event) => setMaterialId(event.target.value)}><option value="">{ar.reports.allOption}</option>{materials.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></FormField>
         <FormField id="report-party" label={ar.reports.partyLabel}><select className="text-input" value={partyId} onChange={(event) => setPartyId(event.target.value)}><option value="">{ar.reports.allOption}</option>{parties.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></FormField>
         <FormField id="report-user" label={ar.reports.userLabel}><select className="text-input" value={userId} onChange={(event) => setUserId(event.target.value)}><option value="">{ar.reports.allOption}</option>{users.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></FormField>
-        <div className="form-actions"><Button type="submit">{ar.reports.applyAction}</Button><Button variant="secondary" onClick={reset}>{ar.reports.resetAction}</Button></div>
+        <div className="reports-filters__actions"><Button type="submit">{ar.reports.applyAction}</Button><Button variant="secondary" onClick={reset}>{ar.reports.resetAction}</Button></div>
       </form>
     </Section>
-    <div className="report-toolbar"><Button variant="secondary" onClick={print}>{ar.reports.printAction}</Button><Button variant="secondary" onClick={() => { window.location.href = `/api/export?format=csv&${query}`; }}>{ar.reports.exportAction}</Button><Button variant="secondary" onClick={() => void share()}>{ar.reports.shareAction}</Button></div>
+    <div className="reports-actions"><Button variant="secondary" onClick={print}>{ar.reports.printAction}</Button><Button variant="secondary" onClick={() => { window.location.href = `/api/export?format=csv&${query}`; }}>{ar.reports.exportAction}</Button><Button variant="secondary" onClick={() => void share()}>{ar.reports.shareAction}</Button></div>
     {shareState === 'done' ? <p aria-live="polite" className="form-feedback">{ar.reports.shareReady}</p> : null}
     {shareState === 'unavailable' ? <p aria-live="polite" className="form-feedback">{ar.reports.shareUnavailable}</p> : null}
     {state.status === 'loading' ? <StatePanel title={ar.reports.loadingTitle} description={ar.reports.description} /> : null}
     {state.status === 'error' ? <StatePanel title={ar.reports.unavailableTitle} description={state.message ?? ar.reports.unavailableDescription} tone="danger" /> : null}
     {state.status === 'loaded' && state.rows.length === 0 ? <StatePanel title={ar.reports.emptyTitle} description={ar.reports.emptyDescription} /> : null}
     {state.status === 'loaded' ? <>
-      <Section title={ar.reports.summaryTitle}><dl className="report-summary">{Object.entries(state.summary).map(([key, value]) => <div key={key}><dt>{ar.reports.summaryLabels[key as keyof typeof ar.reports.summaryLabels] ?? key}</dt><dd><bdi dir="ltr">{safeText(value)}</bdi></dd></div>)}</dl></Section>
-      {state.rows.length ? <Section title={`${ar.reports.rowsTitle} (${state.rows.length})`}><div className="table-scroll"><table className="data-table"><thead><tr>{keys.map((key) => <th key={key} scope="col">{ar.reports.columns[key as keyof typeof ar.reports.columns] ?? key}</th>)}</tr></thead><tbody>{state.rows.map((row, index) => <tr key={`${String(row.id ?? index)}-${index}`}>{keys.map((key) => <td key={key}><bdi dir="ltr">{safeText(row[key])}</bdi></td>)}</tr>)}</tbody></table></div></Section> : null}
+      <Section title={ar.reports.summaryTitle}><dl className="reports-summary">{Object.entries(state.summary).map(([key, value]) => <div key={key}><dt>{ar.reports.summaryLabels[key as keyof typeof ar.reports.summaryLabels] ?? key}</dt><dd><bdi dir="ltr">{safeText(value)}</bdi></dd></div>)}</dl></Section>
+      {state.rows.length ? <Section title={`${ar.reports.rowsTitle} (${state.rows.length})`}><DataTable ariaLabel={ar.reports.reportLabels[report]} caption={ar.reports.reportLabels[report]} rows={state.rows} columns={columns} getRowKey={reportRowKey} wrapperClassName="reports-table-wrap" tableClassName="reports-table" /></Section> : null}
     </> : null}
   </PageContainer>;
 }
