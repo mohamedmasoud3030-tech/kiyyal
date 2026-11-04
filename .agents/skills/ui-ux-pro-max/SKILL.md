@@ -7,6 +7,8 @@ description: "UI/UX design intelligence for web, mobile, and desktop. This skill
 
 Searchable local UI/UX guidance: 79 searchable styles (50 active), 192 product palettes and exact reasoning profiles, 74 font pairings, 119 UX guidelines, 105 curated icons, 17 GSAP presets, 25 chart types, and 22 technology stacks.
 
+**Kiyyal precedence:** This optional design-intelligence skill supplements `.agents/skills/frontend-rtl-design/SKILL.md`. It does not override the product's approved workflows, shared tokens, Arabic RTL rules, accessibility requirements, or repository instructions. Verify search results before applying them.
+
 ## When to Apply
 
 Use this Skill when the task involves **UI structure, visual design decisions, interaction patterns, or user experience quality control**: designing new pages, creating/refactoring UI components, choosing color/typography/spacing/layout systems, reviewing UI for UX/accessibility/consistency, implementing navigation/animation/responsive behavior, or improving perceived quality and usability.
