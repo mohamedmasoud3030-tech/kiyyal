@@ -933,8 +933,7 @@ describe('party payment — atomic settlement and advance', () => {
 });
 
 describe('daily cash close — atomic final reconciliation', () => {
-
-  // Characterization check (FINANCIAL_RULES `5, ADR-0009): actual SQL read
+  // Characterization check (FINANCIAL_RULES section 5, ADR-0009): actual SQL read
   // must match the pure domain formula applied to persisted cash movements.
   // beforeEach resets every ledger row, so no prior-day opening exists.
   const drawerFromPersistedMovements = async () => {
@@ -1018,7 +1017,6 @@ describe('daily cash close — atomic final reconciliation', () => {
       close: { counted_amount: '30.00', difference: '0.50' },
     });
   });
-
 
   it('snapshots server-derived posted cash, audits it, and replays safely', async () => {
     const currentBusinessDay = await currentBusinessDate();
