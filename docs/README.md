@@ -50,4 +50,5 @@ contract is deliberately changed.
 | [PRIVACY_SECURITY_RULES.md](PRIVACY_SECURITY_RULES.md) | Data, claims, secrets, rights |
 | [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md) | Environments, backups, incidents, recovery |
 | [TRACEABILITY_MATRIX.md](TRACEABILITY_MATRIX.md) | Every MUST → data, API, permission, test, screen |
+| [reviews/2026-11-04-architecture-review.md](reviews/2026-11-04-architecture-review.md) | Independent as-is/to-be architecture review with evidence, risks and a staged PR plan (read-only review; no product change) |
 | [pilot-yard-visit-checklist.md](pilot-yard-visit-checklist.md) | Field guide for the pilot visit |

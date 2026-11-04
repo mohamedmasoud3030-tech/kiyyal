@@ -3,6 +3,25 @@
 > Canonical state file. Product: `PRD.md`. Contracts win over code (see
 > `README.md` hierarchy). Dated reports are evidence, not live state.
 
+## Independent architecture review — 2026-11-04 (read-only, unmerged)
+
+- [2026-11-04-architecture-review.md](reviews/2026-11-04-architecture-review.md) records an
+  independent as-is/to-be architecture review of `main@1b3186d` on branch
+  `arena/2584e0f8-kiyyal`. It changed **no product code, no contract, no migration and no
+  hosted data**, and did **not** merge, approve or deploy PR #26.
+- Fresh local evidence gathered on `1b3186d` in that session: `typecheck` and `guard:decimal`
+  clean, **322/322** Vitest across 26 files, production build exit 0, `npm ci` 0
+  vulnerabilities. **Not run** there: `npx playwright test` and the strict
+  `GATE_RELEASE=1 node ci/local-gate.mjs` — the only strict-PASS manifest on record stays
+  `ci/gate-results/2026-10-31T15-05-44Z-b5844774-release/` at an **earlier** SHA.
+- Highest-severity finding: `src/domain/cash.ts` has **no consumer in `src/`** — its
+  golden-tested drawer formula (FINANCIAL_RULES §5) is duplicated in SQL at
+  `src/server/readModels.ts` and `src/services/closeCashDay.ts` with no equivalence test,
+  and the two disagree on whether pending cash enters the close comparison.
+- The review lists 15 verified documentation contradictions and a 14-PR staged plan. It is
+  **evidence and a proposal only**; decisions D-01…D-08 require the owner. PR #26 remains
+  OPEN / DRAFT / UNSTABLE and unmerged.
+
 ## Current checkpoint — 2026-11-01
 
 - GitHub's canonical repository name is now `kiyyal` (the former
