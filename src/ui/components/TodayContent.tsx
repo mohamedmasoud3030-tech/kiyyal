@@ -13,6 +13,7 @@ import { StatePanel } from './StatePanel';
 import { StatusBadge } from './StatusBadge';
 import { Weight } from './Weight';
 import { Button } from './Button';
+import { FirstRunBanner } from './FirstRunBanner';
 import { WorkspaceIcon } from './WorkspaceIcon';
 
 interface TransactionSummary {
@@ -140,6 +141,7 @@ export function TodayContent({ role: injectedRole }: { readonly role?: AppRole }
       {state.status === 'error' ? (
         <StatePanel action={<Button onClick={() => setAttempt(value => value + 1)}>{ar.common.tryAgain}</Button>} description={ar.state.sessionUnavailableDescription} title={ar.state.sessionUnavailableTitle} tone="warning" />
       ) : null}
+      {state.status === 'loaded' && role === 'owner' ? <FirstRunBanner /> : null}
       {state.status === 'loaded' ? (
         <>
           <p className="workspace-scope">{ar.workspace.recentScope}</p>

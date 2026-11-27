@@ -12,9 +12,15 @@ export const metadata: Metadata = {
   description: ar.app.description,
   manifest: '/manifest.webmanifest',
   icons: { icon: '/icons/icon-192.png', apple: '/icons/icon-192.png' },
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: ar.app.name },
 };
 
-export const viewport: Viewport = { themeColor: '#173f35' };
+export const viewport: Viewport = {
+  themeColor: '#173f35',
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (

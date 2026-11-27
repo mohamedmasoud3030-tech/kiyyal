@@ -47,6 +47,6 @@ describe('workspace usability', () => {
     await screen.findByText('الحركات المعروضة');
     expect(screen.getByText(/آخر ٨ حركات/)).toBeTruthy();
     expect(screen.queryByText('حركات اليوم')).toBeNull();
-    expect(requests).toBe(6);
+    expect(requests).toBe(9); // 3 failed + 3 retried + 3 read-only first-run banner checks
   });
 });
