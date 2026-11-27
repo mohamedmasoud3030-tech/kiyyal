@@ -268,6 +268,18 @@ export const operatorCreateInputSchema = z.object({
   display_name: z.string().trim().min(1).max(60),
   pin: z.string().regex(/^\d{4,6}$/),
 });
+
+const setupMaterialInputSchema = z.object({
+  display_name: z.string().trim().min(1).max(120),
+  default_pricing_unit: z.enum(['kg', 'ton']),
+  ref_buy_price: z.string().regex(/^\d+(?:\.\d{1,4})?$/).nullable().optional(),
+  ref_sell_price: z.string().regex(/^\d+(?:\.\d{1,4})?$/).nullable().optional(),
+});
+export const setupCompleteInputSchema = z.object({
+  yard_name: z.string().trim().min(1).max(120),
+  materials: z.array(setupMaterialInputSchema).max(20),
+  opening_cash: z.string().regex(/^\d+(?:\.\d{1,2})?$/),
+});
 export const operatorPinResetInputSchema = z.object({ pin: z.string().regex(/^\d{4,6}$/) });
 export const operatorStatusInputSchema = z.object({ is_active: z.boolean() });
 

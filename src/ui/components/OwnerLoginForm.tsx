@@ -123,7 +123,17 @@ export function OwnerLoginForm() {
       clearLocalLogoutLock();
       const passwordInput = form.elements.namedItem('password');
       if (passwordInput instanceof HTMLInputElement) passwordInput.value = '';
-      window.location.assign('/today');
+      // First-run owners land on the setup wizard (FR-15); a configured yard
+      // goes straight to /today. A failed status probe must never block entry.
+      let destination = '/today';
+      try {
+        const status = await fetch('/api/setup/status', { credentials: 'same-origin', cache: 'no-store' });
+        if (status.ok) {
+          const payload = await status.json() as { data?: { complete?: unknown } };
+          if (payload.data?.complete === false) destination = '/setup';
+        }
+      } catch { /* keep /today */ }
+      window.location.assign(destination);
       });
     } catch {
       setError(ar.auth.ownerAuthenticationFailed);
