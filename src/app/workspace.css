@@ -450,3 +450,179 @@
     }
   }
 }
+
+/* Plain-language page guide + first-run setup (feature: plain-Arabic onboarding). */
+.page-guide {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .75rem;
+  margin: 0 0 1rem;
+  padding: .625rem .875rem;
+  border: 1px solid var(--color-border);
+  border-radius: .875rem;
+  background: var(--color-primary-soft);
+  color: var(--color-ink);
+  font-size: .875rem;
+  line-height: 1.6;
+}
+.page-guide__text { margin: 0; }
+.page-guide__dismiss {
+  flex: none;
+  min-block-size: 2.75rem;
+  padding-inline: .875rem;
+  border: 1px solid var(--color-border);
+  border-radius: .75rem;
+  background: var(--color-surface);
+  color: var(--color-muted);
+  font: inherit;
+  font-size: .8125rem;
+  cursor: pointer;
+}
+
+.first-run-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-card);
+  background: var(--workspace-forest);
+  color: var(--workspace-on-forest);
+  box-shadow: var(--shadow-2);
+}
+.first-run-banner p { margin: .25rem 0 0; color: var(--workspace-soft-forest); font-size: .875rem; }
+.first-run-banner__action {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 3rem;
+  padding-inline: 1.25rem;
+  border-radius: .875rem;
+  background: var(--workspace-gold);
+  color: var(--workspace-on-gold);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.first-run-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .875rem;
+}
+.first-run-step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.125rem 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+.first-run-step--current { border-color: var(--color-primary); box-shadow: var(--shadow-2); }
+.first-run-step--done { opacity: .75; }
+.first-run-step__body h2 { margin: 0 0 .25rem; font-size: 1.0625rem; }
+.first-run-step__body p { margin: 0; color: var(--color-muted); font-size: .9375rem; line-height: 1.7; }
+.first-run-step__state {
+  flex: none;
+  padding: .375rem .875rem;
+  border-radius: 999px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+  font-size: .8125rem;
+  font-weight: 700;
+}
+.first-run-step__action {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 3rem;
+  padding-inline: 1.25rem;
+  border-radius: .875rem;
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.first-run-done { display: grid; gap: .75rem; justify-items: start; }
+.first-run-done p { margin: 0; color: var(--color-muted); }
+.first-run-done__action {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 3rem;
+  padding-inline: 1.5rem;
+  border-radius: .875rem;
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+@media screen and (max-width: 37.499rem) {
+  .first-run-banner { flex-direction: column; align-items: stretch; text-align: center; }
+  .first-run-banner__action { justify-content: center; }
+  .first-run-step { flex-direction: column; align-items: stretch; }
+  .first-run-step__action { justify-content: center; }
+  .first-run-step__state { align-self: flex-start; }
+}
+
+/* Mobile "calm screen" pass (2026-11-27 owner directive, sheep-records spirit):
+   one focus per screen, big readable type, rounded cards, one clear primary
+   action, heavy detail on demand. Mobile only; no feature removed. */
+@media screen and (max-width: 37.499rem) {
+  /* /today: the primary action owns the screen; companions stay quiet. */
+  .action-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .625rem; }
+  .action-tile--primary {
+    grid-column: 1 / -1;
+    min-block-size: 7.5rem;
+    border-radius: 1.5rem;
+    align-content: center;
+  }
+  .action-tile--primary .action-tile__title { font-size: 1.375rem; }
+  .action-tile--primary .action-tile__hint { font-size: .9375rem; }
+  .action-tile:not(.action-tile--primary) {
+    min-block-size: 5.5rem;
+    padding: .75rem .375rem;
+    border-radius: 1.25rem;
+    background: var(--color-surface);
+  }
+  .action-tile:not(.action-tile--primary) .action-tile__title { font-size: .9375rem; }
+  .action-tile:not(.action-tile--primary) .action-tile__hint { display: none; }
+
+  /* Big calm numbers, one accent color. */
+  .kpi-grid { border-radius: 1.5rem; }
+  .kpi-card { min-block-size: 7.5rem; justify-content: center; }
+  .kpi-card__value { font-size: 2.5rem; }
+  .kpi-card__label { font-size: .9375rem; }
+
+  /* Entry forms: bigger fields and type for one-hand data entry. */
+  .transaction-entry .text-input,
+  .transaction-entry .numeric-input__control { min-block-size: 3.5rem; font-size: 1.0625rem; }
+  .transaction-entry .form-field__label { font-size: 1.0625rem; }
+  .transaction-entry__line {
+    border-radius: 1.25rem;
+    padding: 1.25rem;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-1);
+  }
+  .transaction-entry .form-actions--sticky-mobile .ui-button--primary,
+  .transaction-entry .form-actions .ui-button--primary { min-block-size: 3.75rem; font-size: 1.125rem; border-radius: 1rem; }
+
+  /* First-run steps: same calm language. */
+  .first-run-step { border-radius: 1.25rem; padding: 1.25rem; }
+  .first-run-step__body h2 { font-size: 1.25rem; }
+  .first-run-step__action { min-block-size: 3.5rem; justify-content: center; border-radius: 1rem; font-size: 1.0625rem; }
+  .first-run-banner { border-radius: 1.25rem; }
+  .first-run-banner__action { min-block-size: 3.5rem; border-radius: 1rem; }
+  .first-run-done__action { min-block-size: 3.5rem; border-radius: 1rem; }
+
+  /* Page guide + section cards join the same rounded calm system. */
+  .page-guide { border-radius: 1.25rem; font-size: .9375rem; }
+  .ui-section { border-radius: 1.25rem; }
+  .ui-section__title { font-size: 1.25rem; }
+}

@@ -13,6 +13,7 @@ import { SignOutButton } from './SignOutButton';
 import { ThemeToggle } from './ThemeToggle';
 import { BrandMark, WorkspaceIcon, type WorkspaceIconName } from './WorkspaceIcon';
 import { NavigationOverflow } from './NavigationOverflow';
+import { PageGuide } from './PageGuide';
 import { ConnectionChip } from './ConnectionChip';
 import { OutboxPanel } from './OutboxPanel';
 import { useOutboxAutoSweep } from '../offline/useResilientSubmit';
@@ -97,6 +98,7 @@ export function AppShell({ activePath, children, connection, role, scope = null 
           <div className="app-shell__toolbar">{connection ? <StatusBadge label={connection.label} tone={connection.tone} /> : null}<ConnectionChip onOpenOutbox={() => setOutboxOpen(true)} scope={scope} /><ThemeToggle /><SignOutButton scope={scope} /></div>
         </header>
       <main className="app-shell__content" id="main-content" tabIndex={-1}>
+        <PageGuide activePath={activePath} />
         {children}
       </main>
       </div>

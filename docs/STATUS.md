@@ -3,6 +3,19 @@
 > Canonical state file. Product: `PRD.md`. Contracts win over code (see
 > `README.md` hierarchy). Dated reports are evidence, not live state.
 
+## 2026-11-27 — Plain-Arabic onboarding slice (branch `feat/plain-arabic-first-run-mobile`)
+
+- Owner-facing onboarding per the 2026-11-27 owner directive (Telegram): a guided first-run flow and one-line plain-Egyptian-Arabic explanations per page, without removing any feature, plus mobile-first installable-PWA verification.
+- Added `/start`: a 3-step setup checklist (materials → parties → first purchase) with live read-only status via `useSetupStatus` (GET materials/parties/transactions only — no mutations). Owner-only; operators get a redirect explanation. A banner on `/today` links to it while setup is incomplete (owner role only).
+- Added `PageGuide`: one dismissible plain-language line per route (copy in `src/ui/copy/ar.ts` under `guides`), rendered by `AppShell`; dismissal persisted per route in localStorage.
+- Mobile PWA: explicit `viewport` (device-width, initial-scale 1, viewport-fit=cover) and `appleWebApp` metadata in the root layout. Manifest, service worker, icons, safe-area padding and >=44px mobile nav targets predate this slice; `tests/e2e/mobile-first-run-journey.spec.ts` adds mobile-viewport (390x844) coverage against real PostgreSQL + `next start`. Local sandbox runs were resource-killed mid-boot, so its first green run is expected from CI.
+- Component coverage: `tests/ui/plain-arabic-onboarding.test.tsx` (9 cases: guide mapping/dismissal/shell integration, banner visibility, step states, completion, operator gating, error fallback).
+- No merge, no deploy, no contract/ADR behavior change; money/weight paths untouched.
+
+## 2026-11-27 — Mobile calm-screen pass (same branch, owner directive 24322041)
+
+- Mobile-only (<=37.5rem) visual pass in the sheep-records spirit the owner asked all apps to follow: one primary action full-width on /today with three quiet companions, bigger calm KPI numbers, larger entry-form fields (3.5rem) and labels, rounded 1.25rem cards, bigger sticky primary save button, /start steps and guide banner aligned. CSS only (`src/app/workspace.css`); no feature removed, no logic or contract change. Verified with real-instance 390x844 before/after screenshots on the operator journey; `npm run lint` clean, tests/ui 105/105, production build green.
+
 ## 2026-11-04 — Architectural review integration (snapshot with corrections)
 
 - [مراجعة المعمارية](reviews/2026-11-04-architecture-review.md) is a **historical, read-only snapshot** of `main@1b3186d`, not a current PR/production-status claim. Its 14 follow-up tasks and proposed ADR decisions are **not automatically authorized** by integrating the report.
