@@ -279,5 +279,13 @@ test('mobile-native PWA journey: 390px login-to-receipt, install surface, no ove
   await expect(page.locator('.transaction-receipt')).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('.transaction-receipt')).toContainText('120.00');
   expect(await noOverflow()).toBe(true);
+
+  // Remaining operator surfaces at thumb width: sale entry, history, and the
+  // served offline fallback page.
+  for (const path of ['/sale', '/history', '/offline']) {
+    await page.goto(`${baseUrl}${path}`);
+    await expect(page.locator('main')).toBeVisible();
+    expect(await noOverflow(), `horizontal overflow on ${path} at 390px`).toBe(true);
+  }
   await page.screenshot({ path: `${evidenceDir}/07-mobile-pwa.png` });
 });
