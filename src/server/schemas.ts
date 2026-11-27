@@ -362,6 +362,16 @@ export const yardSettingsOutputSchema = z.object({
 });
 export const yardSettingsMutationOutputSchema = z.object({ settings: yardSettingsOutputSchema, idempotent_replay: z.boolean() });
 
+export const setupStatusOutputSchema = z.object({
+  data: z.object({
+    complete: z.boolean(), yard_name: z.string(), materials_count: z.number().int().nonnegative(), opening_cash_posted: z.boolean(),
+  }),
+});
+export const setupCompleteOutputSchema = z.object({
+  yard_name: z.string(), materials_created: z.number().int().nonnegative(),
+  opening_cash_posted: z.boolean(), opening_cash_amount: decimalStringSchema, idempotent_replay: z.boolean(),
+});
+
 export const userOutputSchema = z.object({ id: uuidSchema, role: z.enum(['owner', 'operator']), display_name: z.string(), phone: z.string().nullable(), is_active: z.boolean(), created_at: z.string() });
 export const usersOutputSchema = z.object({ data: z.array(userOutputSchema) });
 export const operatorMutationOutputSchema = userOutputSchema.extend({ idempotent_replay: z.boolean() });
