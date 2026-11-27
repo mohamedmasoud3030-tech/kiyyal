@@ -207,3 +207,77 @@ test('operator login, protected deep-link, purchase persistence, reload, respons
   await expect(page.locator(`main a[href="/transactions/${transactionId}"]`)).toBeVisible();
   await page.screenshot({ path: `${evidenceDir}/06-relogin-persistence.png` });
 });
+
+/**
+ * Mobile-native PWA journey (owner requirement 2026-11-27: the app must work on
+ * mobile and feel like an installable app). The existing journey proves the
+ * desktop-first flow with a late viewport switch; this test lives at 390x844
+ * from the first byte and asserts the install surface (manifest, service
+ * worker, offline shell) plus thumb-sized tap targets and zero horizontal
+ * overflow on every screen it touches.
+ */
+test('mobile-native PWA journey: 390px login-to-receipt, install surface, no overflow', async ({ page }) => {
+  await mkdir(evidenceDir, { recursive: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const noOverflow = async (): Promise<boolean> =>
+    page.locator('body').evaluate((body) => body.scrollWidth <= body.clientWidth);
+
+  await page.goto(`${baseUrl}/login`);
+  expect(await noOverflow()).toBe(true);
+  await page.locator('details.login-operator > summary').click();
+  const operatorForm = page.locator('form').filter({ has: page.locator('input[name="operator_login_code"]') });
+  await expect(operatorForm).toBeVisible();
+  const submitBox = await operatorForm.locator('button[type="submit"]').boundingBox();
+  expect(submitBox).not.toBeNull();
+  expect(submitBox!.height).toBeGreaterThanOrEqual(44);
+  await operatorForm.locator('input[name="operator_login_code"]').fill(loginCode);
+  await operatorForm.locator('input[name="display_name"]').fill('عامل متصفح');
+  await operatorForm.locator('input[name="pin"]').fill('4271');
+  await operatorForm.locator('button[type="submit"]').click();
+
+  await page.waitForURL(`${baseUrl}/today`);
+  await expect(page.getByRole('heading', { name: ar.today.title })).toBeVisible();
+  await expect(page.locator('.app-shell__mobile-header')).toBeVisible();
+  expect(await noOverflow()).toBe(true);
+
+  // Install surface: a installable PWA needs a standalone manifest with
+  // maskable icons, a served service worker, and a served offline shell.
+  const manifestResponse = await page.request.get(`${baseUrl}/manifest.webmanifest`);
+  expect(manifestResponse.status()).toBe(200);
+  const manifest = (await manifestResponse.json()) as {
+    display?: string; dir?: string; start_url?: string;
+    icons?: Array<{ purpose?: string }>;
+  };
+  expect(manifest.display).toBe('standalone');
+  expect(manifest.dir).toBe('rtl');
+  expect(manifest.start_url).toBe('/today');
+  expect(manifest.icons?.some((icon) => icon.purpose === 'maskable')).toBe(true);
+  expect((await page.request.get(`${baseUrl}/sw.js`)).status()).toBe(200);
+  expect((await page.request.get(`${baseUrl}/offline.html`)).status()).toBe(200);
+  await expect.poll(async () =>
+    page.evaluate(async () => Boolean(await navigator.serviceWorker.getRegistration())),
+  ).toBe(true);
+
+  // Full operator task at thumb width: a purchase saved, then its receipt.
+  await page.goto(`${baseUrl}/purchase`);
+  const transactionForm = page.locator('form.transaction-entry');
+  await expect(transactionForm).toBeVisible();
+  expect(await noOverflow()).toBe(true);
+  await transactionForm.locator('select[name="line-0-material"]').selectOption(operator.copperId);
+  await transactionForm.locator('input[name="line-0-gross"]').fill('7.50');
+  await transactionForm.locator('input[name="line-0-price"]').fill('16.0000');
+  await transactionForm.locator('input[name="amount_cash"]').fill('0.00');
+  await transactionForm.locator('input[name="note"]').fill('شراء موبايل');
+  await transactionForm.locator('button[type="submit"]').click();
+
+  await expect(page.getByRole('heading', { name: ar.transactionEntry.savedTitle })).toBeVisible();
+  await expect(page.locator('.transaction-result__amount')).toContainText('120.00');
+  const transactionHref = await page.locator('a').filter({ hasText: ar.transactionEntry.viewTransactionAction }).getAttribute('href');
+  expect(transactionHref).toMatch(/^\/transactions\/[0-9a-f-]{36}$/);
+
+  await page.goto(`${baseUrl}${transactionHref}/receipt`);
+  await expect(page.locator('.transaction-receipt')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.transaction-receipt')).toContainText('120.00');
+  expect(await noOverflow()).toBe(true);
+  await page.screenshot({ path: `${evidenceDir}/07-mobile-pwa.png` });
+});
