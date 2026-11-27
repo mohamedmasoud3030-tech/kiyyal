@@ -115,7 +115,7 @@ test('mobile PWA wiring, page guide, first-run shell and phone tap targets', asy
   await page.locator('details.login-operator > summary').click();
   const form = page.locator('form').filter({ has: page.locator('input[name="operator_login_code"]') });
   await form.locator('input[name="operator_login_code"]').fill(loginCode);
-  await form.locator('input[name="display_name"]').fill('عامل الجوال');
+  await form.locator('input[name="display_name"]').fill('عامل جوال');
   await form.locator('input[name="pin"]').fill('4271');
   await form.locator('button[type="submit"]').click();
   await page.waitForURL(`${baseUrl}/today`);
