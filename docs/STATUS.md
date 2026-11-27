@@ -12,6 +12,10 @@
 - Component coverage: `tests/ui/plain-arabic-onboarding.test.tsx` (9 cases: guide mapping/dismissal/shell integration, banner visibility, step states, completion, operator gating, error fallback).
 - No merge, no deploy, no contract/ADR behavior change; money/weight paths untouched.
 
+## 2026-11-27 — Mobile calm-screen pass (same branch, owner directive 24322041)
+
+- Mobile-only (<=37.5rem) visual pass in the sheep-records spirit the owner asked all apps to follow: one primary action full-width on /today with three quiet companions, bigger calm KPI numbers, larger entry-form fields (3.5rem) and labels, rounded 1.25rem cards, bigger sticky primary save button, /start steps and guide banner aligned. CSS only (`src/app/workspace.css`); no feature removed, no logic or contract change. Verified with real-instance 390x844 before/after screenshots on the operator journey; `npm run lint` clean, tests/ui 105/105, production build green.
+
 ## 2026-11-04 — Architectural review integration (snapshot with corrections)
 
 - [مراجعة المعمارية](reviews/2026-11-04-architecture-review.md) is a **historical, read-only snapshot** of `main@1b3186d`, not a current PR/production-status claim. Its 14 follow-up tasks and proposed ADR decisions are **not automatically authorized** by integrating the report.

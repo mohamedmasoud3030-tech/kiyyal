@@ -570,3 +570,59 @@
   .first-run-step__action { justify-content: center; }
   .first-run-step__state { align-self: flex-start; }
 }
+
+/* Mobile "calm screen" pass (2026-11-27 owner directive, sheep-records spirit):
+   one focus per screen, big readable type, rounded cards, one clear primary
+   action, heavy detail on demand. Mobile only; no feature removed. */
+@media screen and (max-width: 37.499rem) {
+  /* /today: the primary action owns the screen; companions stay quiet. */
+  .action-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .625rem; }
+  .action-tile--primary {
+    grid-column: 1 / -1;
+    min-block-size: 7.5rem;
+    border-radius: 1.5rem;
+    align-content: center;
+  }
+  .action-tile--primary .action-tile__title { font-size: 1.375rem; }
+  .action-tile--primary .action-tile__hint { font-size: .9375rem; }
+  .action-tile:not(.action-tile--primary) {
+    min-block-size: 5.5rem;
+    padding: .75rem .375rem;
+    border-radius: 1.25rem;
+    background: var(--color-surface);
+  }
+  .action-tile:not(.action-tile--primary) .action-tile__title { font-size: .9375rem; }
+  .action-tile:not(.action-tile--primary) .action-tile__hint { display: none; }
+
+  /* Big calm numbers, one accent color. */
+  .kpi-grid { border-radius: 1.5rem; }
+  .kpi-card { min-block-size: 7.5rem; justify-content: center; }
+  .kpi-card__value { font-size: 2.5rem; }
+  .kpi-card__label { font-size: .9375rem; }
+
+  /* Entry forms: bigger fields and type for one-hand data entry. */
+  .transaction-entry .text-input,
+  .transaction-entry .numeric-input__control { min-block-size: 3.5rem; font-size: 1.0625rem; }
+  .transaction-entry .form-field__label { font-size: 1.0625rem; }
+  .transaction-entry__line {
+    border-radius: 1.25rem;
+    padding: 1.25rem;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-1);
+  }
+  .transaction-entry .form-actions--sticky-mobile .ui-button--primary,
+  .transaction-entry .form-actions .ui-button--primary { min-block-size: 3.75rem; font-size: 1.125rem; border-radius: 1rem; }
+
+  /* First-run steps: same calm language. */
+  .first-run-step { border-radius: 1.25rem; padding: 1.25rem; }
+  .first-run-step__body h2 { font-size: 1.25rem; }
+  .first-run-step__action { min-block-size: 3.5rem; justify-content: center; border-radius: 1rem; font-size: 1.0625rem; }
+  .first-run-banner { border-radius: 1.25rem; }
+  .first-run-banner__action { min-block-size: 3.5rem; border-radius: 1rem; }
+  .first-run-done__action { min-block-size: 3.5rem; border-radius: 1rem; }
+
+  /* Page guide + section cards join the same rounded calm system. */
+  .page-guide { border-radius: 1.25rem; font-size: .9375rem; }
+  .ui-section { border-radius: 1.25rem; }
+  .ui-section__title { font-size: 1.25rem; }
+}
